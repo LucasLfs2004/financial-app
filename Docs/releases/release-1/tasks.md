@@ -85,15 +85,17 @@ Dependências: R1-T02.
 
 ### R1-T06 — Criar planejamento em rascunho
 
-- [ ] implementar repositório;
-- [ ] implementar caso de uso;
-- [ ] implementar `POST /v1/plans`;
-- [ ] implementar `GET /v1/plans/current`;
-- [ ] implementar edição de rascunho;
-- [ ] tratar plano já existente;
-- [ ] testar isolamento.
+- [x] implementar repositório;
+- [x] implementar caso de uso;
+- [x] implementar `POST /v1/plans`;
+- [x] implementar `GET /v1/plans/current`;
+- [x] implementar edição de rascunho;
+- [x] tratar plano já existente;
+- [x] testar isolamento.
 
 Dependências: R1-T03.
+
+Status: concluída em 13/08/2026.
 
 ### R1-T07 — Ativar planejamento
 

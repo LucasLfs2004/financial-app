@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/config"
 	"github.com/lucas/financial-api/internal/platform/database"
@@ -38,11 +39,14 @@ func main() {
 
 	authClient := auth.NewClient(cfg.Supabase)
 	profileRepository := profile.NewRepository(databasePool)
+	planRepository := planning.NewPostgresRepository(databasePool)
+	planService := planning.NewService(planRepository)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
 		Database:      databasePool,
 		Authenticator: authClient,
 		Profiles:      profileRepository,
+		Plans:         planService,
 	})
 
 	serverErrors := make(chan error, 1)
