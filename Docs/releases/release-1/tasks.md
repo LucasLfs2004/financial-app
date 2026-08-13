@@ -74,12 +74,14 @@ Status: concluída em 13/08/2026.
 
 ### R1-T05 — Criar migration de economia
 
-- [ ] criar `saving_periods`;
-- [ ] impedir sobreposição;
-- [ ] adicionar RLS;
-- [ ] testar ausência e zero explícito.
+- [x] criar `saving_periods`;
+- [x] impedir sobreposição;
+- [x] adicionar RLS;
+- [x] testar ausência e zero explícito.
 
 Dependências: R1-T02.
+
+Status: concluída em 13/08/2026.
 
 ## Marco C — Planejamento
 

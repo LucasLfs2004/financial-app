@@ -6,7 +6,7 @@ API de planejamento financeiro pessoal em Go e Supabase.
 
 - Release 0: concluída no modelo local-first;
 - Release 1: em implementação; contrato, domínio base e persistência de
-  planejamento, itens e vigências concluídos.
+  planejamento, itens, vigências e economia concluídos.
 
 Documentos:
 
