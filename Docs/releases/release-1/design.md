@@ -275,6 +275,12 @@ created_at timestamptz NOT NULL
 
 Invariantes equivalentes aos períodos de item, incluindo não sobreposição.
 
+Uma configuração ausente é representada pela ausência de linhas para o plano.
+Uma linha com `amount_cents = 0` é uma configuração explícita e permanece
+distinta da ausência tanto no banco quanto na resposta futura da API. A mesma
+exclusion constraint GiST de vigência inclusiva é aplicada por `plan_id`;
+portanto, há no máximo um valor planejado para guardar por competência.
+
 ## 4. Fluxos
 
 ### 4.1 Criar rascunho
