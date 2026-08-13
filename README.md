@@ -16,7 +16,8 @@ Documentos:
 - [decisão Supabase local-first](./Docs/decisao-ambiente-supabase-local-first.md);
 - [Release 1 — spec](./Docs/releases/release-1/spec.md);
 - [Release 1 — design](./Docs/releases/release-1/design.md);
-- [Release 1 — tasks](./Docs/releases/release-1/tasks.md).
+- [Release 1 — tasks](./Docs/releases/release-1/tasks.md);
+- [fluxo Git e releases](./Docs/git-release-flow.md).
 
 ## Requisitos
 
