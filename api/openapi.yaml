@@ -1,0 +1,1263 @@
+openapi: 3.1.0
+info:
+  title: Financial API
+  version: 1.0.0-draft
+  description: |
+    API de planejamento financeiro pessoal.
+
+    A Release 1 permite criar um planejamento principal, cadastrar rendas e
+    despesas projetadas, definir quanto guardar e consultar um resumo mensal
+    explicável pelas bases de competência (`reference`) e caixa (`cash`).
+servers:
+  - url: http://localhost:8080
+    description: Ambiente local
+security:
+  - bearerAuth: []
+tags:
+  - name: Technical
+  - name: Identity
+  - name: Planning
+  - name: Financial items
+  - name: Savings
+  - name: Monthly summary
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [Technical]
+      summary: Verificar se o processo está vivo
+      security: []
+      responses:
+        "200":
+          description: Processo ativo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+  /ready:
+    get:
+      operationId: getReadiness
+      tags: [Technical]
+      summary: Verificar as dependências da API
+      security: []
+      responses:
+        "200":
+          description: API pronta para receber chamadas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/me:
+    get:
+      operationId: getCurrentUser
+      tags: [Identity]
+      summary: Consultar o perfil do usuário autenticado
+      responses:
+        "200":
+          description: Perfil atual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans:
+    post:
+      operationId: createPlan
+      tags: [Planning]
+      summary: Criar o planejamento principal em rascunho
+      description: |
+        Cada usuário pode possuir somente um planejamento principal não
+        arquivado. O proprietário é sempre obtido do access token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanRequest"
+            examples:
+              annualPlan:
+                value:
+                  name: Planejamento 2026
+                  start_month: 2026-01
+                  end_month: 2026-12
+                  currency_code: BRL
+      responses:
+        "201":
+          description: Planejamento criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current:
+    get:
+      operationId: getCurrentPlan
+      tags: [Planning]
+      summary: Consultar o planejamento principal
+      responses:
+        "200":
+          description: Planejamento principal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    patch:
+      operationId: updateCurrentPlan
+      tags: [Planning]
+      summary: Alterar os metadados ou horizonte do rascunho
+      description: |
+        Nesta release, nome, horizonte e moeda somente podem ser alterados
+        enquanto o planejamento estiver em `draft`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanRequest"
+      responses:
+        "200":
+          description: Planejamento atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/activate:
+    post:
+      operationId: activateCurrentPlan
+      tags: [Planning]
+      summary: Ativar o planejamento e criar a referência original
+      description: |
+        A operação é idempotente. Uma nova chamada para um planejamento já
+        ativo retorna a mesma fotografia original.
+      responses:
+        "200":
+          description: Planejamento ativo e fotografia original
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActivationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/original:
+    get:
+      operationId: getOriginalPlanSnapshot
+      tags: [Planning]
+      summary: Consultar a fotografia original imutável
+      responses:
+        "200":
+          description: Fotografia criada na primeira ativação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OriginalPlanSnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/items:
+    post:
+      operationId: createFinancialItem
+      tags: [Financial items]
+      summary: Cadastrar uma renda ou despesa projetada
+      description: O item e seu primeiro período são criados na mesma operação.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinancialItemRequest"
+            examples:
+              recurringIncome:
+                summary: Salário recebido no mês seguinte à referência
+                value:
+                  name: Salário
+                  kind: recurring_income
+                  description: Salário líquido
+                  period:
+                    start_month: 2026-01
+                    end_month: 2026-12
+                    amount_cents: 600000
+                    recurrence: monthly
+                    cash_month_offset: 1
+                    context: Referente ao mês anterior
+              fixedExpense:
+                value:
+                  name: Aluguel
+                  kind: fixed_expense
+                  period:
+                    start_month: 2026-01
+                    end_month: null
+                    amount_cents: 150000
+                    recurrence: monthly
+                    cash_month_offset: 0
+      responses:
+        "201":
+          description: Item criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialItemResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: listFinancialItems
+      tags: [Financial items]
+      summary: Listar as premissas financeiras do planejamento
+      parameters:
+        - $ref: "#/components/parameters/FinancialItemKindFilter"
+        - $ref: "#/components/parameters/FinancialItemStatusFilter"
+      responses:
+        "200":
+          description: Itens do planejamento autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialItemListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/items/{item_id}:
+    parameters:
+      - $ref: "#/components/parameters/ItemID"
+    get:
+      operationId: getFinancialItem
+      tags: [Financial items]
+      summary: Consultar um item e seu histórico de períodos
+      responses:
+        "200":
+          description: Item financeiro
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    patch:
+      operationId: updateFinancialItem
+      tags: [Financial items]
+      summary: Alterar nome ou descrição de um item
+      description: Valores e vigências são alterados pelo endpoint de mudanças.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinancialItemRequest"
+      responses:
+        "200":
+          description: Item atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialItemResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/items/{item_id}/changes:
+    parameters:
+      - $ref: "#/components/parameters/ItemID"
+    post:
+      operationId: changeFinancialItemFromMonth
+      tags: [Financial items]
+      summary: Alterar um item a partir de uma competência
+      description: |
+        Encerra o período aplicável no mês anterior e cria um novo período. A
+        mudança preserva o passado e pode ser retroativa com rastreabilidade.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinancialItemChangeRequest"
+            example:
+              effective_from: 2026-08
+              end_month: null
+              amount_cents: 650000
+              cash_month_offset: 1
+              context: Reajuste salarial
+      responses:
+        "201":
+          description: Novo período criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialItemResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/PeriodOverlap"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/items/{item_id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/ItemID"
+    post:
+      operationId: archiveFinancialItem
+      tags: [Financial items]
+      summary: Arquivar um item sem apagar seu histórico
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveFinancialItemRequest"
+      responses:
+        "200":
+          description: Item arquivado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialItemResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/savings:
+    get:
+      operationId: getPlannedSavings
+      tags: [Savings]
+      summary: Consultar os períodos do valor planejado para guardar
+      responses:
+        "200":
+          description: Configuração explícita de economia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlannedSavingsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      operationId: putPlannedSavings
+      tags: [Savings]
+      summary: Definir o valor para guardar a partir de um mês
+      description: |
+        O valor zero é uma configuração explícita e não equivale à ausência de
+        configuração. A operação preserva os períodos anteriores.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutPlannedSavingsRequest"
+            example:
+              effective_from: 2026-01
+              end_month: 2026-12
+              amount_cents: 120000
+              context: Reserva mensal
+      responses:
+        "200":
+          description: Configuração atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlannedSavingsResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/PeriodOverlap"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/months/{month}/summary:
+    get:
+      operationId: getMonthlySummary
+      tags: [Monthly summary]
+      summary: Calcular o resumo projetado de uma competência
+      description: |
+        `cash` responde quanto está livre considerando recebimentos e
+        pagamentos. `reference` consolida a competência econômica e não
+        representa saldo disponível em conta.
+      parameters:
+        - $ref: "#/components/parameters/Month"
+        - $ref: "#/components/parameters/SummaryBasis"
+      responses:
+        "200":
+          description: Resumo explicável
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlySummaryResponse"
+              examples:
+                cashSummary:
+                  value:
+                    data:
+                      month: 2026-07
+                      basis: cash
+                      result_kind: planned_free
+                      currency_code: BRL
+                      plan_status: draft
+                      income_cents: 600000
+                      commitments_cents: 280000
+                      planned_savings_cents: 120000
+                      result_cents: 200000
+                      is_negative: false
+                      completeness: projected
+                      breakdown:
+                        recurring_income_cents: 600000
+                        one_time_income_cents: 0
+                        fixed_expenses_cents: 210000
+                        projected_variable_expenses_cents: 70000
+                      sources:
+                        - source_id: 1960b556-1201-4bc0-8292-b4adc600bc5e
+                          item_id: f449925d-ab01-4a45-b084-612228bce21f
+                          name: Salário
+                          kind: recurring_income
+                          effect: income
+                          reference_month: 2026-06
+                          cash_month: 2026-07
+                          amount_cents: 600000
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/MonthOutsideHorizon"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ItemID:
+      name: item_id
+      in: path
+      required: true
+      description: Identificador do item pertencente ao usuário autenticado.
+      schema:
+        type: string
+        format: uuid
+    Month:
+      name: month
+      in: path
+      required: true
+      description: Competência mensal no formato `AAAA-MM`.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
+    SummaryBasis:
+      name: basis
+      in: query
+      required: false
+      description: Base de consolidação. O padrão é `cash`.
+      schema:
+        $ref: "#/components/schemas/SummaryBasis"
+    FinancialItemKindFilter:
+      name: kind
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/FinancialItemKind"
+    FinancialItemStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/FinancialItemStatus"
+  schemas:
+    Status:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+    UUID:
+      type: string
+      format: uuid
+    YearMonth:
+      type: string
+      pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+      examples: [2026-07]
+    CurrencyCode:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      examples: [BRL]
+    AmountCents:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Valor monetário não negativo representado em centavos.
+      examples: [120000]
+    SignedAmountCents:
+      type: integer
+      format: int64
+      description: Resultado monetário em centavos; pode ser negativo.
+      examples: [200000, -50000]
+    PlanStatus:
+      type: string
+      enum: [draft, active, archived]
+    FinancialItemKind:
+      type: string
+      enum:
+        - recurring_income
+        - one_time_income
+        - fixed_expense
+        - projected_variable_expense
+    FinancialItemStatus:
+      type: string
+      enum: [active, archived]
+    Recurrence:
+      type: string
+      enum: [monthly, once]
+    SummaryBasis:
+      type: string
+      enum: [cash, reference]
+      default: cash
+    SummaryResultKind:
+      type: string
+      enum: [planned_free, planned_reference_result]
+    SummarySourceEffect:
+      type: string
+      enum: [income, commitment, savings]
+    Completeness:
+      type: string
+      enum: [projected]
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required: [id, email, display_name, timezone, currency_code]
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        email:
+          type: string
+          format: email
+        display_name:
+          type: [string, "null"]
+        timezone:
+          type: string
+          examples: [America/Sao_Paulo]
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+    CurrentUserResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CurrentUser"
+    Plan:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - status
+        - start_month
+        - end_month
+        - currency_code
+        - activated_at
+        - archived_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          $ref: "#/components/schemas/YearMonth"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+        activated_at:
+          type: [string, "null"]
+          format: date-time
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreatePlanRequest:
+      type: object
+      additionalProperties: false
+      required: [name, start_month, end_month, currency_code]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          $ref: "#/components/schemas/YearMonth"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+    UpdatePlanRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          $ref: "#/components/schemas/YearMonth"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+    PlanResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Plan"
+    FinancialPeriodInput:
+      type: object
+      additionalProperties: false
+      required:
+        - start_month
+        - end_month
+        - amount_cents
+        - recurrence
+        - cash_month_offset
+      properties:
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        recurrence:
+          $ref: "#/components/schemas/Recurrence"
+        cash_month_offset:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 12
+          default: 0
+        context:
+          type: [string, "null"]
+          maxLength: 500
+    FinancialPeriod:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - start_month
+        - end_month
+        - amount_cents
+        - recurrence
+        - cash_month_offset
+        - context
+        - recorded_at
+        - created_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        recurrence:
+          $ref: "#/components/schemas/Recurrence"
+        cash_month_offset:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 12
+        context:
+          type: [string, "null"]
+          maxLength: 500
+        recorded_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    FinancialItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - plan_id
+        - name
+        - kind
+        - description
+        - status
+        - archived_at
+        - periods
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        plan_id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        kind:
+          $ref: "#/components/schemas/FinancialItemKind"
+        description:
+          type: [string, "null"]
+          maxLength: 1000
+        status:
+          $ref: "#/components/schemas/FinancialItemStatus"
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+        periods:
+          type: array
+          items:
+            $ref: "#/components/schemas/FinancialPeriod"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateFinancialItemRequest:
+      type: object
+      additionalProperties: false
+      required: [name, kind, period]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        kind:
+          $ref: "#/components/schemas/FinancialItemKind"
+        description:
+          type: [string, "null"]
+          maxLength: 1000
+        period:
+          $ref: "#/components/schemas/FinancialPeriodInput"
+    UpdateFinancialItemRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: [string, "null"]
+          maxLength: 1000
+    CreateFinancialItemChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [effective_from, end_month, amount_cents, cash_month_offset]
+      properties:
+        effective_from:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        cash_month_offset:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 12
+        context:
+          type: [string, "null"]
+          maxLength: 500
+    ArchiveFinancialItemRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        effective_from:
+          description: |
+            Primeira competência na qual o item deixa de gerar ocorrências. Se
+            ausente, apenas o status atual é arquivado.
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        reason:
+          type: [string, "null"]
+          maxLength: 500
+    FinancialItemResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/FinancialItem"
+    FinancialItemListResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FinancialItem"
+    SavingPeriod:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - start_month
+        - end_month
+        - amount_cents
+        - context
+        - created_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+        created_at:
+          type: string
+          format: date-time
+    PutPlannedSavingsRequest:
+      type: object
+      additionalProperties: false
+      required: [effective_from, end_month, amount_cents]
+      properties:
+        effective_from:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+    PlannedSavings:
+      type: object
+      additionalProperties: false
+      required: [configured, periods]
+      properties:
+        configured:
+          type: boolean
+          description: Diferencia ausência de configuração de um valor zero explícito.
+        periods:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavingPeriod"
+    PlannedSavingsResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/PlannedSavings"
+    SnapshotPlanData:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - start_month
+        - end_month
+        - currency_code
+        - items
+        - savings
+      properties:
+        name:
+          type: string
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          $ref: "#/components/schemas/YearMonth"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FinancialItem"
+        savings:
+          $ref: "#/components/schemas/PlannedSavings"
+    OriginalPlanSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, plan_id, kind, schema_version, captured_at, plan]
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        plan_id:
+          $ref: "#/components/schemas/UUID"
+        kind:
+          type: string
+          const: original
+        schema_version:
+          type: integer
+          minimum: 1
+        captured_at:
+          type: string
+          format: date-time
+        plan:
+          $ref: "#/components/schemas/SnapshotPlanData"
+    OriginalPlanSnapshotResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/OriginalPlanSnapshot"
+    PlanActivation:
+      type: object
+      additionalProperties: false
+      required: [plan, original]
+      properties:
+        plan:
+          $ref: "#/components/schemas/Plan"
+        original:
+          $ref: "#/components/schemas/OriginalPlanSnapshot"
+    PlanActivationResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/PlanActivation"
+    MonthlySummaryBreakdown:
+      type: object
+      additionalProperties: false
+      required:
+        - recurring_income_cents
+        - one_time_income_cents
+        - fixed_expenses_cents
+        - projected_variable_expenses_cents
+      properties:
+        recurring_income_cents:
+          $ref: "#/components/schemas/AmountCents"
+        one_time_income_cents:
+          $ref: "#/components/schemas/AmountCents"
+        fixed_expenses_cents:
+          $ref: "#/components/schemas/AmountCents"
+        projected_variable_expenses_cents:
+          $ref: "#/components/schemas/AmountCents"
+    MonthlySummarySource:
+      type: object
+      additionalProperties: false
+      required:
+        - source_id
+        - item_id
+        - name
+        - kind
+        - effect
+        - reference_month
+        - cash_month
+        - amount_cents
+      properties:
+        source_id:
+          $ref: "#/components/schemas/UUID"
+        item_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        name:
+          type: string
+        kind:
+          oneOf:
+            - $ref: "#/components/schemas/FinancialItemKind"
+            - type: string
+              const: planned_savings
+        effect:
+          $ref: "#/components/schemas/SummarySourceEffect"
+        reference_month:
+          $ref: "#/components/schemas/YearMonth"
+        cash_month:
+          $ref: "#/components/schemas/YearMonth"
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+    MonthlySummary:
+      type: object
+      additionalProperties: false
+      required:
+        - month
+        - basis
+        - result_kind
+        - currency_code
+        - plan_status
+        - income_cents
+        - commitments_cents
+        - planned_savings_cents
+        - result_cents
+        - is_negative
+        - completeness
+        - breakdown
+        - sources
+      properties:
+        month:
+          $ref: "#/components/schemas/YearMonth"
+        basis:
+          $ref: "#/components/schemas/SummaryBasis"
+        result_kind:
+          $ref: "#/components/schemas/SummaryResultKind"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+        plan_status:
+          $ref: "#/components/schemas/PlanStatus"
+        income_cents:
+          $ref: "#/components/schemas/AmountCents"
+        commitments_cents:
+          $ref: "#/components/schemas/AmountCents"
+        planned_savings_cents:
+          $ref: "#/components/schemas/AmountCents"
+        result_cents:
+          $ref: "#/components/schemas/SignedAmountCents"
+        is_negative:
+          type: boolean
+        completeness:
+          $ref: "#/components/schemas/Completeness"
+        breakdown:
+          $ref: "#/components/schemas/MonthlySummaryBreakdown"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlySummarySource"
+    MonthlySummaryResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/MonthlySummary"
+    ErrorDetail:
+      type: object
+      additionalProperties: true
+    ErrorBody:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          oneOf:
+            - $ref: "#/components/schemas/ErrorDetail"
+            - type: "null"
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+  responses:
+    Unauthorized:
+      description: Autenticação ausente ou inválida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: unauthorized
+              message: A valid bearer token is required
+    NotFound:
+      description: Recurso inexistente ou pertencente a outro usuário
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: not_found
+              message: Resource not found
+    ValidationError:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: validation_error
+              message: Request validation failed
+              details:
+                field: start_month
+                reason: must use YYYY-MM
+    Conflict:
+      description: A operação viola o estado atual ou uma regra de unicidade
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: conflict
+              message: The operation conflicts with the current resource state
+    PeriodOverlap:
+      description: O novo período é incompatível com um período existente
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: period_overlap
+              message: The new period overlaps an existing period
+    MonthOutsideHorizon:
+      description: O mês é válido, mas está fora do horizonte do planejamento
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: month_outside_horizon
+              message: The requested month is outside the plan horizon
+    InternalError:
+      description: Falha interna inesperada
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: internal_error
+              message: An unexpected internal error occurred
+    ServiceUnavailable:
+      description: Uma dependência obrigatória está indisponível
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: service_unavailable
+              message: A required dependency is temporarily unavailable

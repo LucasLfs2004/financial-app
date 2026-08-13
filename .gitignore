@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+
+.DS_Store
+coverage.out
+financial-api
+
+supabase/.branches/
+supabase/.temp/
+

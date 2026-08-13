@@ -1,0 +1,16 @@
+services:
+  api:
+    build:
+      context: .
+    environment:
+      APP_ENV: development
+      PORT: 8080
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:54322/postgres?sslmode=disable}
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
+      SUPABASE_URL: ${DOCKER_SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+      SUPABASE_AUTH_TIMEOUT: ${SUPABASE_AUTH_TIMEOUT:-5s}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
