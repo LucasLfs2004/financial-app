@@ -33,6 +33,7 @@ type Dependencies struct {
 	Database      Database
 	Authenticator Authenticator
 	Profiles      ProfileReader
+	Plans         PlanService
 }
 
 type contextKey string
@@ -47,6 +48,18 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 	mux.Handle("GET /v1/me", authenticate(
 		dependencies.Authenticator,
 		http.HandlerFunc(meHandler(dependencies.Profiles)),
+	))
+	mux.Handle("POST /v1/plans", authenticate(
+		dependencies.Authenticator,
+		http.HandlerFunc(createPlanHandler(dependencies.Plans)),
+	))
+	mux.Handle("GET /v1/plans/current", authenticate(
+		dependencies.Authenticator,
+		http.HandlerFunc(currentPlanHandler(dependencies.Plans)),
+	))
+	mux.Handle("PATCH /v1/plans/current", authenticate(
+		dependencies.Authenticator,
+		http.HandlerFunc(updateCurrentPlanHandler(dependencies.Plans)),
 	))
 
 	handler := recoveryMiddleware(logger,

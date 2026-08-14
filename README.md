@@ -51,6 +51,9 @@ GET http://localhost:8080/
 GET http://localhost:8080/health
 GET http://localhost:8080/ready
 GET http://localhost:8080/v1/me
+POST http://localhost:8080/v1/plans
+GET http://localhost:8080/v1/plans/current
+PATCH http://localhost:8080/v1/plans/current
 ```
 
 `/v1/me` exige:
