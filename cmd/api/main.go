@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/lucas/financial-api/internal/financialitem"
+	"github.com/lucas/financial-api/internal/monthlysummary"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/config"
@@ -43,8 +44,11 @@ func main() {
 	profileRepository := profile.NewRepository(databasePool)
 	planRepository := planning.NewPostgresRepository(databasePool)
 	planService := planning.NewService(planRepository)
-	financialItemService := financialitem.NewService(financialitem.NewPostgresRepository(databasePool), planService)
-	savingsService := savings.NewService(savings.NewPostgresRepository(databasePool), planService)
+	financialItemRepository := financialitem.NewPostgresRepository(databasePool)
+	financialItemService := financialitem.NewService(financialItemRepository, planService)
+	savingsRepository := savings.NewPostgresRepository(databasePool)
+	savingsService := savings.NewService(savingsRepository, planService)
+	monthlySummaryService := monthlysummary.NewService(planService, financialItemRepository, savingsRepository)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
 		Database:       databasePool,
@@ -53,6 +57,7 @@ func main() {
 		Plans:          planService,
 		FinancialItems: financialItemService,
 		Savings:        savingsService,
+		MonthlySummary: monthlySummaryService,
 	})
 
 	serverErrors := make(chan error, 1)

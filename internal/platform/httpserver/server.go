@@ -36,6 +36,7 @@ type Dependencies struct {
 	Plans          PlanService
 	FinancialItems FinancialItemService
 	Savings        SavingsService
+	MonthlySummary MonthlySummaryService
 }
 
 type contextKey string
@@ -73,6 +74,7 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 	mux.Handle("POST /v1/plans/current/items/{item_id}/archive", authenticate(dependencies.Authenticator, http.HandlerFunc(archiveFinancialItemHandler(dependencies.FinancialItems))))
 	mux.Handle("GET /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(getSavingsHandler(dependencies.Savings))))
 	mux.Handle("PUT /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(putSavingsHandler(dependencies.Savings))))
+	mux.Handle("GET /v1/plans/current/months/{month}/summary", authenticate(dependencies.Authenticator, http.HandlerFunc(monthlySummaryHandler(dependencies.MonthlySummary))))
 
 	handler := recoveryMiddleware(logger,
 		requestIDMiddleware(
