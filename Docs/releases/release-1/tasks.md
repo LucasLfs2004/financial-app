@@ -174,37 +174,43 @@ Status: concluída em 20/08/2026.
 
 ### R1-T12 — Implementar seleção de ocorrências
 
-- [ ] selecionar períodos aplicáveis;
-- [ ] expandir recorrência mensal;
-- [ ] aplicar offset de caixa;
-- [ ] impedir duplicidade;
-- [ ] testar bases `reference` e `cash`.
+- [x] selecionar períodos aplicáveis;
+- [x] expandir recorrência mensal;
+- [x] aplicar offset de caixa;
+- [x] impedir duplicidade;
+- [x] testar bases `reference` e `cash`.
 
 Dependências: R1-T08, R1-T09, R1-T10, R1-T11.
 
+Status: concluída em 20/08/2026.
+
 ### R1-T13 — Implementar cálculo puro
 
-- [ ] somar rendas;
-- [ ] somar compromissos;
-- [ ] subtrair economia;
-- [ ] suportar negativo;
-- [ ] gerar breakdown;
-- [ ] gerar sources;
-- [ ] verificar consistência entre total e componentes.
+- [x] somar rendas;
+- [x] somar compromissos;
+- [x] subtrair economia;
+- [x] suportar negativo;
+- [x] gerar breakdown;
+- [x] gerar sources;
+- [x] verificar consistência entre total e componentes.
 
 Dependências: R1-T02, R1-T12.
 
+Status: concluída em 20/08/2026.
+
 ### R1-T14 — Expor resumo mensal
 
-- [ ] validar `AAAA-MM`;
-- [ ] validar base;
-- [ ] validar horizonte;
-- [ ] identificar prévia de rascunho;
-- [ ] implementar endpoint;
-- [ ] documentar exemplos;
-- [ ] testar respostas e erros.
+- [x] validar `AAAA-MM`;
+- [x] validar base;
+- [x] validar horizonte;
+- [x] identificar prévia de rascunho;
+- [x] implementar endpoint;
+- [x] documentar exemplos;
+- [x] testar respostas e erros.
 
 Dependências: R1-T13.
+
+Status: concluída em 20/08/2026.
 
 ## Marco F — Segurança e encerramento
 

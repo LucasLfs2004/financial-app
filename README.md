@@ -5,8 +5,8 @@ API de planejamento financeiro pessoal em Go e Supabase.
 ## Estado
 
 - Release 0: concluída no modelo local-first;
-- Release 1: em implementação; Marcos A a D concluídos, com contrato, domínio,
-  persistência, planejamento, premissas financeiras e ativação disponíveis.
+- Release 1: em implementação; Marcos A a E concluídos, com contrato, domínio,
+  persistência, planejamento, premissas, ativação e resumo mensal disponíveis.
 
 Documentos:
 
@@ -64,6 +64,7 @@ POST http://localhost:8080/v1/plans/current/items/{item_id}/changes
 POST http://localhost:8080/v1/plans/current/items/{item_id}/archive
 GET http://localhost:8080/v1/plans/current/savings
 PUT http://localhost:8080/v1/plans/current/savings
+GET http://localhost:8080/v1/plans/current/months/{month}/summary?basis=cash
 ```
 
 `/v1/me` exige:
@@ -78,11 +79,21 @@ Authorization: Bearer <supabase-access-token>
 go test ./...
 ```
 
-O cenário integrado dos Marcos C e D usa o banco local:
+O cenário integrado dos Marcos C a E usa o banco local:
 
 ```bash
 TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable' \
   go test -v ./internal/integration
+```
+
+Exemplos de resumo para julho de 2026:
+
+```bash
+curl -H 'Authorization: Bearer <supabase-access-token>' \
+  'http://localhost:8080/v1/plans/current/months/2026-07/summary?basis=cash'
+
+curl -H 'Authorization: Bearer <supabase-access-token>' \
+  'http://localhost:8080/v1/plans/current/months/2026-07/summary?basis=reference'
 ```
 
 Para recriar o banco:
