@@ -10,12 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/config"
 	"github.com/lucas/financial-api/internal/platform/database"
 	"github.com/lucas/financial-api/internal/platform/httpserver"
 	"github.com/lucas/financial-api/internal/profile"
+	"github.com/lucas/financial-api/internal/savings"
 )
 
 func main() {
@@ -41,12 +43,16 @@ func main() {
 	profileRepository := profile.NewRepository(databasePool)
 	planRepository := planning.NewPostgresRepository(databasePool)
 	planService := planning.NewService(planRepository)
+	financialItemService := financialitem.NewService(financialitem.NewPostgresRepository(databasePool), planService)
+	savingsService := savings.NewService(savings.NewPostgresRepository(databasePool), planService)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
-		Database:      databasePool,
-		Authenticator: authClient,
-		Profiles:      profileRepository,
-		Plans:         planService,
+		Database:       databasePool,
+		Authenticator:  authClient,
+		Profiles:       profileRepository,
+		Plans:          planService,
+		FinancialItems: financialItemService,
+		Savings:        savingsService,
 	})
 
 	serverErrors := make(chan error, 1)

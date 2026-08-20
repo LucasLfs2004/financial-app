@@ -2,6 +2,7 @@ package planning
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -12,10 +13,11 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("plan not found")
-	ErrAlreadyExists = errors.New("current plan already exists")
-	ErrNotDraft      = errors.New("plan is not a draft")
-	ErrValidation    = errors.New("invalid plan input")
+	ErrNotFound       = errors.New("plan not found")
+	ErrAlreadyExists  = errors.New("current plan already exists")
+	ErrNotDraft       = errors.New("plan is not a draft")
+	ErrNotActivatable = errors.New("plan is not activatable")
+	ErrValidation     = errors.New("invalid plan input")
 )
 
 var currencyCodePattern = regexp.MustCompile(`^[A-Z]{3}$`)
@@ -48,10 +50,39 @@ type UpdateInput struct {
 	CurrencyCode *string
 }
 
+type Snapshot struct {
+	ID            string
+	PlanID        string
+	Kind          string
+	SchemaVersion int
+	CapturedAt    time.Time
+	Plan          json.RawMessage
+}
+type Activation struct {
+	Plan     Plan
+	Original Snapshot
+}
+
 type Repository interface {
 	Create(context.Context, string, CreateInput) (Plan, error)
 	FindCurrent(context.Context, string) (Plan, error)
 	UpdateDraft(context.Context, string, UpdateInput) (Plan, error)
+	Activate(context.Context, string) (Activation, error)
+	FindOriginal(context.Context, string) (Snapshot, error)
+}
+
+func (service *Service) Activate(ctx context.Context, ownerID string) (Activation, error) {
+	if strings.TrimSpace(ownerID) == "" {
+		return Activation{}, ErrValidation
+	}
+	return service.repository.Activate(ctx, ownerID)
+}
+
+func (service *Service) Original(ctx context.Context, ownerID string) (Snapshot, error) {
+	if strings.TrimSpace(ownerID) == "" {
+		return Snapshot{}, ErrValidation
+	}
+	return service.repository.FindOriginal(ctx, ownerID)
 }
 
 type Service struct {

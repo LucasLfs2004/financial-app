@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/planning/domain"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/config"
 	"github.com/lucas/financial-api/internal/profile"
+	"github.com/lucas/financial-api/internal/savings"
 )
 
 type fakeDatabase struct {
@@ -58,6 +60,13 @@ type fakePlans struct {
 	updateErr    error
 	updateOwner  string
 	updateInput  planning.UpdateInput
+
+	activationResult planning.Activation
+	activationErr    error
+	activationOwner  string
+	originalResult   planning.Snapshot
+	originalErr      error
+	originalOwner    string
 }
 
 func (plans *fakePlans) Create(_ context.Context, ownerID string, input planning.CreateInput) (planning.Plan, error) {
@@ -75,6 +84,57 @@ func (plans *fakePlans) UpdateCurrent(_ context.Context, ownerID string, input p
 	plans.updateOwner = ownerID
 	plans.updateInput = input
 	return plans.updateResult, plans.updateErr
+}
+func (plans *fakePlans) Activate(_ context.Context, ownerID string) (planning.Activation, error) {
+	plans.activationOwner = ownerID
+	return plans.activationResult, plans.activationErr
+}
+func (plans *fakePlans) Original(_ context.Context, ownerID string) (planning.Snapshot, error) {
+	plans.originalOwner = ownerID
+	return plans.originalResult, plans.originalErr
+}
+
+type fakeFinancialItems struct {
+	createOwner  string
+	createInput  financialitem.CreateInput
+	createResult financialitem.Item
+	updateOwner  string
+	updateInput  financialitem.UpdateInput
+}
+
+func (items *fakeFinancialItems) Create(_ context.Context, ownerID string, input financialitem.CreateInput) (financialitem.Item, error) {
+	items.createOwner, items.createInput = ownerID, input
+	return items.createResult, nil
+}
+func (*fakeFinancialItems) List(context.Context, string, financialitem.Filters) ([]financialitem.Item, error) {
+	return []financialitem.Item{}, nil
+}
+func (*fakeFinancialItems) Find(context.Context, string, string) (financialitem.Item, error) {
+	return financialitem.Item{}, nil
+}
+func (items *fakeFinancialItems) Update(_ context.Context, ownerID, _ string, input financialitem.UpdateInput) (financialitem.Item, error) {
+	items.updateOwner, items.updateInput = ownerID, input
+	return financialitem.Item{ID: "item", PlanID: "plan", Name: "Salário", Kind: domain.FinancialItemKindRecurringIncome, Status: domain.FinancialItemStatusActive, Periods: []financialitem.Period{}}, nil
+}
+func (*fakeFinancialItems) Change(context.Context, string, string, financialitem.ChangeInput) (financialitem.Item, error) {
+	return financialitem.Item{}, nil
+}
+func (*fakeFinancialItems) Archive(context.Context, string, string, financialitem.ArchiveInput) (financialitem.Item, error) {
+	return financialitem.Item{}, nil
+}
+
+type fakeSavings struct {
+	putOwner  string
+	putInput  savings.PutInput
+	putResult savings.Configuration
+}
+
+func (*fakeSavings) Get(context.Context, string) (savings.Configuration, error) {
+	return savings.Configuration{}, nil
+}
+func (service *fakeSavings) Put(_ context.Context, ownerID string, input savings.PutInput) (savings.Configuration, error) {
+	service.putOwner, service.putInput = ownerID, input
+	return service.putResult, nil
 }
 
 func (profiles *fakeProfiles) FindByID(_ context.Context, userID string) (profile.Profile, error) {
@@ -219,6 +279,65 @@ func TestUpdatePlanMapsActivePlanToConflict(t *testing.T) {
 	}
 }
 
+func TestCreateFinancialItemUsesAuthenticatedUserAndPreservesOffset(t *testing.T) {
+	items := &fakeFinancialItems{createResult: financialitem.Item{ID: "item", PlanID: "plan", Name: "Salário", Kind: domain.FinancialItemKindRecurringIncome, Status: domain.FinancialItemStatusActive, Periods: []financialitem.Period{}}}
+	server := newTestServerWithServices(authenticatedTestClient(), &fakePlans{}, items, &fakeSavings{})
+	request := httptest.NewRequest(http.MethodPost, "/v1/plans/current/items", strings.NewReader(`{"name":"Salário","kind":"recurring_income","period":{"start_month":"2026-01","end_month":"2026-12","amount_cents":600000,"recurrence":"monthly","cash_month_offset":1}}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", response.Code, response.Body.String())
+	}
+	if items.createOwner != "authenticated-user" || items.createInput.Period.CashMonthOffset != 1 {
+		t.Fatalf("owner=%q offset=%d", items.createOwner, items.createInput.Period.CashMonthOffset)
+	}
+}
+
+func TestPutSavingsPreservesExplicitZero(t *testing.T) {
+	service := &fakeSavings{putResult: savings.Configuration{Configured: true, Periods: []savings.Period{}}}
+	server := newTestServerWithServices(authenticatedTestClient(), &fakePlans{}, &fakeFinancialItems{}, service)
+	request := httptest.NewRequest(http.MethodPut, "/v1/plans/current/savings", strings.NewReader(`{"effective_from":"2026-01","end_month":"2026-12","amount_cents":0}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || service.putOwner != "authenticated-user" || service.putInput.AmountCents != 0 {
+		t.Fatalf("status=%d owner=%q amount=%d body=%s", response.Code, service.putOwner, service.putInput.AmountCents, response.Body.String())
+	}
+}
+
+func TestUpdateFinancialItemCanClearDescription(t *testing.T) {
+	items := &fakeFinancialItems{}
+	server := newTestServerWithServices(authenticatedTestClient(), &fakePlans{}, items, &fakeSavings{})
+	request := httptest.NewRequest(http.MethodPatch, "/v1/plans/current/items/item", strings.NewReader(`{"description":null}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || !items.updateInput.DescriptionSet || items.updateInput.Description != nil {
+		t.Fatalf("status=%d input=%+v body=%s", response.Code, items.updateInput, response.Body.String())
+	}
+}
+
+func TestActivatePlanMapsMissingPremisesToConflict(t *testing.T) {
+	plans := &fakePlans{activationErr: planning.ErrNotActivatable}
+	server := newTestServerWithServices(authenticatedTestClient(), plans, &fakeFinancialItems{}, &fakeSavings{})
+	request := httptest.NewRequest(http.MethodPost, "/v1/plans/current/activate", nil)
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusConflict || plans.activationOwner != "authenticated-user" {
+		t.Fatalf("status=%d owner=%q body=%s", response.Code, plans.activationOwner, response.Body.String())
+	}
+}
+
 func newTestServer(database Database, authenticator Authenticator, profiles ProfileReader) *http.Server {
 	return newTestServerWithPlans(database, authenticator, profiles, &fakePlans{})
 }
@@ -228,11 +347,18 @@ func newTestServerWithPlans(database Database, authenticator Authenticator, prof
 	return New(config.Config{
 		HTTP: config.HTTPConfig{},
 	}, logger, Dependencies{
-		Database:      database,
-		Authenticator: authenticator,
-		Profiles:      profiles,
-		Plans:         plans,
+		Database:       database,
+		Authenticator:  authenticator,
+		Profiles:       profiles,
+		Plans:          plans,
+		FinancialItems: nil,
+		Savings:        nil,
 	})
+}
+
+func newTestServerWithServices(authenticator Authenticator, plans PlanService, items FinancialItemService, savingService SavingsService) *http.Server {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return New(config.Config{HTTP: config.HTTPConfig{}}, logger, Dependencies{Database: fakeDatabase{}, Authenticator: authenticator, Profiles: &fakeProfiles{}, Plans: plans, FinancialItems: items, Savings: savingService})
 }
 
 func authenticatedTestClient() *fakeAuthenticator {

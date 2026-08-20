@@ -18,6 +18,44 @@ type PlanService interface {
 	Create(context.Context, string, planning.CreateInput) (planning.Plan, error)
 	Current(context.Context, string) (planning.Plan, error)
 	UpdateCurrent(context.Context, string, planning.UpdateInput) (planning.Plan, error)
+	Activate(context.Context, string) (planning.Activation, error)
+	Original(context.Context, string) (planning.Snapshot, error)
+}
+
+func activatePlanHandler(plans PlanService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromRequest(r)
+		if !ok {
+			writeError(w, 401, "unauthorized", "Authentication is required")
+			return
+		}
+		activation, err := plans.Activate(r.Context(), principal.UserID)
+		if err != nil {
+			writePlanError(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"data": map[string]any{"plan": planResponse(activation.Plan), "original": snapshotResponse(activation.Original)}})
+	}
+}
+func originalPlanHandler(plans PlanService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromRequest(r)
+		if !ok {
+			writeError(w, 401, "unauthorized", "Authentication is required")
+			return
+		}
+		snapshot, err := plans.Original(r.Context(), principal.UserID)
+		if err != nil {
+			writePlanError(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"data": snapshotResponse(snapshot)})
+	}
+}
+func snapshotResponse(snapshot planning.Snapshot) map[string]any {
+	var plan any
+	_ = json.Unmarshal(snapshot.Plan, &plan)
+	return map[string]any{"id": snapshot.ID, "plan_id": snapshot.PlanID, "kind": snapshot.Kind, "schema_version": snapshot.SchemaVersion, "captured_at": snapshot.CapturedAt, "plan": plan}
 }
 
 type createPlanRequest struct {
@@ -155,6 +193,8 @@ func writePlanError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "not_found", "Resource not found")
 	case errors.Is(err, planning.ErrNotDraft):
 		writeError(w, http.StatusConflict, "conflict", "Only draft plans can be changed")
+	case errors.Is(err, planning.ErrNotActivatable):
+		writeError(w, http.StatusConflict, "plan_not_activatable", "The plan does not meet activation requirements")
 	default:
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected internal error occurred")
 	}
