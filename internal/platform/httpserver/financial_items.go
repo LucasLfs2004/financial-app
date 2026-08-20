@@ -21,12 +21,12 @@ type FinancialItemService interface {
 }
 
 type periodRequest struct {
-	StartMonth      string  `json:"start_month"`
-	EndMonth        *string `json:"end_month"`
-	AmountCents     int64   `json:"amount_cents"`
-	Recurrence      string  `json:"recurrence"`
-	CashMonthOffset int     `json:"cash_month_offset"`
-	Context         *string `json:"context"`
+	StartMonth      string         `json:"start_month"`
+	EndMonth        optionalString `json:"end_month"`
+	AmountCents     *int64         `json:"amount_cents"`
+	Recurrence      string         `json:"recurrence"`
+	CashMonthOffset *int           `json:"cash_month_offset"`
+	Context         *string        `json:"context"`
 }
 type createItemRequest struct {
 	Name        string        `json:"name"`
@@ -58,11 +58,11 @@ func (value *optionalString) UnmarshalJSON(data []byte) error {
 }
 
 type changeItemRequest struct {
-	EffectiveFrom   string  `json:"effective_from"`
-	EndMonth        *string `json:"end_month"`
-	AmountCents     int64   `json:"amount_cents"`
-	CashMonthOffset int     `json:"cash_month_offset"`
-	Context         *string `json:"context"`
+	EffectiveFrom   string         `json:"effective_from"`
+	EndMonth        optionalString `json:"end_month"`
+	AmountCents     *int64         `json:"amount_cents"`
+	CashMonthOffset *int           `json:"cash_month_offset"`
+	Context         *string        `json:"context"`
 }
 type archiveItemRequest struct {
 	EffectiveFrom *string `json:"effective_from"`
@@ -186,17 +186,21 @@ func changeFinancialItemHandler(service FinancialItemService) http.HandlerFunc {
 			writeError(w, 400, "validation_error", "Request validation failed")
 			return
 		}
+		if !payload.EndMonth.Set || payload.AmountCents == nil || payload.CashMonthOffset == nil {
+			writeError(w, 400, "validation_error", "Request validation failed")
+			return
+		}
 		effective, err := domain.ParseYearMonth(payload.EffectiveFrom)
 		if err != nil {
 			writeError(w, 400, "validation_error", "Request validation failed")
 			return
 		}
-		end, err := optionalMonth(payload.EndMonth)
+		end, err := optionalMonth(payload.EndMonth.Value)
 		if err != nil {
 			writeError(w, 400, "validation_error", "Request validation failed")
 			return
 		}
-		item, err := service.Change(r.Context(), principal.UserID, r.PathValue("item_id"), financialitem.ChangeInput{EffectiveFrom: effective, EndMonth: end, AmountCents: payload.AmountCents, CashMonthOffset: payload.CashMonthOffset, Context: payload.Context})
+		item, err := service.Change(r.Context(), principal.UserID, r.PathValue("item_id"), financialitem.ChangeInput{EffectiveFrom: effective, EndMonth: end, AmountCents: *payload.AmountCents, CashMonthOffset: *payload.CashMonthOffset, Context: payload.Context})
 		if err != nil {
 			writeFinancialItemError(w, err)
 			return
@@ -232,11 +236,14 @@ func archiveFinancialItemHandler(service FinancialItemService) http.HandlerFunc 
 }
 
 func periodInput(payload periodRequest) (financialitem.PeriodInput, error) {
+	if !payload.EndMonth.Set || payload.AmountCents == nil || payload.CashMonthOffset == nil {
+		return financialitem.PeriodInput{}, financialitem.ErrValidation
+	}
 	start, err := domain.ParseYearMonth(payload.StartMonth)
 	if err != nil {
 		return financialitem.PeriodInput{}, err
 	}
-	end, err := optionalMonth(payload.EndMonth)
+	end, err := optionalMonth(payload.EndMonth.Value)
 	if err != nil {
 		return financialitem.PeriodInput{}, err
 	}
@@ -244,7 +251,7 @@ func periodInput(payload periodRequest) (financialitem.PeriodInput, error) {
 	if err != nil {
 		return financialitem.PeriodInput{}, err
 	}
-	return financialitem.PeriodInput{StartMonth: start, EndMonth: end, AmountCents: payload.AmountCents, Recurrence: recurrence, CashMonthOffset: payload.CashMonthOffset, Context: payload.Context}, nil
+	return financialitem.PeriodInput{StartMonth: start, EndMonth: end, AmountCents: *payload.AmountCents, Recurrence: recurrence, CashMonthOffset: *payload.CashMonthOffset, Context: payload.Context}, nil
 }
 func optionalMonth(raw *string) (*domain.YearMonth, error) {
 	if raw == nil {

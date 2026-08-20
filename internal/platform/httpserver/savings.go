@@ -15,10 +15,10 @@ type SavingsService interface {
 	Put(context.Context, string, savings.PutInput) (savings.Configuration, error)
 }
 type putSavingsRequest struct {
-	EffectiveFrom string  `json:"effective_from"`
-	EndMonth      *string `json:"end_month"`
-	AmountCents   int64   `json:"amount_cents"`
-	Context       *string `json:"context"`
+	EffectiveFrom string         `json:"effective_from"`
+	EndMonth      optionalString `json:"end_month"`
+	AmountCents   *int64         `json:"amount_cents"`
+	Context       *string        `json:"context"`
 }
 
 func getSavingsHandler(service SavingsService) http.HandlerFunc {
@@ -48,17 +48,21 @@ func putSavingsHandler(service SavingsService) http.HandlerFunc {
 			writeError(w, 400, "validation_error", "Request validation failed")
 			return
 		}
+		if !payload.EndMonth.Set || payload.AmountCents == nil {
+			writeError(w, 400, "validation_error", "Request validation failed")
+			return
+		}
 		effective, err := domain.ParseYearMonth(payload.EffectiveFrom)
 		if err != nil {
 			writeError(w, 400, "validation_error", "Request validation failed")
 			return
 		}
-		end, err := optionalMonth(payload.EndMonth)
+		end, err := optionalMonth(payload.EndMonth.Value)
 		if err != nil {
 			writeError(w, 400, "validation_error", "Request validation failed")
 			return
 		}
-		configuration, err := service.Put(r.Context(), principal.UserID, savings.PutInput{EffectiveFrom: effective, EndMonth: end, AmountCents: payload.AmountCents, Context: payload.Context})
+		configuration, err := service.Put(r.Context(), principal.UserID, savings.PutInput{EffectiveFrom: effective, EndMonth: end, AmountCents: *payload.AmountCents, Context: payload.Context})
 		if err != nil {
 			writeSavingsError(w, err)
 			return
