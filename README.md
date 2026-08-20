@@ -19,6 +19,7 @@ Documentos:
 - [Release 1 — design](./Docs/releases/release-1/design.md);
 - [Release 1 — tasks](./Docs/releases/release-1/tasks.md);
 - [Release 1 — relatório de qualidade](./Docs/releases/release-1/quality-report.md);
+- [collection Postman e trilha de validação](./Docs/postman-validation.md);
 - [fluxo Git e releases](./Docs/git-release-flow.md).
 
 ## Requisitos
