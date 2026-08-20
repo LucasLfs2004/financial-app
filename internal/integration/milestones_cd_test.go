@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lucas/financial-api/internal/financialitem"
+	"github.com/lucas/financial-api/internal/monthlysummary"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/planning/domain"
 	"github.com/lucas/financial-api/internal/savings"
@@ -20,7 +21,7 @@ const (
 	ownerTwo = "80000000-0000-0000-0000-000000000008"
 )
 
-func TestMilestonesCAndD(t *testing.T) {
+func TestMilestonesCThroughE(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not configured")
@@ -45,6 +46,7 @@ func TestMilestonesCAndD(t *testing.T) {
 	items := financialitem.NewService(itemRepository, plans)
 	savingRepository := savings.NewPostgresRepository(pool)
 	savingService := savings.NewService(savingRepository, plans)
+	summaryService := monthlysummary.NewService(plans, itemRepository, savingRepository)
 	for _, owner := range []string{ownerOne, ownerTwo} {
 		_, err = plans.Create(ctx, owner, planning.CreateInput{Name: "Planejamento", StartMonth: month(t, "2026-01"), EndMonth: month(t, "2026-12"), CurrencyCode: "BRL"})
 		if err != nil {
@@ -96,6 +98,17 @@ func TestMilestonesCAndD(t *testing.T) {
 	}
 	if _, err = items.Find(ctx, ownerTwo, salary.ID); !errors.Is(err, financialitem.ErrNotFound) {
 		t.Fatalf("cross-owner lookup error=%v", err)
+	}
+	referenceSummary, err := summaryService.Get(ctx, ownerOne, month(t, "2026-08"), domain.SummaryBasisReference)
+	if err != nil || referenceSummary.IncomeCents != 650000 || referenceSummary.ResultCents != -170000 || !referenceSummary.IsNegative {
+		t.Fatalf("reference summary=%+v error=%v", referenceSummary, err)
+	}
+	cashSummary, err := summaryService.Get(ctx, ownerOne, month(t, "2026-08"), domain.SummaryBasisCash)
+	if err != nil || cashSummary.IncomeCents != 600000 || cashSummary.ResultCents != -220000 || !cashSummary.IsNegative {
+		t.Fatalf("cash summary=%+v error=%v", cashSummary, err)
+	}
+	if len(cashSummary.Sources) != 3 || cashSummary.Sources[0].ReferenceMonth.String() != "2026-07" || cashSummary.Sources[0].CashMonth.String() != "2026-08" {
+		t.Fatalf("cash sources=%+v", cashSummary.Sources)
 	}
 
 	results := make([]planning.Activation, 2)

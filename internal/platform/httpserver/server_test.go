@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/lucas/financial-api/internal/financialitem"
+	"github.com/lucas/financial-api/internal/monthlysummary"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/planning/domain"
 	"github.com/lucas/financial-api/internal/platform/auth"
@@ -127,6 +128,19 @@ type fakeSavings struct {
 	putOwner  string
 	putInput  savings.PutInput
 	putResult savings.Configuration
+}
+
+type fakeMonthlySummary struct {
+	owner  string
+	month  domain.YearMonth
+	basis  domain.SummaryBasis
+	result monthlysummary.Summary
+	err    error
+}
+
+func (service *fakeMonthlySummary) Get(_ context.Context, ownerID string, month domain.YearMonth, basis domain.SummaryBasis) (monthlysummary.Summary, error) {
+	service.owner, service.month, service.basis = ownerID, month, basis
+	return service.result, service.err
 }
 
 func (*fakeSavings) Get(context.Context, string) (savings.Configuration, error) {
@@ -338,6 +352,63 @@ func TestActivatePlanMapsMissingPremisesToConflict(t *testing.T) {
 	}
 }
 
+func TestMonthlySummaryDefaultsToCashAndUsesAuthenticatedUser(t *testing.T) {
+	month, _ := domain.ParseYearMonth("2026-07")
+	service := &fakeMonthlySummary{result: monthlysummary.Summary{Month: month, Basis: domain.SummaryBasisCash, ResultKind: domain.SummaryResultKindPlannedFree, CurrencyCode: "BRL", PlanStatus: domain.PlanStatusDraft, Completeness: domain.CompletenessProjected, Sources: []monthlysummary.Source{}}}
+	server := newTestServerWithMonthlySummary(authenticatedTestClient(), service)
+	request := httptest.NewRequest(http.MethodGet, "/v1/plans/current/months/2026-07/summary", nil)
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || service.owner != "authenticated-user" || service.month.String() != "2026-07" || service.basis != domain.SummaryBasisCash || !strings.Contains(response.Body.String(), `"plan_status":"draft"`) || !strings.Contains(response.Body.String(), `"result_kind":"planned_free"`) {
+		t.Fatalf("status=%d owner=%q month=%s basis=%s body=%s", response.Code, service.owner, service.month, service.basis, response.Body.String())
+	}
+}
+
+func TestMonthlySummaryRejectsInvalidBasis(t *testing.T) {
+	service := &fakeMonthlySummary{}
+	server := newTestServerWithMonthlySummary(authenticatedTestClient(), service)
+	request := httptest.NewRequest(http.MethodGet, "/v1/plans/current/months/2026-07/summary?basis=accrual", nil)
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || service.owner != "" {
+		t.Fatalf("status=%d owner=%q body=%s", response.Code, service.owner, response.Body.String())
+	}
+}
+
+func TestMonthlySummaryRejectsInvalidMonth(t *testing.T) {
+	service := &fakeMonthlySummary{}
+	server := newTestServerWithMonthlySummary(authenticatedTestClient(), service)
+	request := httptest.NewRequest(http.MethodGet, "/v1/plans/current/months/2026-13/summary", nil)
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || service.owner != "" {
+		t.Fatalf("status=%d owner=%q body=%s", response.Code, service.owner, response.Body.String())
+	}
+}
+
+func TestMonthlySummaryMapsOutsideHorizonToUnprocessableEntity(t *testing.T) {
+	service := &fakeMonthlySummary{err: monthlysummary.ErrOutsideHorizon}
+	server := newTestServerWithMonthlySummary(authenticatedTestClient(), service)
+	request := httptest.NewRequest(http.MethodGet, "/v1/plans/current/months/2027-01/summary?basis=reference", nil)
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 func newTestServer(database Database, authenticator Authenticator, profiles ProfileReader) *http.Server {
 	return newTestServerWithPlans(database, authenticator, profiles, &fakePlans{})
 }
@@ -359,6 +430,11 @@ func newTestServerWithPlans(database Database, authenticator Authenticator, prof
 func newTestServerWithServices(authenticator Authenticator, plans PlanService, items FinancialItemService, savingService SavingsService) *http.Server {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return New(config.Config{HTTP: config.HTTPConfig{}}, logger, Dependencies{Database: fakeDatabase{}, Authenticator: authenticator, Profiles: &fakeProfiles{}, Plans: plans, FinancialItems: items, Savings: savingService})
+}
+
+func newTestServerWithMonthlySummary(authenticator Authenticator, summary MonthlySummaryService) *http.Server {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return New(config.Config{HTTP: config.HTTPConfig{}}, logger, Dependencies{Database: fakeDatabase{}, Authenticator: authenticator, Profiles: &fakeProfiles{}, Plans: &fakePlans{}, FinancialItems: &fakeFinancialItems{}, Savings: &fakeSavings{}, MonthlySummary: summary})
 }
 
 func authenticatedTestClient() *fakeAuthenticator {
