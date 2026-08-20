@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -217,6 +218,27 @@ func TestReadyReportsDatabaseFailure(t *testing.T) {
 	}
 }
 
+func TestRequestLogDoesNotExposeAuthorizationOrFinancialQuery(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+	handler := loggingMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	request := httptest.NewRequest(http.MethodGet, "/v1/plans/current/months/2026-07/summary?amount_cents=600000&name=Salario", nil)
+	request.Header.Set("Authorization", "Bearer secret-financial-token")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	logEntry := output.String()
+	for _, sensitive := range []string{"600000", "Salario", "secret-financial-token"} {
+		if strings.Contains(logEntry, sensitive) {
+			t.Fatalf("request log exposed %q: %s", sensitive, logEntry)
+		}
+	}
+	if !strings.Contains(logEntry, `"path":"/v1/plans/current/months/2026-07/summary"`) {
+		t.Fatalf("request path was not logged: %s", logEntry)
+	}
+}
+
 func TestCreatePlanUsesAuthenticatedUserIdentity(t *testing.T) {
 	plans := &fakePlans{createResult: testPlan(t)}
 	server := newTestServerWithPlans(fakeDatabase{}, authenticatedTestClient(), &fakeProfiles{}, plans)
@@ -310,6 +332,20 @@ func TestCreateFinancialItemUsesAuthenticatedUserAndPreservesOffset(t *testing.T
 	}
 }
 
+func TestCreateFinancialItemRejectsMissingRequiredAmount(t *testing.T) {
+	items := &fakeFinancialItems{}
+	server := newTestServerWithServices(authenticatedTestClient(), &fakePlans{}, items, &fakeSavings{})
+	request := httptest.NewRequest(http.MethodPost, "/v1/plans/current/items", strings.NewReader(`{"name":"Salário","kind":"recurring_income","period":{"start_month":"2026-01","end_month":"2026-12","recurrence":"monthly","cash_month_offset":0}}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || items.createOwner != "" {
+		t.Fatalf("status=%d owner=%q body=%s", response.Code, items.createOwner, response.Body.String())
+	}
+}
+
 func TestPutSavingsPreservesExplicitZero(t *testing.T) {
 	service := &fakeSavings{putResult: savings.Configuration{Configured: true, Periods: []savings.Period{}}}
 	server := newTestServerWithServices(authenticatedTestClient(), &fakePlans{}, &fakeFinancialItems{}, service)
@@ -321,6 +357,20 @@ func TestPutSavingsPreservesExplicitZero(t *testing.T) {
 
 	if response.Code != http.StatusOK || service.putOwner != "authenticated-user" || service.putInput.AmountCents != 0 {
 		t.Fatalf("status=%d owner=%q amount=%d body=%s", response.Code, service.putOwner, service.putInput.AmountCents, response.Body.String())
+	}
+}
+
+func TestPutSavingsRejectsMissingRequiredEndMonth(t *testing.T) {
+	service := &fakeSavings{}
+	server := newTestServerWithServices(authenticatedTestClient(), &fakePlans{}, &fakeFinancialItems{}, service)
+	request := httptest.NewRequest(http.MethodPut, "/v1/plans/current/savings", strings.NewReader(`{"effective_from":"2026-01","amount_cents":0}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	response := httptest.NewRecorder()
+
+	server.Handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || service.putOwner != "" {
+		t.Fatalf("status=%d owner=%q body=%s", response.Code, service.putOwner, response.Body.String())
 	}
 }
 
