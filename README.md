@@ -5,8 +5,8 @@ API de planejamento financeiro pessoal em Go e Supabase.
 ## Estado
 
 - Release 0: concluída no modelo local-first;
-- Release 1: em implementação; contrato, domínio base e persistência de
-  planejamento, itens, vigências e economia concluídos.
+- Release 1: em implementação; Marcos A a D concluídos, com contrato, domínio,
+  persistência, planejamento, premissas financeiras e ativação disponíveis.
 
 Documentos:
 
@@ -54,6 +54,16 @@ GET http://localhost:8080/v1/me
 POST http://localhost:8080/v1/plans
 GET http://localhost:8080/v1/plans/current
 PATCH http://localhost:8080/v1/plans/current
+POST http://localhost:8080/v1/plans/current/activate
+GET http://localhost:8080/v1/plans/current/original
+POST http://localhost:8080/v1/plans/current/items
+GET http://localhost:8080/v1/plans/current/items
+GET http://localhost:8080/v1/plans/current/items/{item_id}
+PATCH http://localhost:8080/v1/plans/current/items/{item_id}
+POST http://localhost:8080/v1/plans/current/items/{item_id}/changes
+POST http://localhost:8080/v1/plans/current/items/{item_id}/archive
+GET http://localhost:8080/v1/plans/current/savings
+PUT http://localhost:8080/v1/plans/current/savings
 ```
 
 `/v1/me` exige:
@@ -66,6 +76,13 @@ Authorization: Bearer <supabase-access-token>
 
 ```bash
 go test ./...
+```
+
+O cenário integrado dos Marcos C e D usa o banco local:
+
+```bash
+TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable' \
+  go test -v ./internal/integration
 ```
 
 Para recriar o banco:

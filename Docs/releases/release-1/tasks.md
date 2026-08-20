@@ -101,64 +101,74 @@ Status: concluída em 13/08/2026.
 
 ### R1-T07 — Ativar planejamento
 
-- [ ] validar pré-condições;
-- [ ] criar snapshot determinístico;
-- [ ] ativar em transação;
-- [ ] tornar operação idempotente;
-- [ ] implementar consulta do original;
-- [ ] impedir alteração do snapshot;
-- [ ] testar concorrência.
+- [x] validar pré-condições;
+- [x] criar snapshot determinístico;
+- [x] ativar em transação;
+- [x] tornar operação idempotente;
+- [x] implementar consulta do original;
+- [x] impedir alteração do snapshot;
+- [x] testar concorrência.
 
 Dependências: R1-T03, R1-T06, R1-T09, R1-T11.
+
+Status: concluída em 20/08/2026.
 
 ## Marco D — Premissas financeiras
 
 ### R1-T08 — Cadastrar rendas
 
-- [ ] suportar recorrente;
-- [ ] suportar pontual;
-- [ ] suportar mês de referência;
-- [ ] suportar offset de recebimento;
-- [ ] validar horizonte;
-- [ ] expor criação e consulta;
-- [ ] testar renda defasada.
+- [x] suportar recorrente;
+- [x] suportar pontual;
+- [x] suportar mês de referência;
+- [x] suportar offset de recebimento;
+- [x] validar horizonte;
+- [x] expor criação e consulta;
+- [x] testar renda defasada.
 
 Dependências: R1-T04, R1-T06.
+
+Status: concluída em 20/08/2026.
 
 ### R1-T09 — Cadastrar despesas
 
-- [ ] suportar fixa;
-- [ ] suportar variável projetada;
-- [ ] suportar recorrente e pontual quando permitido;
-- [ ] suportar pagamento direto;
-- [ ] validar horizonte;
-- [ ] expor criação e consulta;
-- [ ] testar resultado negativo.
+- [x] suportar fixa;
+- [x] suportar variável projetada;
+- [x] suportar recorrente e pontual quando permitido;
+- [x] suportar pagamento direto;
+- [x] validar horizonte;
+- [x] expor criação e consulta;
+- [x] permitir compromissos superiores à renda (cálculo negativo em R1-T13).
 
 Dependências: R1-T04, R1-T06.
 
+Status: concluída em 20/08/2026.
+
 ### R1-T10 — Alterar vigência
 
-- [ ] implementar mudança a partir de competência;
-- [ ] encerrar período anterior;
-- [ ] rejeitar sobreposição;
-- [ ] registrar alteração retroativa;
-- [ ] implementar arquivamento;
-- [ ] preservar histórico;
-- [ ] testar julho intacto após mudança em agosto.
+- [x] implementar mudança a partir de competência;
+- [x] encerrar período anterior;
+- [x] rejeitar sobreposição;
+- [x] registrar alteração retroativa;
+- [x] implementar arquivamento;
+- [x] preservar histórico;
+- [x] testar julho intacto após mudança em agosto.
 
 Dependências: R1-T08, R1-T09.
 
+Status: concluída em 20/08/2026.
+
 ### R1-T11 — Configurar valor para guardar
 
-- [ ] criar repositório;
-- [ ] criar caso de uso;
-- [ ] implementar PUT e GET;
-- [ ] distinguir ausência de zero;
-- [ ] suportar vigência;
-- [ ] testar alteração futura.
+- [x] criar repositório;
+- [x] criar caso de uso;
+- [x] implementar PUT e GET;
+- [x] distinguir ausência de zero;
+- [x] suportar vigência;
+- [x] testar alteração futura.
 
 Dependências: R1-T05, R1-T06.
+
+Status: concluída em 20/08/2026.
 
 ## Marco E — Resultado mensal
 
