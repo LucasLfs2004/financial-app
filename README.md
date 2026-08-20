@@ -5,8 +5,9 @@ API de planejamento financeiro pessoal em Go e Supabase.
 ## Estado
 
 - Release 0: concluída no modelo local-first;
-- Release 1: em implementação; Marcos A a E concluídos, com contrato, domínio,
-  persistência, planejamento, premissas, ativação e resumo mensal disponíveis.
+- Release 1: Marcos A a F validados localmente; contrato, domínio, persistência,
+  planejamento, premissas, ativação, resumo mensal e isolamento estão
+  disponíveis. Resta apenas o smoke cloud, adiado até o provisionamento.
 
 Documentos:
 
@@ -17,11 +18,13 @@ Documentos:
 - [Release 1 — spec](./Docs/releases/release-1/spec.md);
 - [Release 1 — design](./Docs/releases/release-1/design.md);
 - [Release 1 — tasks](./Docs/releases/release-1/tasks.md);
+- [Release 1 — relatório de qualidade](./Docs/releases/release-1/quality-report.md);
 - [fluxo Git e releases](./Docs/git-release-flow.md).
 
 ## Requisitos
 
-- Go 1.24+;
+- Go 1.25+; o módulo seleciona automaticamente o toolchain Go 1.26.6,
+  que contém as correções de segurança exigidas pela Release 1;
 - Docker Desktop;
 - Supabase CLI.
 
@@ -84,6 +87,18 @@ O cenário integrado dos Marcos C a E usa o banco local:
 ```bash
 TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable' \
   go test -v ./internal/integration
+```
+
+Para incluir o cenário ponta a ponta com Auth e Data API usando o `.env` local:
+
+```bash
+set -a
+. ./.env
+set +a
+TEST_DATABASE_URL="$DATABASE_URL" \
+TEST_SUPABASE_URL="$SUPABASE_URL" \
+TEST_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+go test -count=1 -v ./internal/integration
 ```
 
 Exemplos de resumo para julho de 2026:

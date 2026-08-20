@@ -216,42 +216,49 @@ Status: concluída em 20/08/2026.
 
 ### R1-T15 — Validar isolamento ponta a ponta
 
-- [ ] criar dois usuários de teste;
-- [ ] criar planos e itens distintos;
-- [ ] tentar leitura cruzada por ID;
-- [ ] tentar alteração cruzada;
-- [ ] validar RLS pelo Data API;
-- [ ] validar ownership pela API Go.
+- [x] criar dois usuários de teste;
+- [x] criar planos e itens distintos;
+- [x] tentar leitura cruzada por ID;
+- [x] tentar alteração cruzada;
+- [x] validar RLS pelo Data API;
+- [x] validar ownership pela API Go.
 
 Dependências: R1-T06 a R1-T14.
 
+Status: concluída em 20/08/2026.
+
 ### R1-T16 — Executar cenário de aceite
 
-- [ ] cadastrar salário de R$ 6.000;
-- [ ] cadastrar R$ 2.100 de fixas;
-- [ ] cadastrar gasolina projetada de R$ 700;
-- [ ] cadastrar R$ 1.200 para guardar;
-- [ ] validar livre de R$ 2.000;
-- [ ] validar detalhamento;
-- [ ] alterar valor a partir de agosto;
-- [ ] validar julho preservado;
-- [ ] ativar e validar original.
+- [x] cadastrar salário de R$ 6.000;
+- [x] cadastrar R$ 2.100 de fixas;
+- [x] cadastrar gasolina projetada de R$ 700;
+- [x] cadastrar R$ 1.200 para guardar;
+- [x] validar livre de R$ 2.000;
+- [x] validar detalhamento;
+- [x] alterar valor a partir de agosto;
+- [x] validar julho preservado;
+- [x] ativar e validar original.
 
 Dependências: R1-T14, R1-T15.
 
+Status: concluída em 20/08/2026.
+
 ### R1-T17 — Qualidade final
 
-- [ ] executar `go test ./...`;
-- [ ] executar testes de corrida;
-- [ ] resetar banco do zero;
-- [ ] validar migrations;
-- [ ] validar OpenAPI;
-- [ ] atualizar README;
-- [ ] registrar decisões novas;
-- [ ] revisar logs para ausência de dados financeiros;
-- [ ] executar smoke test no ambiente cloud.
+- [x] executar `go test ./...`;
+- [x] executar testes de corrida;
+- [x] resetar banco do zero;
+- [x] validar migrations;
+- [x] validar OpenAPI;
+- [x] atualizar README;
+- [x] registrar decisões novas;
+- [x] revisar logs para ausência de dados financeiros;
+- [ ] executar smoke test no ambiente cloud — adiado pela decisão local-first.
 
 Dependências: todas.
+
+Status: validação local concluída em 20/08/2026; smoke cloud pendente de
+provisionamento.
 
 ## Ordem sugerida
 
