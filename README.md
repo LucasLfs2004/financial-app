@@ -8,6 +8,7 @@ API de planejamento financeiro pessoal em Go e Supabase.
 - Release 1: Marcos A a F validados localmente; contrato, domínio, persistência,
   planejamento, premissas, ativação, resumo mensal e isolamento estão
   disponíveis. Resta apenas o smoke cloud, adiado até o provisionamento.
+- Release 2: spec, design e tasks definidos; implementação ainda não iniciada.
 
 Documentos:
 
@@ -19,6 +20,9 @@ Documentos:
 - [Release 1 — design](./Docs/releases/release-1/design.md);
 - [Release 1 — tasks](./Docs/releases/release-1/tasks.md);
 - [Release 1 — relatório de qualidade](./Docs/releases/release-1/quality-report.md);
+- [Release 2 — spec](./Docs/releases/release-2/spec.md);
+- [Release 2 — design](./Docs/releases/release-2/design.md);
+- [Release 2 — tasks](./Docs/releases/release-2/tasks.md);
 - [collection Postman e trilha de validação](./Docs/postman-validation.md);
 - [fluxo Git e releases](./Docs/git-release-flow.md).
 
