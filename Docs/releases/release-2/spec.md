@@ -1,5 +1,14 @@
 # Release 2 — Spec — Por que minha fatura é esse valor?
 
+**Status:** aprovada para implementação  
+**Versão da decisão:** 1  
+**Aprovada em:** 2026-08-31
+
+Esta versão congela o escopo funcional da Release 2. Mudanças posteriores que
+alterem regras, contrato ou critérios de aceite devem ser registradas como nova
+decisão e refletidas em `design.md`, `tasks.md` e `api/openapi.yaml` antes da
+implementação correspondente.
+
 ## 1. Objetivo
 
 Entregar a segunda capacidade financeira completa da API:

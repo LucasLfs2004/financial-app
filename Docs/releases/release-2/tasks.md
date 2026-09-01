@@ -14,6 +14,7 @@ documentação proporcionais ao risco fazem parte da própria task.
 
 ## Pré-condição da release
 
+- [x] aprovar e congelar a spec funcional da Release 2;
 - [ ] promover a Release 1 para `develop` por pull request;
 - [ ] confirmar a suíte da Release 1 verde no commit-base;
 - [ ] criar as branches da R2 somente a partir desse baseline.
