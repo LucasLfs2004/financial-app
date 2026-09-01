@@ -40,6 +40,12 @@ func (repository *fakeRepository) UpdateDraft(_ context.Context, ownerID string,
 	repository.updatedInput = input
 	return repository.updateResult, repository.updateErr
 }
+func (repository *fakeRepository) Activate(context.Context, string) (Activation, error) {
+	return Activation{}, nil
+}
+func (repository *fakeRepository) FindOriginal(context.Context, string) (Snapshot, error) {
+	return Snapshot{}, nil
+}
 
 func TestCreateUsesAuthenticatedOwnerAndNormalizesName(t *testing.T) {
 	repository := &fakeRepository{createResult: samplePlan(t)}

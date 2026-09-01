@@ -30,10 +30,13 @@ type ProfileReader interface {
 }
 
 type Dependencies struct {
-	Database      Database
-	Authenticator Authenticator
-	Profiles      ProfileReader
-	Plans         PlanService
+	Database       Database
+	Authenticator  Authenticator
+	Profiles       ProfileReader
+	Plans          PlanService
+	FinancialItems FinancialItemService
+	Savings        SavingsService
+	MonthlySummary MonthlySummaryService
 }
 
 type contextKey string
@@ -61,6 +64,17 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 		dependencies.Authenticator,
 		http.HandlerFunc(updateCurrentPlanHandler(dependencies.Plans)),
 	))
+	mux.Handle("POST /v1/plans/current/activate", authenticate(dependencies.Authenticator, http.HandlerFunc(activatePlanHandler(dependencies.Plans))))
+	mux.Handle("GET /v1/plans/current/original", authenticate(dependencies.Authenticator, http.HandlerFunc(originalPlanHandler(dependencies.Plans))))
+	mux.Handle("POST /v1/plans/current/items", authenticate(dependencies.Authenticator, http.HandlerFunc(createFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("GET /v1/plans/current/items", authenticate(dependencies.Authenticator, http.HandlerFunc(listFinancialItemsHandler(dependencies.FinancialItems))))
+	mux.Handle("GET /v1/plans/current/items/{item_id}", authenticate(dependencies.Authenticator, http.HandlerFunc(getFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("PATCH /v1/plans/current/items/{item_id}", authenticate(dependencies.Authenticator, http.HandlerFunc(updateFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("POST /v1/plans/current/items/{item_id}/changes", authenticate(dependencies.Authenticator, http.HandlerFunc(changeFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("POST /v1/plans/current/items/{item_id}/archive", authenticate(dependencies.Authenticator, http.HandlerFunc(archiveFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("GET /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(getSavingsHandler(dependencies.Savings))))
+	mux.Handle("PUT /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(putSavingsHandler(dependencies.Savings))))
+	mux.Handle("GET /v1/plans/current/months/{month}/summary", authenticate(dependencies.Authenticator, http.HandlerFunc(monthlySummaryHandler(dependencies.MonthlySummary))))
 
 	handler := recoveryMiddleware(logger,
 		requestIDMiddleware(

@@ -1,0 +1,173 @@
+{
+  "info": {
+    "_postman_id": "financial-api-release-1",
+    "name": "Financial API - Release 1",
+    "description": "Fluxo de validação local da Release 1. Execute as pastas em ordem com o ambiente Financial API - Local.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "apiVersion", "value": "v1" }
+  ],
+  "item": [
+    {
+      "name": "01 - Saúde e autenticação",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('health retorna 200', function () { pm.response.to.have.status(200); });", "pm.test('status ok', function () { pm.expect(pm.response.json().status).to.eql('ok'); });"] } }]
+        },
+        {
+          "name": "Ready",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/ready" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('ready retorna 200', function () { pm.response.to.have.status(200); });", "pm.test('status ready', function () { pm.expect(pm.response.json().status).to.eql('ready'); });"] } }]
+        },
+        {
+          "name": "Supabase Auth - Sign up principal",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "apikey", "value": "{{supabasePublishableKey}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"financial-api-primary-{{$timestamp}}@example.com\",\n  \"password\": \"Release1-test-123!\"\n}" },
+            "url": "{{supabaseUrl}}/auth/v1/signup"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('signup retorna 200', function () { pm.response.to.have.status(200); });", "const body = pm.response.json();", "pm.expect(body.access_token).to.be.a('string').and.not.empty;", "pm.expect(body.user.id).to.be.a('string').and.not.empty;", "pm.environment.set('accessToken', body.access_token);", "pm.environment.set('userId', body.user.id);"] } }]
+        },
+        {
+          "name": "API - Meu perfil",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/me" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('perfil retorna 200', function () { pm.response.to.have.status(200); });", "pm.test('perfil pertence ao usuário autenticado', function () { pm.expect(pm.response.json().data.id).to.eql(pm.environment.get('userId')); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "02 - Planejamento principal",
+      "item": [
+        {
+          "name": "Criar planejamento",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Planejamento 2026\",\n  \"start_month\": \"2026-01\",\n  \"end_month\": \"2026-12\",\n  \"currency_code\": \"BRL\"\n}" }, "url": "{{baseUrl}}/v1/plans" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('planejamento criado', function () { pm.response.to.have.status(201); });", "const id = pm.response.json().data.id;", "pm.expect(id).to.be.a('string').and.not.empty;", "pm.environment.set('planId', id);"] } }]
+        },
+        {
+          "name": "Consultar planejamento atual",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('planejamento atual retorna 200', function () { pm.response.to.have.status(200); });", "pm.expect(pm.response.json().data.id).to.eql(pm.environment.get('planId'));", "pm.expect(pm.response.json().data.status).to.eql('draft');"] } }]
+        }
+      ]
+    },
+    {
+      "name": "03 - Premissas financeiras",
+      "item": [
+        {
+          "name": "Criar salário recorrente com recebimento defasado",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Salário\",\n  \"kind\": \"recurring_income\",\n  \"period\": {\n    \"start_month\": \"2026-01\",\n    \"end_month\": \"2026-12\",\n    \"amount_cents\": 600000,\n    \"recurrence\": \"monthly\",\n    \"cash_month_offset\": 1\n  }\n}" }, "url": "{{baseUrl}}/v1/plans/current/items" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('salário criado', function () { pm.response.to.have.status(201); });", "const id = pm.response.json().data.id;", "pm.environment.set('salaryId', id);"] } }]
+        },
+        {
+          "name": "Criar despesas fixas",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Despesas fixas\",\n  \"kind\": \"fixed_expense\",\n  \"period\": {\n    \"start_month\": \"2026-01\",\n    \"end_month\": \"2026-12\",\n    \"amount_cents\": 210000,\n    \"recurrence\": \"monthly\",\n    \"cash_month_offset\": 0\n  }\n}" }, "url": "{{baseUrl}}/v1/plans/current/items" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('fixas criadas', function () { pm.response.to.have.status(201); });", "pm.environment.set('fixedExpenseId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar gasolina projetada",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Gasolina\",\n  \"kind\": \"projected_variable_expense\",\n  \"period\": {\n    \"start_month\": \"2026-01\",\n    \"end_month\": \"2026-12\",\n    \"amount_cents\": 70000,\n    \"recurrence\": \"monthly\",\n    \"cash_month_offset\": 0\n  }\n}" }, "url": "{{baseUrl}}/v1/plans/current/items" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('gasolina criada', function () { pm.response.to.have.status(201); });", "pm.environment.set('variableExpenseId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Configurar R$ 1.200 para guardar",
+          "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"effective_from\": \"2026-01\",\n  \"end_month\": \"2026-12\",\n  \"amount_cents\": 120000\n}" }, "url": "{{baseUrl}}/v1/plans/current/savings" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('economia configurada', function () { pm.response.to.have.status(200); });", "pm.expect(pm.response.json().data.configured).to.eql(true);", "pm.expect(pm.response.json().data.periods[0].amount_cents).to.eql(120000);"] } }]
+        },
+        {
+          "name": "Listar premissas",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/items" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('premissas listadas', function () { pm.response.to.have.status(200); });", "pm.expect(pm.response.json().data.length).to.eql(3);"] } }]
+        },
+        {
+          "name": "Consultar economia",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/savings" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('economia consultada', function () { pm.response.to.have.status(200); });", "pm.expect(pm.response.json().data.configured).to.eql(true);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "04 - Resumo mensal",
+      "item": [
+        {
+          "name": "Resumo julho - reference",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/months/2026-07/summary?basis=reference" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const summaryPayload = pm.response.json().data;", "pm.test('reference retorna 200', function () { pm.response.to.have.status(200); });", "pm.test('resultado de julho é R$ 2.000', function () { pm.expect(summaryPayload.result_cents).to.eql(200000); });", "pm.expect(summaryPayload.income_cents).to.eql(600000);", "pm.expect(summaryPayload.commitments_cents).to.eql(280000);", "pm.expect(summaryPayload.planned_savings_cents).to.eql(120000);", "pm.expect(summaryPayload.sources.length).to.eql(4);"] } }]
+        },
+        {
+          "name": "Resumo julho - cash",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/months/2026-07/summary?basis=cash" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const cashSummaryPayload = pm.response.json().data;", "pm.test('cash retorna 200', function () { pm.response.to.have.status(200); });", "pm.test('cash também retorna R$ 2.000', function () { pm.expect(cashSummaryPayload.result_cents).to.eql(200000); });", "const salarySource = cashSummaryPayload.sources.find(function (source) { return source.item_id === pm.environment.get('salaryId'); });", "pm.test('salário de julho em cash veio da competência junho', function () { pm.expect(salarySource.reference_month).to.eql('2026-06'); pm.expect(salarySource.cash_month).to.eql('2026-07'); });"] } }]
+        },
+        {
+          "name": "Alterar salário a partir de agosto",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"effective_from\": \"2026-08\",\n  \"end_month\": \"2026-12\",\n  \"amount_cents\": 650000,\n  \"cash_month_offset\": 1\n}" }, "url": "{{baseUrl}}/v1/plans/current/items/{{salaryId}}/changes" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('alteração temporal criada', function () { pm.response.to.have.status(201); });", "pm.expect(pm.response.json().data.periods.length).to.eql(2);"] } }]
+        },
+        {
+          "name": "Julho permanece preservado",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/months/2026-07/summary?basis=reference" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('julho continua em R$ 2.000', function () { pm.response.to.have.status(200); pm.expect(pm.response.json().data.result_cents).to.eql(200000); });"] } }]
+        },
+        {
+          "name": "Agosto usa a nova renda",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/months/2026-08/summary?basis=reference" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('agosto passa a R$ 2.500', function () { pm.response.to.have.status(200); pm.expect(pm.response.json().data.result_cents).to.eql(250000); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "05 - Ativação e original",
+      "item": [
+        {
+          "name": "Ativar planejamento",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/activate" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('planejamento ativado', function () { pm.response.to.have.status(200); });", "const body = pm.response.json().data;", "pm.expect(body.plan.status).to.eql('active');", "pm.environment.set('originalSnapshotId', body.original.id);"] } }]
+        },
+        {
+          "name": "Consultar original",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/original" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('original consultado', function () { pm.response.to.have.status(200); });", "pm.expect(pm.response.json().data.id).to.eql(pm.environment.get('originalSnapshotId'));", "pm.expect(pm.response.json().data.kind).to.eql('original');"] } }]
+        },
+        {
+          "name": "Ativação repetida é idempotente",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/activate" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('segunda ativação retorna 200', function () { pm.response.to.have.status(200); });", "pm.test('mesmo snapshot original', function () { pm.expect(pm.response.json().data.original.id).to.eql(pm.environment.get('originalSnapshotId')); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "06 - Isolamento entre usuários",
+      "item": [
+        {
+          "name": "Supabase Auth - Sign up segundo usuário",
+          "request": { "method": "POST", "header": [{ "key": "apikey", "value": "{{supabasePublishableKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"financial-api-secondary-{{$timestamp}}@example.com\",\n  \"password\": \"Release1-test-123!\"\n}" }, "url": "{{supabaseUrl}}/auth/v1/signup" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('segundo signup retorna 200', function () { pm.response.to.have.status(200); });", "const body = pm.response.json();", "pm.environment.set('secondAccessToken', body.access_token);", "pm.environment.set('secondUserId', body.user.id);"] } }]
+        },
+        {
+          "name": "Criar planejamento do segundo usuário",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{secondAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Planejamento usuário 2\",\n  \"start_month\": \"2026-01\",\n  \"end_month\": \"2026-12\",\n  \"currency_code\": \"BRL\"\n}" }, "url": "{{baseUrl}}/v1/plans" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('segundo planejamento criado', function () { pm.response.to.have.status(201); });", "pm.environment.set('secondPlanId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "API Go bloqueia leitura cruzada",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{secondAccessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/items/{{salaryId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('leitura cruzada retorna 404', function () { pm.response.to.have.status(404); });"] } }]
+        },
+        {
+          "name": "API Go bloqueia alteração cruzada",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{secondAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Tentativa cruzada\"\n}" }, "url": "{{baseUrl}}/v1/plans/current/items/{{salaryId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('alteração cruzada retorna 404', function () { pm.response.to.have.status(404); });"] } }]
+        },
+        {
+          "name": "Data API/RLS bloqueia leitura cruzada",
+          "request": { "method": "GET", "header": [{ "key": "apikey", "value": "{{supabasePublishableKey}}" }, { "key": "Authorization", "value": "Bearer {{secondAccessToken}}" }], "url": "{{supabaseUrl}}/rest/v1/financial_items?id=eq.{{salaryId}}&select=id" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Data API retorna 200', function () { pm.response.to.have.status(200); });", "pm.test('RLS retorna lista vazia', function () { pm.expect(pm.response.json()).to.eql([]); });"] } }]
+        }
+      ]
+    }
+  ]
+}
