@@ -15,11 +15,17 @@ security:
   - bearerAuth: []
 tags:
   - name: Technical
+    description: Saúde do processo e disponibilidade das dependências.
   - name: Identity
+    description: Identidade e perfil do usuário autenticado.
   - name: Planning
+    description: Ciclo de vida do planejamento financeiro principal.
   - name: Financial items
+    description: Rendas, despesas projetadas e suas vigências.
   - name: Savings
+    description: Valor planejado para guardar e suas vigências.
   - name: Monthly summary
+    description: Resultado mensal explicável nas bases de caixa e competência.
 paths:
   /health:
     get:
