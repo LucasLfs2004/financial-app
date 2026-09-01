@@ -503,7 +503,7 @@ Métricas recomendadas:
 - alterações por vigência;
 - listagem e detalhe de fatura;
 - ajuste e movimentação;
-- erros e idempotência;
+- erros e concorrência;
 - isolamento entre dois usuários;
 - resumo nas duas bases;
 - fatura de transbordo.

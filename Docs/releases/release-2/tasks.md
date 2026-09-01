@@ -15,9 +15,9 @@ documentação proporcionais ao risco fazem parte da própria task.
 ## Pré-condição da release
 
 - [x] aprovar e congelar a spec funcional da Release 2;
-- [ ] promover a Release 1 para `develop` por pull request;
-- [ ] confirmar a suíte da Release 1 verde no commit-base;
-- [ ] criar as branches da R2 somente a partir desse baseline.
+- [x] promover a Release 1 para `develop` por pull request;
+- [x] confirmar a suíte da Release 1 verde no commit-base;
+- [x] criar as branches da R2 somente a partir desse baseline.
 
 O planejamento atual foi escrito sobre `feature/r1-milestone-f` porque
 `develop` ainda aponta para a fundação. Essa dependência deve ser resolvida
@@ -27,32 +27,36 @@ antes de R2-T01, sem reescrever o histórico já publicado.
 
 ### R2-T01 — Publicar contrato HTTP da Release 2
 
-- [ ] adicionar schemas de instituição, cartão e períodos de configuração;
-- [ ] adicionar forma de pagamento e histórico;
-- [ ] adicionar fatura, componente, ajuste e movimentação;
-- [ ] estender source do resumo com metadados opcionais;
-- [ ] tornar `reference_month` anulável somente para ajuste sem referência;
-- [ ] adicionar `card_invoice_adjustments_cents` ao breakdown;
-- [ ] definir paginação por intervalo, erros e exemplos;
-- [ ] validar compatibilidade e OpenAPI.
+- [x] adicionar schemas de instituição, cartão e períodos de configuração;
+- [x] adicionar forma de pagamento e histórico;
+- [x] adicionar fatura, componente, ajuste e movimentação;
+- [x] estender source do resumo com metadados opcionais;
+- [x] tornar `reference_month` anulável somente para ajuste sem referência;
+- [x] adicionar `card_invoice_adjustments_cents` ao breakdown;
+- [x] definir paginação por intervalo, erros e exemplos;
+- [x] validar compatibilidade e OpenAPI.
 
 Dependências: Release 1 promovida para `develop`.
 
 Aceite: todos os endpoints e enums da spec estão congelados antes dos handlers.
 
+Status: concluída em 01/09/2026.
+
 ### R2-T02 — Implementar tipos e projetor puro
 
-- [ ] criar enums de status, método, componente, alocação e resolução de data;
-- [ ] validar dia nominal e offset;
-- [ ] implementar cálculo do mês padrão;
-- [ ] implementar resolução do vencimento nominal;
-- [ ] modelar identidade `item + reference_month`;
-- [ ] implementar soma segura e ordenação determinística;
-- [ ] testar meses inválidos, virada de ano e overflow.
+- [x] criar enums de status, método, componente, alocação e resolução de data;
+- [x] validar dia nominal e offset;
+- [x] implementar cálculo do mês padrão;
+- [x] implementar resolução do vencimento nominal;
+- [x] modelar identidade `item + reference_month`;
+- [x] implementar soma segura e ordenação determinística;
+- [x] testar meses inválidos, virada de ano e overflow.
 
 Dependências: R2-T01.
 
 Aceite: nenhuma regra de projeção depende de HTTP ou Postgres.
+
+Status: concluída em 01/09/2026.
 
 ## Marco B — Persistência
 
