@@ -121,16 +121,19 @@ Status: concluída em 01/09/2026.
 
 ### R2-T06 — Implementar instituições financeiras
 
-- [ ] implementar repositório e casos de uso;
-- [ ] organizar domínio, aplicação, persistência e transporte como módulo de
+- [x] implementar repositório e casos de uso;
+- [x] organizar domínio, aplicação, persistência e transporte como módulo de
   referência para as novas features da R2;
-- [ ] criar, listar e editar;
-- [ ] arquivar preservando histórico;
-- [ ] rejeitar arquivamento com cartão ativo;
-- [ ] registrar as rotas do recurso sem ampliar o registro central do servidor;
-- [ ] testar duplicidade e ownership.
+- [x] criar, listar e editar;
+- [x] arquivar preservando histórico;
+- [x] rejeitar arquivamento com cartão ativo;
+- [x] registrar as rotas do recurso sem ampliar o registro central do servidor;
+- [~] testar duplicidade e ownership.
 
 Dependências: R2-T01, R2-T03.
+
+Status: em andamento; testes unitários e de transporte aprovados, com cenário
+PostgreSQL preparado e execução local pendente de Docker/Supabase disponível.
 
 ### R2-T07 — Implementar cartões e configurações
 
