@@ -13,8 +13,13 @@ branches longas para cada funcionalidade.
 | `main` | código aprovado que representa produção | produção |
 | `develop` | integração das próximas entregas | staging |
 
-Nenhuma das duas aceita push direto. Toda alteração deve entrar por pull
+`main` não aceita push direto. Toda alteração de produção deve entrar por pull
 request com os checks aplicáveis aprovados.
+
+`develop` usa pull request como fluxo padrão. Excepcionalmente, o agente pode
+realizar merge local e push direto para `develop` quando o usuário autorizar
+isso de forma explícita no prompt atual. Essa autorização é pontual: nunca é
+inferida, reaproveitada em outra operação ou aplicada a `main`.
 
 ## Branches de trabalho
 
@@ -80,6 +85,11 @@ Fluxo normal:
 5. validar CI, revisão, migrations e critérios de aceite;
 6. realizar squash merge, mantendo o título do PR como Conventional Commit.
 
+Quando houver autorização explícita para a exceção de `develop`, o agente deve
+antes atualizar a referência remota, validar a ausência de conflitos, executar
+os checks aplicáveis e registrar no handoff que o merge local foi feito sob
+essa autorização. A exceção não elimina as validações técnicas.
+
 PRs de release partem de `develop` para `main`. Devem informar impacto, riscos,
 evidências de teste, mudanças de banco ou configuração e rollback.
 
@@ -142,5 +152,5 @@ Para implantar o fluxo pela primeira vez:
    `develop`;
 5. aplicar o fluxo padrão a partir desse ponto.
 
-Essa etapa de bootstrap é uma exceção única. Depois dela, nenhum push direto em
-`main` ou `develop` é permitido.
+Essa etapa de bootstrap é uma exceção histórica. Depois dela, `main` não aceita
+push direto e `develop` segue a política de exceção explícita documentada acima.

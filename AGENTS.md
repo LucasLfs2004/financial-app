@@ -14,8 +14,11 @@ Regras essenciais:
 
 - `main` representa produção;
 - `develop` representa integração e staging;
-- alterações entram por pull request, nunca por push direto em `main` ou
-  `develop`;
+- alterações entram por pull request como fluxo padrão;
+- `main` nunca recebe push direto: alterações entram somente por pull request;
+- `develop` pode receber merge local e push direto exclusivamente quando o
+  usuário autorizar de forma clara no prompt atual; essa exceção nunca deve
+  ser inferida, reutilizada automaticamente ou aplicada a `main`;
 - branches novas seguem `feature/*`, `fix/*`, `hotfix/*`, `chore/*`, `docs/*`,
   `refactor/*` ou, quando realmente necessário, `release/*`;
 - commits e títulos de PR seguem Conventional Commits;

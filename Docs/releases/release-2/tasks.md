@@ -62,40 +62,46 @@ Status: concluída em 01/09/2026.
 
 ### R2-T03 — Criar migration de instituições e cartões
 
-- [ ] criar enums compartilhados;
-- [ ] criar `financial_institutions`;
-- [ ] criar `credit_cards`;
-- [ ] criar `credit_card_periods`;
-- [ ] adicionar FKs compostas, índices e constraints;
-- [ ] impedir períodos sobrepostos;
-- [ ] adicionar RLS e grants mínimos;
-- [ ] testar ownership, nomes ativos e vigências.
+- [x] criar enums compartilhados;
+- [x] criar `financial_institutions`;
+- [x] criar `credit_cards`;
+- [x] criar `credit_card_periods`;
+- [x] adicionar FKs compostas, índices e constraints;
+- [x] impedir períodos sobrepostos;
+- [x] adicionar RLS e grants mínimos;
+- [x] testar ownership, nomes ativos e vigências.
 
 Dependências: R2-T02.
 
+Status: concluída em 01/09/2026.
+
 ### R2-T04 — Criar migration de métodos de pagamento
 
-- [ ] criar `payment_method_kind`;
-- [ ] criar `financial_item_payment_periods`;
-- [ ] validar cartão obrigatório ou nulo conforme método;
-- [ ] impedir vínculo de renda;
-- [ ] impedir sobreposição;
-- [ ] adicionar FKs compostas, índices e RLS;
-- [ ] testar fallback direto sem linha.
+- [x] criar `payment_method_kind`;
+- [x] criar `financial_item_payment_periods`;
+- [x] validar cartão obrigatório ou nulo conforme método;
+- [x] impedir vínculo de renda;
+- [x] impedir sobreposição;
+- [x] adicionar FKs compostas, índices e RLS;
+- [x] testar fallback direto sem linha.
 
 Dependências: R2-T02, R2-T03.
+
+Status: concluída em 01/09/2026.
 
 ### R2-T05 — Criar migration de ajustes e auditoria
 
-- [ ] criar `card_invoice_adjustments`;
-- [ ] criar `card_invoice_audit_events`;
-- [ ] adicionar constraints de meses e dinheiro;
-- [ ] bloquear update/delete de eventos;
-- [ ] adicionar índices de fatura, referência e última movimentação;
-- [ ] adicionar RLS e grants mínimos;
-- [ ] testar append-only e isolamento.
+- [x] criar `card_invoice_adjustments`;
+- [x] criar `card_invoice_audit_events`;
+- [x] adicionar constraints de meses e dinheiro;
+- [x] bloquear update/delete de eventos;
+- [x] adicionar índices de fatura, referência e última movimentação;
+- [x] adicionar RLS e grants mínimos;
+- [x] testar append-only e isolamento.
 
 Dependências: R2-T02, R2-T03.
+
+Status: concluída em 01/09/2026.
 
 ## Marco C — Cadastro de cartões
 
