@@ -40,27 +40,97 @@ func (repository *PostgresRepository) Create(ctx context.Context, ownerID, planI
 }
 
 func (repository *PostgresRepository) List(ctx context.Context, ownerID, planID string, filters Filters) ([]Item, error) {
-	rows, err := repository.pool.Query(ctx, `select id,plan_id,name,kind,description,status,archived_at,created_at,updated_at from public.financial_items where user_id=$1 and plan_id=$2 and ($3::financial_item_kind is null or kind=$3) and ($4::financial_item_status is null or status=$4) order by created_at,id`, ownerID, planID, enumValue(filters.Kind), enumValue(filters.Status))
+	rows, err := repository.pool.Query(ctx, `
+		select
+			i.id, i.plan_id, i.name, i.kind, i.description, i.status,
+			i.archived_at, i.created_at, i.updated_at,
+			p.id, p.start_month, p.end_month, p.amount_cents, p.recurrence,
+			p.cash_month_offset, p.context, p.recorded_at, p.created_at
+		from public.financial_items i
+		left join public.financial_item_periods p
+			on p.financial_item_id = i.id
+			and p.plan_id = i.plan_id
+			and p.user_id = i.user_id
+		where i.user_id = $1
+			and i.plan_id = $2
+			and ($3::financial_item_kind is null or i.kind = $3)
+			and ($4::financial_item_status is null or i.status = $4)
+		order by i.created_at, i.id, p.start_month, p.id
+	`, ownerID, planID, enumValue(filters.Kind), enumValue(filters.Status))
 	if err != nil {
 		return nil, fmt.Errorf("list items: %w", err)
 	}
 	defer rows.Close()
+
 	items := []Item{}
+	itemIndexes := make(map[string]int)
 	for rows.Next() {
-		item, err := scanItem(rows)
-		if err != nil {
-			return nil, fmt.Errorf("scan item: %w", err)
+		var item Item
+		var kind, status string
+		var periodID *string
+		var periodStart, periodEnd *time.Time
+		var periodAmount *int64
+		var recurrence *string
+		var cashMonthOffset *int
+		var periodContext *string
+		var recordedAt, periodCreatedAt *time.Time
+
+		if err := rows.Scan(
+			&item.ID, &item.PlanID, &item.Name, &kind, &item.Description, &status,
+			&item.ArchivedAt, &item.CreatedAt, &item.UpdatedAt,
+			&periodID, &periodStart, &periodEnd, &periodAmount, &recurrence,
+			&cashMonthOffset, &periodContext, &recordedAt, &periodCreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan listed item: %w", err)
 		}
-		items = append(items, item)
+
+		item.Kind, err = domain.ParseFinancialItemKind(kind)
+		if err != nil {
+			return nil, fmt.Errorf("parse listed item kind: %w", err)
+		}
+		item.Status, err = domain.ParseFinancialItemStatus(status)
+		if err != nil {
+			return nil, fmt.Errorf("parse listed item status: %w", err)
+		}
+		item.Periods = []Period{}
+
+		index, exists := itemIndexes[item.ID]
+		if !exists {
+			index = len(items)
+			itemIndexes[item.ID] = index
+			items = append(items, item)
+		}
+
+		if periodID == nil {
+			continue
+		}
+		if periodStart == nil || periodAmount == nil || recurrence == nil || cashMonthOffset == nil || recordedAt == nil || periodCreatedAt == nil {
+			return nil, fmt.Errorf("scan listed item: incomplete period %s", *periodID)
+		}
+
+		startMonth, err := domain.NewYearMonth(periodStart.Year(), periodStart.Month())
+		if err != nil {
+			return nil, fmt.Errorf("parse listed period start month: %w", err)
+		}
+		parsedRecurrence, err := domain.ParseRecurrence(*recurrence)
+		if err != nil {
+			return nil, fmt.Errorf("parse listed period recurrence: %w", err)
+		}
+
+		items[index].Periods = append(items[index].Periods, Period{
+			ID:              *periodID,
+			StartMonth:      startMonth,
+			EndMonth:        parsedMonth(periodEnd),
+			AmountCents:     *periodAmount,
+			Recurrence:      parsedRecurrence,
+			CashMonthOffset: *cashMonthOffset,
+			Context:         periodContext,
+			RecordedAt:      *recordedAt,
+			CreatedAt:       *periodCreatedAt,
+		})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list items: %w", err)
-	}
-	for index := range items {
-		items[index].Periods, err = repository.periods(ctx, repository.pool, ownerID, planID, items[index].ID)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return items, nil
 }
