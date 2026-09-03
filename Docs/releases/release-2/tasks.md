@@ -23,6 +23,20 @@ O planejamento atual foi escrito sobre `feature/r1-milestone-f` porque
 `develop` ainda aponta para a fundação. Essa dependência deve ser resolvida
 antes de R2-T01, sem reescrever o histórico já publicado.
 
+## Preparação arquitetural incremental
+
+- [x] eliminar o N+1 da listagem de itens e períodos financeiros antes do
+  Marco C, mantendo uma única consulta e a ordenação determinística;
+- [ ] alinhar a imagem de build com o toolchain Go declarado no módulo e
+  atualizar o estado da R2 no `README.md` até o encerramento do Marco C;
+- [ ] avaliar, antes do encerramento da release, a extração de `Money`,
+  `YearMonth` e `MonthInterval` para um pacote financeiro compartilhado, sem
+  ampliar a refatoração caso não haja benefício líquido nesta release.
+
+Esses ajustes seguem a estratégia incremental: código novo adota o padrão
+modular e código estável da Release 1 só é reorganizado quando a task que o
+consome já precisa tocá-lo.
+
 ## Marco A — Contrato e domínio
 
 ### R2-T01 — Publicar contrato HTTP da Release 2
@@ -108,9 +122,12 @@ Status: concluída em 01/09/2026.
 ### R2-T06 — Implementar instituições financeiras
 
 - [ ] implementar repositório e casos de uso;
+- [ ] organizar domínio, aplicação, persistência e transporte como módulo de
+  referência para as novas features da R2;
 - [ ] criar, listar e editar;
 - [ ] arquivar preservando histórico;
 - [ ] rejeitar arquivamento com cartão ativo;
+- [ ] registrar as rotas do recurso sem ampliar o registro central do servidor;
 - [ ] testar duplicidade e ownership.
 
 Dependências: R2-T01, R2-T03.
@@ -118,6 +135,8 @@ Dependências: R2-T01, R2-T03.
 ### R2-T07 — Implementar cartões e configurações
 
 - [ ] criar cartão e período inicial em transação;
+- [ ] manter domínio, aplicação, persistência e transporte separados conforme
+  o módulo de referência da R2-T06;
 - [ ] listar e consultar cartão;
 - [ ] editar nome mantendo a instituição imutável;
 - [ ] alterar vencimento/offset a partir de um mês;
@@ -156,6 +175,8 @@ Dependências: R2-T05, R2-T07, R2-T08.
 
 ### R2-T10 — Implementar seleção de componentes
 
+- [ ] dividir o projetor puro de `cardinvoice` em arquivos coesos antes de
+  ampliar suas responsabilidades, sem alterar comportamento existente;
 - [ ] selecionar ocorrências financeiras por referência;
 - [ ] resolver método aplicável;
 - [ ] derivar mês padrão pelo cartão;
@@ -194,6 +215,8 @@ Dependências: R2-T07, R2-T10, R2-T11.
 
 ### R2-T13 — Integrar cartões ao resumo mensal
 
+- [ ] usar o value object `Money` nas somas e subtrações do resumo, removendo
+  os helpers aritméticos duplicados;
 - [ ] preservar seleção da Release 1 para rendas e despesas diretas;
 - [ ] excluir ocorrência de cartão do caminho direto em `cash`;
 - [ ] incluir componentes de fatura como sources;
