@@ -1,13 +1,15 @@
 openapi: 3.1.0
 info:
   title: Financial API
-  version: 1.0.0-draft
+  version: 2.0.0-draft
   description: |
     API de planejamento financeiro pessoal.
 
     A Release 1 permite criar um planejamento principal, cadastrar rendas e
     despesas projetadas, definir quanto guardar e consultar um resumo mensal
-    explicável pelas bases de competência (`reference`) e caixa (`cash`).
+    explicável pelas bases de competência (`reference`) e caixa (`cash`). A
+    Release 2 adiciona instituições, cartões, vínculos temporais e faturas
+    projetadas sem exigir o registro de compras individuais.
 servers:
   - url: http://localhost:8080
     description: Ambiente local
@@ -15,11 +17,25 @@ security:
   - bearerAuth: []
 tags:
   - name: Technical
+    description: Saúde do processo e disponibilidade das dependências.
   - name: Identity
+    description: Identidade e perfil do usuário autenticado.
   - name: Planning
+    description: Ciclo de vida do planejamento financeiro principal.
   - name: Financial items
+    description: Rendas, despesas projetadas e suas vigências.
   - name: Savings
+    description: Valor planejado para guardar e suas vigências.
+  - name: Financial institutions
+    description: Instituições financeiras pertencentes ao usuário autenticado.
+  - name: Credit cards
+    description: Cartões e configurações mensais de vencimento e pagamento.
+  - name: Payment methods
+    description: Forma de pagamento das despesas por período de vigência.
+  - name: Card invoices
+    description: Faturas projetadas, ajustes e movimentações auditáveis.
   - name: Monthly summary
+    description: Resultado mensal explicável nas bases de caixa e competência.
 paths:
   /health:
     get:
@@ -467,6 +483,641 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /v1/financial-institutions:
+    post:
+      operationId: createFinancialInstitution
+      tags: [Financial institutions]
+      summary: Cadastrar uma instituição financeira
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinancialInstitutionRequest"
+            example:
+              name: Nubank
+      responses:
+        "201":
+          description: Instituição criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialInstitutionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: listFinancialInstitutions
+      tags: [Financial institutions]
+      summary: Listar instituições financeiras
+      parameters:
+        - $ref: "#/components/parameters/FinancialResourceStatusFilter"
+      responses:
+        "200":
+          description: Instituições do usuário autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialInstitutionListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/financial-institutions/{institution_id}:
+    parameters:
+      - $ref: "#/components/parameters/InstitutionID"
+    patch:
+      operationId: updateFinancialInstitution
+      tags: [Financial institutions]
+      summary: Alterar o nome de uma instituição ativa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinancialInstitutionRequest"
+      responses:
+        "200":
+          description: Instituição atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialInstitutionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/financial-institutions/{institution_id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/InstitutionID"
+    post:
+      operationId: archiveFinancialInstitution
+      tags: [Financial institutions]
+      summary: Arquivar uma instituição sem apagar seu histórico
+      description: A operação é rejeitada enquanto existir cartão ativo.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveResourceRequest"
+      responses:
+        "200":
+          description: Instituição arquivada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialInstitutionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards:
+    post:
+      operationId: createCreditCard
+      tags: [Credit cards]
+      summary: Cadastrar um cartão e sua configuração inicial
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardRequest"
+            example:
+              institution_id: 10acebec-c6ce-41f2-8732-f4ed622a7d51
+              name: Principal
+              configuration:
+                effective_from: 2026-01
+                end_month: null
+                nominal_due_day: 6
+                payment_month_offset: 1
+                context: Fatura paga no mês seguinte
+      responses:
+        "201":
+          description: Cartão criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/DomainRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: listCreditCards
+      tags: [Credit cards]
+      summary: Listar cartões do usuário autenticado
+      parameters:
+        - $ref: "#/components/parameters/FinancialResourceStatusFilter"
+      responses:
+        "200":
+          description: Cartões encontrados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+    get:
+      operationId: getCreditCard
+      tags: [Credit cards]
+      summary: Consultar um cartão e suas configurações
+      responses:
+        "200":
+          description: Cartão encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    patch:
+      operationId: updateCreditCard
+      tags: [Credit cards]
+      summary: Alterar o nome de um cartão ativo
+      description: A instituição pai é imutável depois da criação.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditCardRequest"
+      responses:
+        "200":
+          description: Cartão atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}/changes:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+    post:
+      operationId: changeCreditCardConfiguration
+      tags: [Credit cards]
+      summary: Alterar vencimento ou offset a partir de um mês
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardConfigurationChangeRequest"
+      responses:
+        "201":
+          description: Novo período de configuração criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/PeriodOverlap"
+        "422":
+          $ref: "#/components/responses/DomainRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+    post:
+      operationId: archiveCreditCard
+      tags: [Credit cards]
+      summary: Arquivar um cartão sem apagar suas faturas históricas
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveResourceRequest"
+      responses:
+        "200":
+          description: Cartão arquivado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/items/{item_id}/payment-changes:
+    parameters:
+      - $ref: "#/components/parameters/ItemID"
+    post:
+      operationId: changeFinancialItemPaymentMethod
+      tags: [Payment methods]
+      summary: Alterar a forma de pagamento de uma despesa por vigência
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentMethodChangeRequest"
+            examples:
+              creditCard:
+                value:
+                  effective_from: 2026-08
+                  end_month: null
+                  method: credit_card
+                  credit_card_id: 0f9410d7-d545-4440-a574-b37836487c3c
+                  context: Usar o cartão principal
+              direct:
+                value:
+                  effective_from: 2026-10
+                  end_month: null
+                  method: direct
+                  credit_card_id: null
+      responses:
+        "201":
+          description: Novo período de pagamento criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodHistoryResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/PeriodOverlap"
+        "422":
+          $ref: "#/components/responses/DomainRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/items/{item_id}/payment-history:
+    parameters:
+      - $ref: "#/components/parameters/ItemID"
+    get:
+      operationId: getFinancialItemPaymentHistory
+      tags: [Payment methods]
+      summary: Consultar o histórico de formas de pagamento
+      responses:
+        "200":
+          description: Histórico ordenado por vigência
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodHistoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}/invoices:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+    get:
+      operationId: listCreditCardInvoices
+      tags: [Card invoices]
+      summary: Listar faturas projetadas em um intervalo
+      description: |
+        O intervalo é inclusivo e limitado a 24 meses. Meses vazios são
+        omitidos, salvo quando `include_empty=true`.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceFromMonth"
+        - $ref: "#/components/parameters/InvoiceToMonth"
+        - $ref: "#/components/parameters/IncludeEmptyInvoices"
+      responses:
+        "200":
+          description: Faturas projetadas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardInvoiceListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/InvoiceOutsideOperationalHorizon"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}/invoices/{payment_month}:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+      - $ref: "#/components/parameters/PaymentMonth"
+    get:
+      operationId: getCreditCardInvoice
+      tags: [Card invoices]
+      summary: Consultar uma fatura projetada e sua composição
+      responses:
+        "200":
+          description: Fatura projetada, inclusive quando seu total for zero
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardInvoiceResponse"
+              example:
+                data:
+                  card_id: 0f9410d7-d545-4440-a574-b37836487c3c
+                  card_name: Principal
+                  institution:
+                    id: 10acebec-c6ce-41f2-8732-f4ed622a7d51
+                    name: Nubank
+                    status: active
+                    archived_at: null
+                    created_at: "2026-01-02T12:00:00Z"
+                    updated_at: "2026-01-02T12:00:00Z"
+                  payment_month: 2026-12
+                  nominal_due_day: 6
+                  nominal_due_date: "2026-12-06"
+                  nominal_due_date_resolution: exact
+                  currency_code: BRL
+                  projected_total_cents: 88000
+                  component_count: 2
+                  components:
+                    - source_id: 9f3cba5a-621f-4bfa-b4a0-62341ff02a54
+                      source_type: financial_item_occurrence
+                      item_id: f449925d-ab01-4a45-b084-612228bce21f
+                      adjustment_id: null
+                      name: Gasolina
+                      reference_month: 2026-11
+                      reference_known: true
+                      payment_month: 2026-12
+                      amount_cents: 70000
+                      allocation: calculated_from_reference
+                    - source_id: a53ed8fb-9a72-4633-8268-8af939f25026
+                      source_type: invoice_adjustment
+                      item_id: null
+                      adjustment_id: a53ed8fb-9a72-4633-8268-8af939f25026
+                      name: Ajuste da fatura
+                      reference_month: null
+                      reference_known: false
+                      payment_month: 2026-12
+                      amount_cents: 18000
+                      allocation: selected_invoice
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/InvoiceOutsideOperationalHorizon"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}/invoices/{payment_month}/adjustments:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+      - $ref: "#/components/parameters/PaymentMonth"
+    post:
+      operationId: createCardInvoiceAdjustment
+      tags: [Card invoices]
+      summary: Adicionar uma cobrança consolidada diretamente à fatura
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCardInvoiceAdjustmentRequest"
+            examples:
+              unknownReference:
+                value:
+                  name: Ajuste da fatura
+                  amount_cents: 18000
+                  reference_month: null
+                  context: Competência desconhecida
+      responses:
+        "201":
+          description: Ajuste criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardInvoiceAdjustmentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/DomainRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}/invoices/{payment_month}/adjustments/{adjustment_id}:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+      - $ref: "#/components/parameters/PaymentMonth"
+      - $ref: "#/components/parameters/AdjustmentID"
+    patch:
+      operationId: updateCardInvoiceAdjustment
+      tags: [Card invoices]
+      summary: Alterar um ajuste preservando auditoria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCardInvoiceAdjustmentRequest"
+      responses:
+        "200":
+          description: Ajuste atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardInvoiceAdjustmentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/DomainRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/credit-cards/{card_id}/invoices/{payment_month}/adjustments/{adjustment_id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/CardID"
+      - $ref: "#/components/parameters/PaymentMonth"
+      - $ref: "#/components/parameters/AdjustmentID"
+    post:
+      operationId: archiveCardInvoiceAdjustment
+      tags: [Card invoices]
+      summary: Arquivar um ajuste preservando auditoria
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveResourceRequest"
+      responses:
+        "200":
+          description: Ajuste arquivado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardInvoiceAdjustmentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/plans/current/items/{item_id}/occurrences/{reference_month}/invoice-moves:
+    parameters:
+      - $ref: "#/components/parameters/ItemID"
+      - $ref: "#/components/parameters/ReferenceMonth"
+    post:
+      operationId: moveFinancialItemOccurrenceInvoice
+      tags: [Card invoices]
+      summary: Mover uma ocorrência para outra fatura
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceOccurrenceMoveRequest"
+            example:
+              target_credit_card_id: 0f9410d7-d545-4440-a574-b37836487c3c
+              target_payment_month: 2027-01
+              reason: Compra processada no ciclo seguinte
+      responses:
+        "201":
+          description: Movimentação registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceOccurrenceMoveHistoryResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/DomainRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: getFinancialItemOccurrenceInvoiceMoveHistory
+      tags: [Card invoices]
+      summary: Consultar o histórico de movimentações da ocorrência
+      responses:
+        "200":
+          description: Histórico ordenado por registro
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceOccurrenceMoveHistoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/plans/current/months/{month}/summary:
     get:
       operationId: getMonthlySummary
@@ -506,6 +1157,7 @@ paths:
                         one_time_income_cents: 0
                         fixed_expenses_cents: 210000
                         projected_variable_expenses_cents: 70000
+                        card_invoice_adjustments_cents: 0
                       sources:
                         - source_id: 1960b556-1201-4bc0-8292-b4adc600bc5e
                           item_id: f449925d-ab01-4a45-b084-612228bce21f
@@ -534,6 +1186,27 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    InstitutionID:
+      name: institution_id
+      in: path
+      required: true
+      description: Instituição pertencente ao usuário autenticado.
+      schema:
+        $ref: "#/components/schemas/UUID"
+    CardID:
+      name: card_id
+      in: path
+      required: true
+      description: Cartão pertencente ao usuário autenticado.
+      schema:
+        $ref: "#/components/schemas/UUID"
+    AdjustmentID:
+      name: adjustment_id
+      in: path
+      required: true
+      description: Ajuste pertencente à fatura indicada na rota.
+      schema:
+        $ref: "#/components/schemas/UUID"
     ItemID:
       name: item_id
       in: path
@@ -549,6 +1222,42 @@ components:
       description: Competência mensal no formato `AAAA-MM`.
       schema:
         $ref: "#/components/schemas/YearMonth"
+    ReferenceMonth:
+      name: reference_month
+      in: path
+      required: true
+      description: Competência que identifica a ocorrência do item.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
+    PaymentMonth:
+      name: payment_month
+      in: path
+      required: true
+      description: Mês de pagamento que identifica a fatura projetada.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
+    InvoiceFromMonth:
+      name: from
+      in: query
+      required: true
+      description: Primeiro mês do intervalo inclusivo de faturas.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
+    InvoiceToMonth:
+      name: to
+      in: query
+      required: true
+      description: Último mês do intervalo inclusivo de faturas.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
+    IncludeEmptyInvoices:
+      name: include_empty
+      in: query
+      required: false
+      description: Inclui meses sem componentes quando verdadeiro.
+      schema:
+        type: boolean
+        default: false
     SummaryBasis:
       name: basis
       in: query
@@ -568,6 +1277,12 @@ components:
       required: false
       schema:
         $ref: "#/components/schemas/FinancialItemStatus"
+    FinancialResourceStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/FinancialResourceStatus"
   schemas:
     Status:
       type: object
@@ -611,6 +1326,27 @@ components:
     FinancialItemStatus:
       type: string
       enum: [active, archived]
+    FinancialResourceStatus:
+      type: string
+      enum: [active, archived]
+    PaymentMethod:
+      type: string
+      enum: [direct, credit_card]
+    CardInvoiceComponentType:
+      type: string
+      enum: [financial_item_occurrence, invoice_adjustment]
+    InvoiceAllocationOrigin:
+      type: string
+      enum: [calculated_from_reference, selected_invoice, moved_by_user]
+    NominalDueDateResolution:
+      type: string
+      enum: [exact, invalid_for_month]
+    InvoiceAdjustmentStatus:
+      type: string
+      enum: [active, archived]
+    SummarySourceType:
+      type: string
+      enum: [financial_item_occurrence, planned_savings, invoice_adjustment]
     Recurrence:
       type: string
       enum: [monthly, once]
@@ -982,6 +1718,583 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/PlannedSavings"
+    FinancialInstitution:
+      type: object
+      additionalProperties: false
+      required: [id, name, status, archived_at, created_at, updated_at]
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          $ref: "#/components/schemas/FinancialResourceStatus"
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateFinancialInstitutionRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    UpdateFinancialInstitutionRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    FinancialInstitutionResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/FinancialInstitution"
+    FinancialInstitutionListResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FinancialInstitution"
+    ArchiveResourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: [string, "null"]
+          maxLength: 500
+    CreditCardConfigurationInput:
+      type: object
+      additionalProperties: false
+      required: [effective_from, end_month, nominal_due_day, payment_month_offset]
+      properties:
+        effective_from:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        nominal_due_day:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 31
+        payment_month_offset:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 12
+          default: 1
+        context:
+          type: [string, "null"]
+          maxLength: 500
+    CreditCardConfigurationPeriod:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - start_month
+        - end_month
+        - nominal_due_day
+        - payment_month_offset
+        - context
+        - recorded_at
+        - created_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        nominal_due_day:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 31
+        payment_month_offset:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 12
+        context:
+          type: [string, "null"]
+          maxLength: 500
+        recorded_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    CreditCard:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - institution
+        - name
+        - status
+        - archived_at
+        - configurations
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        institution:
+          $ref: "#/components/schemas/FinancialInstitution"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          $ref: "#/components/schemas/FinancialResourceStatus"
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+        configurations:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/CreditCardConfigurationPeriod"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateCreditCardRequest:
+      type: object
+      additionalProperties: false
+      required: [institution_id, name, configuration]
+      properties:
+        institution_id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        configuration:
+          $ref: "#/components/schemas/CreditCardConfigurationInput"
+    UpdateCreditCardRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    CreateCreditCardConfigurationChangeRequest:
+      $ref: "#/components/schemas/CreditCardConfigurationInput"
+    CreditCardResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CreditCard"
+    CreditCardListResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCard"
+    PaymentMethodPeriod:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - financial_item_id
+        - start_month
+        - end_month
+        - method
+        - credit_card_id
+        - context
+        - recorded_at
+        - created_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        financial_item_id:
+          $ref: "#/components/schemas/UUID"
+        start_month:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        method:
+          $ref: "#/components/schemas/PaymentMethod"
+        credit_card_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+        recorded_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    CreatePaymentMethodChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [effective_from, end_month, method, credit_card_id]
+      properties:
+        effective_from:
+          $ref: "#/components/schemas/YearMonth"
+        end_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        method:
+          $ref: "#/components/schemas/PaymentMethod"
+        credit_card_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+    PaymentMethodHistory:
+      type: object
+      additionalProperties: false
+      required: [financial_item_id, default_method, periods]
+      properties:
+        financial_item_id:
+          $ref: "#/components/schemas/UUID"
+        default_method:
+          type: string
+          const: direct
+        periods:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentMethodPeriod"
+    PaymentMethodHistoryResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/PaymentMethodHistory"
+    CardInvoiceComponent:
+      type: object
+      additionalProperties: false
+      required:
+        - source_id
+        - source_type
+        - item_id
+        - adjustment_id
+        - name
+        - reference_month
+        - reference_known
+        - payment_month
+        - amount_cents
+        - allocation
+      properties:
+        source_id:
+          $ref: "#/components/schemas/UUID"
+        source_type:
+          $ref: "#/components/schemas/CardInvoiceComponentType"
+        item_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        adjustment_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        reference_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        reference_known:
+          type: boolean
+        payment_month:
+          $ref: "#/components/schemas/YearMonth"
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        allocation:
+          $ref: "#/components/schemas/InvoiceAllocationOrigin"
+    CardInvoiceSummary:
+      type: object
+      required:
+        - card_id
+        - card_name
+        - institution
+        - payment_month
+        - nominal_due_day
+        - nominal_due_date
+        - nominal_due_date_resolution
+        - currency_code
+        - projected_total_cents
+        - component_count
+      properties:
+        card_id:
+          $ref: "#/components/schemas/UUID"
+        card_name:
+          type: string
+        institution:
+          $ref: "#/components/schemas/FinancialInstitution"
+        payment_month:
+          $ref: "#/components/schemas/YearMonth"
+        nominal_due_day:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 31
+        nominal_due_date:
+          type: [string, "null"]
+          format: date
+        nominal_due_date_resolution:
+          $ref: "#/components/schemas/NominalDueDateResolution"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+        projected_total_cents:
+          $ref: "#/components/schemas/AmountCents"
+        component_count:
+          type: integer
+          format: int32
+          minimum: 0
+    CardInvoice:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: "#/components/schemas/CardInvoiceSummary"
+        - type: object
+          required: [components]
+          properties:
+            components:
+              type: array
+              items:
+                $ref: "#/components/schemas/CardInvoiceComponent"
+    CardInvoiceResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CardInvoice"
+    CardInvoiceListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, range]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardInvoiceSummary"
+        range:
+          $ref: "#/components/schemas/MonthRange"
+    MonthRange:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from:
+          $ref: "#/components/schemas/YearMonth"
+        to:
+          $ref: "#/components/schemas/YearMonth"
+    CardInvoiceAdjustment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - card_id
+        - payment_month
+        - reference_month
+        - name
+        - amount_cents
+        - context
+        - status
+        - archived_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        card_id:
+          $ref: "#/components/schemas/UUID"
+        payment_month:
+          $ref: "#/components/schemas/YearMonth"
+        reference_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+        status:
+          $ref: "#/components/schemas/InvoiceAdjustmentStatus"
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateCardInvoiceAdjustmentRequest:
+      type: object
+      additionalProperties: false
+      required: [name, amount_cents, reference_month]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        reference_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+    UpdateCardInvoiceAdjustmentRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        amount_cents:
+          $ref: "#/components/schemas/AmountCents"
+        reference_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+        reason:
+          type: [string, "null"]
+          maxLength: 500
+    CardInvoiceAdjustmentResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CardInvoiceAdjustment"
+    CreateInvoiceOccurrenceMoveRequest:
+      type: object
+      additionalProperties: false
+      required: [target_credit_card_id, target_payment_month]
+      properties:
+        target_credit_card_id:
+          $ref: "#/components/schemas/UUID"
+        target_payment_month:
+          $ref: "#/components/schemas/YearMonth"
+        reason:
+          type: [string, "null"]
+          maxLength: 500
+    InvoiceOccurrenceMove:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - item_id
+        - reference_month
+        - from_credit_card_id
+        - from_payment_month
+        - to_credit_card_id
+        - to_payment_month
+        - reason
+        - recorded_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        item_id:
+          $ref: "#/components/schemas/UUID"
+        reference_month:
+          $ref: "#/components/schemas/YearMonth"
+        from_credit_card_id:
+          $ref: "#/components/schemas/UUID"
+        from_payment_month:
+          $ref: "#/components/schemas/YearMonth"
+        to_credit_card_id:
+          $ref: "#/components/schemas/UUID"
+        to_payment_month:
+          $ref: "#/components/schemas/YearMonth"
+        reason:
+          type: [string, "null"]
+          maxLength: 500
+        recorded_at:
+          type: string
+          format: date-time
+    InvoiceOccurrenceMoveHistory:
+      type: object
+      additionalProperties: false
+      required: [item_id, reference_month, current_allocation, events]
+      properties:
+        item_id:
+          $ref: "#/components/schemas/UUID"
+        reference_month:
+          $ref: "#/components/schemas/YearMonth"
+        current_allocation:
+          $ref: "#/components/schemas/InvoiceAllocation"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceOccurrenceMove"
+    InvoiceAllocation:
+      type: object
+      additionalProperties: false
+      required: [credit_card_id, payment_month, origin]
+      properties:
+        credit_card_id:
+          $ref: "#/components/schemas/UUID"
+        payment_month:
+          $ref: "#/components/schemas/YearMonth"
+        origin:
+          $ref: "#/components/schemas/InvoiceAllocationOrigin"
+    InvoiceOccurrenceMoveHistoryResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/InvoiceOccurrenceMoveHistory"
     SnapshotPlanData:
       type: object
       additionalProperties: false
@@ -1058,6 +2371,7 @@ components:
         - one_time_income_cents
         - fixed_expenses_cents
         - projected_variable_expenses_cents
+        - card_invoice_adjustments_cents
       properties:
         recurring_income_cents:
           $ref: "#/components/schemas/AmountCents"
@@ -1066,6 +2380,8 @@ components:
         fixed_expenses_cents:
           $ref: "#/components/schemas/AmountCents"
         projected_variable_expenses_cents:
+          $ref: "#/components/schemas/AmountCents"
+        card_invoice_adjustments_cents:
           $ref: "#/components/schemas/AmountCents"
     MonthlySummarySource:
       type: object
@@ -1093,14 +2409,36 @@ components:
             - $ref: "#/components/schemas/FinancialItemKind"
             - type: string
               const: planned_savings
+            - type: string
+              const: card_invoice_adjustment
         effect:
           $ref: "#/components/schemas/SummarySourceEffect"
         reference_month:
-          $ref: "#/components/schemas/YearMonth"
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
         cash_month:
           $ref: "#/components/schemas/YearMonth"
         amount_cents:
           $ref: "#/components/schemas/AmountCents"
+        source_type:
+          $ref: "#/components/schemas/SummarySourceType"
+        payment_method:
+          $ref: "#/components/schemas/PaymentMethod"
+        credit_card_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        invoice_payment_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        invoice_allocation:
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceAllocationOrigin"
+            - type: "null"
+        reference_known:
+          type: boolean
     MonthlySummary:
       type: object
       additionalProperties: false
@@ -1241,6 +2579,26 @@ components:
             error:
               code: month_outside_horizon
               message: The requested month is outside the plan horizon
+    DomainRuleViolation:
+      description: A requisição é válida, mas viola uma regra do domínio
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: invalid_payment_method
+              message: The payment method is incompatible with this resource
+    InvoiceOutsideOperationalHorizon:
+      description: A fatura está fora do horizonte operacional do planejamento
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: invoice_outside_operational_horizon
+              message: The invoice is outside the operational horizon
     InternalError:
       description: Falha interna inesperada
       content:
