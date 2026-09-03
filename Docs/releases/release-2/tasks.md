@@ -128,12 +128,12 @@ Status: concluída em 01/09/2026.
 - [x] arquivar preservando histórico;
 - [x] rejeitar arquivamento com cartão ativo;
 - [x] registrar as rotas do recurso sem ampliar o registro central do servidor;
-- [~] testar duplicidade e ownership.
+- [x] testar duplicidade e ownership.
 
 Dependências: R2-T01, R2-T03.
 
-Status: em andamento; testes unitários e de transporte aprovados, com cenário
-PostgreSQL preparado e execução local pendente de Docker/Supabase disponível.
+Status: concluída em 03/09/2026. Cenários unitários, de transporte e de
+integração PostgreSQL/Auth aprovados.
 
 ### R2-T07 — Implementar cartões e configurações
 
