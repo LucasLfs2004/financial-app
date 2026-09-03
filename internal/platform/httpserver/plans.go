@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/planning/domain"
 	"github.com/lucas/financial-api/internal/platform/auth"
+	"github.com/lucas/financial-api/internal/platform/httpapi"
 )
 
 type PlanService interface {
@@ -172,15 +171,7 @@ func updateInput(payload updatePlanRequest) (planning.UpdateInput, error) {
 }
 
 func decodeJSON(request *http.Request, target any) error {
-	decoder := json.NewDecoder(request.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return fmt.Errorf("request body must contain a single JSON object")
-	}
-	return nil
+	return httpapi.DecodeJSON(request, target)
 }
 
 func writePlanError(w http.ResponseWriter, err error) {
@@ -216,6 +207,6 @@ func planResponse(plan planning.Plan) map[string]any {
 }
 
 func principalFromRequest(request *http.Request) (auth.Principal, bool) {
-	principal, ok := request.Context().Value(principalContextKey).(auth.Principal)
+	principal, ok := httpapi.PrincipalFromRequest(request)
 	return principal, ok && strings.TrimSpace(principal.UserID) != ""
 }
