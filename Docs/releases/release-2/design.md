@@ -518,6 +518,7 @@ Métricas recomendadas:
 ## 10. Erros adicionais
 
 - `institution_archived`;
+- `institution_has_active_cards`;
 - `card_archived`;
 - `invalid_payment_method`;
 - `payment_period_overlap`;

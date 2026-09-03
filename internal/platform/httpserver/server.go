@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,8 +11,10 @@ import (
 	"strings"
 	"time"
 
+	institutionhttp "github.com/lucas/financial-api/internal/financialinstitution/transport/http"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/config"
+	"github.com/lucas/financial-api/internal/platform/httpapi"
 	"github.com/lucas/financial-api/internal/profile"
 )
 
@@ -37,11 +38,8 @@ type Dependencies struct {
 	FinancialItems FinancialItemService
 	Savings        SavingsService
 	MonthlySummary MonthlySummaryService
+	Institutions   institutionhttp.Service
 }
-
-type contextKey string
-
-const principalContextKey contextKey = "authenticated-principal"
 
 func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *http.Server {
 	mux := http.NewServeMux()
@@ -75,6 +73,11 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 	mux.Handle("GET /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(getSavingsHandler(dependencies.Savings))))
 	mux.Handle("PUT /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(putSavingsHandler(dependencies.Savings))))
 	mux.Handle("GET /v1/plans/current/months/{month}/summary", authenticate(dependencies.Authenticator, http.HandlerFunc(monthlySummaryHandler(dependencies.MonthlySummary))))
+	if dependencies.Institutions != nil {
+		institutionhttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
+			return authenticate(dependencies.Authenticator, next)
+		}, dependencies.Institutions)
+	}
 
 	handler := recoveryMiddleware(logger,
 		requestIDMiddleware(
@@ -124,7 +127,7 @@ func rootHandler(w http.ResponseWriter, _ *http.Request) {
 
 func meHandler(profiles ProfileReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, request *http.Request) {
-		principal, ok := request.Context().Value(principalContextKey).(auth.Principal)
+		principal, ok := principalFromRequest(request)
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication is required")
 			return
@@ -166,7 +169,7 @@ func authenticate(authenticator Authenticator, next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(request.Context(), principalContextKey, principal)
+		ctx := httpapi.WithPrincipal(request.Context(), principal)
 		next.ServeHTTP(w, request.WithContext(ctx))
 	})
 }
@@ -180,18 +183,11 @@ func bearerToken(header string) (string, bool) {
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	httpapi.WriteJSON(w, status, payload)
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, map[string]any{
-		"error": map[string]string{
-			"code":    code,
-			"message": message,
-		},
-	})
+	httpapi.WriteError(w, status, code, message)
 }
 
 type statusRecorder struct {
