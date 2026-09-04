@@ -2,13 +2,13 @@ package httpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/planning/domain"
+	"github.com/lucas/financial-api/internal/platform/httpapi"
 )
 
 type FinancialItemService interface {
@@ -38,24 +38,7 @@ type updateItemRequest struct {
 	Name        *string        `json:"name"`
 	Description optionalString `json:"description"`
 }
-type optionalString struct {
-	Set   bool
-	Value *string
-}
-
-func (value *optionalString) UnmarshalJSON(data []byte) error {
-	value.Set = true
-	if string(data) == "null" {
-		value.Value = nil
-		return nil
-	}
-	var decoded string
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
-	value.Value = &decoded
-	return nil
-}
+type optionalString = httpapi.OptionalString
 
 type changeItemRequest struct {
 	EffectiveFrom   string         `json:"effective_from"`

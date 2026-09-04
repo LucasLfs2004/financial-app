@@ -27,7 +27,7 @@ antes de R2-T01, sem reescrever o histórico já publicado.
 
 - [x] eliminar o N+1 da listagem de itens e períodos financeiros antes do
   Marco C, mantendo uma única consulta e a ordenação determinística;
-- [ ] alinhar a imagem de build com o toolchain Go declarado no módulo e
+- [x] alinhar a imagem de build com o toolchain Go declarado no módulo e
   atualizar o estado da R2 no `README.md` até o encerramento do Marco C;
 - [ ] avaliar, antes do encerramento da release, a extração de `Money`,
   `YearMonth` e `MonthInterval` para um pacote financeiro compartilhado, sem
@@ -137,17 +137,21 @@ integração PostgreSQL/Auth aprovados.
 
 ### R2-T07 — Implementar cartões e configurações
 
-- [ ] criar cartão e período inicial em transação;
-- [ ] manter domínio, aplicação, persistência e transporte separados conforme
+- [x] criar cartão e período inicial em transação;
+- [x] manter domínio, aplicação, persistência e transporte separados conforme
   o módulo de referência da R2-T06;
-- [ ] listar e consultar cartão;
-- [ ] editar nome mantendo a instituição imutável;
-- [ ] alterar vencimento/offset a partir de um mês;
-- [ ] arquivar sem apagar faturas passadas;
-- [ ] impedir novas operações em cartão arquivado;
-- [ ] testar dia 31, offsets e mudança futura.
+- [x] listar e consultar cartão;
+- [x] editar nome mantendo a instituição imutável;
+- [x] alterar vencimento/offset a partir de um mês;
+- [x] arquivar sem apagar faturas passadas;
+- [x] impedir novas operações em cartão arquivado;
+- [x] testar dia 31, offsets e mudança futura.
 
 Dependências: R2-T01, R2-T03, R2-T06.
+
+Status: concluída em 03/09/2026. Cenários unitários, de transporte e de
+integração PostgreSQL aprovados; validação consolidada em
+[`milestone-c-validation.md`](milestone-c-validation.md).
 
 ## Marco D — Vínculo e alocação
 

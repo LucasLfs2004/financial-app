@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	cardhttp "github.com/lucas/financial-api/internal/creditcard/transport/http"
 	institutionhttp "github.com/lucas/financial-api/internal/financialinstitution/transport/http"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/config"
@@ -39,6 +40,7 @@ type Dependencies struct {
 	Savings        SavingsService
 	MonthlySummary MonthlySummaryService
 	Institutions   institutionhttp.Service
+	CreditCards    cardhttp.Service
 }
 
 func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *http.Server {
@@ -77,6 +79,11 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 		institutionhttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
 			return authenticate(dependencies.Authenticator, next)
 		}, dependencies.Institutions)
+	}
+	if dependencies.CreditCards != nil {
+		cardhttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
+			return authenticate(dependencies.Authenticator, next)
+		}, dependencies.CreditCards)
 	}
 
 	handler := recoveryMiddleware(logger,

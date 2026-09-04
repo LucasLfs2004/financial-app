@@ -8,7 +8,8 @@ API de planejamento financeiro pessoal em Go e Supabase.
 - Release 1: Marcos A a F validados localmente; contrato, domínio, persistência,
   planejamento, premissas, ativação, resumo mensal e isolamento estão
   disponíveis. Resta apenas o smoke cloud, adiado até o provisionamento.
-- Release 2: spec, design e tasks definidos; implementação ainda não iniciada.
+- Release 2: Marcos A a C concluídos; contrato, domínio de projeção,
+  persistência e cadastro de instituições e cartões estão disponíveis.
 
 Documentos:
 
@@ -73,6 +74,16 @@ POST http://localhost:8080/v1/plans/current/items/{item_id}/archive
 GET http://localhost:8080/v1/plans/current/savings
 PUT http://localhost:8080/v1/plans/current/savings
 GET http://localhost:8080/v1/plans/current/months/{month}/summary?basis=cash
+POST http://localhost:8080/v1/financial-institutions
+GET http://localhost:8080/v1/financial-institutions
+PATCH http://localhost:8080/v1/financial-institutions/{institution_id}
+POST http://localhost:8080/v1/financial-institutions/{institution_id}/archive
+POST http://localhost:8080/v1/credit-cards
+GET http://localhost:8080/v1/credit-cards
+GET http://localhost:8080/v1/credit-cards/{card_id}
+PATCH http://localhost:8080/v1/credit-cards/{card_id}
+POST http://localhost:8080/v1/credit-cards/{card_id}/changes
+POST http://localhost:8080/v1/credit-cards/{card_id}/archive
 ```
 
 `/v1/me` exige:
@@ -145,5 +156,7 @@ O compose utiliza `host.docker.internal` para alcançar o Supabase local.
 - `cmd/api`: ponto de entrada;
 - `internal/platform`: infraestrutura compartilhada;
 - `internal/profile`: perfil associado ao Supabase Auth;
+- `internal/financialinstitution`: módulo vertical de instituições financeiras;
+- `internal/creditcard`: módulo vertical de cartões e suas configurações;
 - `supabase`: configuração, migrations e seed;
 - `Docs/releases`: spec, design e tasks das releases.
