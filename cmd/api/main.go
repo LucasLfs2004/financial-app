@@ -15,6 +15,8 @@ import (
 	institutionapplication "github.com/lucas/financial-api/internal/financialinstitution/application"
 	institutionrepository "github.com/lucas/financial-api/internal/financialinstitution/repository"
 	"github.com/lucas/financial-api/internal/financialitem"
+	invoiceadjustmentapplication "github.com/lucas/financial-api/internal/invoiceadjustment/application"
+	invoiceadjustmentrepository "github.com/lucas/financial-api/internal/invoiceadjustment/repository"
 	invoiceallocationapplication "github.com/lucas/financial-api/internal/invoiceallocation/application"
 	invoiceallocationrepository "github.com/lucas/financial-api/internal/invoiceallocation/repository"
 	"github.com/lucas/financial-api/internal/monthlysummary"
@@ -65,19 +67,22 @@ func main() {
 	paymentMethodService := paymentmethodapplication.NewService(paymentMethodRepository, planService)
 	invoiceMoveRepository := invoiceallocationrepository.NewPostgresRepository(databasePool)
 	invoiceMoveService := invoiceallocationapplication.NewService(invoiceMoveRepository, planService)
+	invoiceAdjustmentRepository := invoiceadjustmentrepository.NewPostgresRepository(databasePool)
+	invoiceAdjustmentService := invoiceadjustmentapplication.NewService(invoiceAdjustmentRepository, planService)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
-		Database:       databasePool,
-		Authenticator:  authClient,
-		Profiles:       profileRepository,
-		Plans:          planService,
-		FinancialItems: financialItemService,
-		Savings:        savingsService,
-		MonthlySummary: monthlySummaryService,
-		Institutions:   institutionService,
-		CreditCards:    cardService,
-		PaymentMethods: paymentMethodService,
-		InvoiceMoves:   invoiceMoveService,
+		Database:           databasePool,
+		Authenticator:      authClient,
+		Profiles:           profileRepository,
+		Plans:              planService,
+		FinancialItems:     financialItemService,
+		Savings:            savingsService,
+		MonthlySummary:     monthlySummaryService,
+		Institutions:       institutionService,
+		CreditCards:        cardService,
+		PaymentMethods:     paymentMethodService,
+		InvoiceMoves:       invoiceMoveService,
+		InvoiceAdjustments: invoiceAdjustmentService,
 	})
 
 	serverErrors := make(chan error, 1)

@@ -13,6 +13,7 @@ import (
 
 	cardhttp "github.com/lucas/financial-api/internal/creditcard/transport/http"
 	institutionhttp "github.com/lucas/financial-api/internal/financialinstitution/transport/http"
+	invoiceadjustmenthttp "github.com/lucas/financial-api/internal/invoiceadjustment/transport/http"
 	invoiceallocationhttp "github.com/lucas/financial-api/internal/invoiceallocation/transport/http"
 	paymentmethodhttp "github.com/lucas/financial-api/internal/paymentmethod/transport/http"
 	"github.com/lucas/financial-api/internal/platform/auth"
@@ -34,17 +35,18 @@ type ProfileReader interface {
 }
 
 type Dependencies struct {
-	Database       Database
-	Authenticator  Authenticator
-	Profiles       ProfileReader
-	Plans          PlanService
-	FinancialItems FinancialItemService
-	Savings        SavingsService
-	MonthlySummary MonthlySummaryService
-	Institutions   institutionhttp.Service
-	CreditCards    cardhttp.Service
-	PaymentMethods paymentmethodhttp.Service
-	InvoiceMoves   invoiceallocationhttp.Service
+	Database           Database
+	Authenticator      Authenticator
+	Profiles           ProfileReader
+	Plans              PlanService
+	FinancialItems     FinancialItemService
+	Savings            SavingsService
+	MonthlySummary     MonthlySummaryService
+	Institutions       institutionhttp.Service
+	CreditCards        cardhttp.Service
+	PaymentMethods     paymentmethodhttp.Service
+	InvoiceMoves       invoiceallocationhttp.Service
+	InvoiceAdjustments invoiceadjustmenthttp.Service
 }
 
 func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *http.Server {
@@ -98,6 +100,11 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 		invoiceallocationhttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
 			return authenticate(dependencies.Authenticator, next)
 		}, dependencies.InvoiceMoves)
+	}
+	if dependencies.InvoiceAdjustments != nil {
+		invoiceadjustmenthttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
+			return authenticate(dependencies.Authenticator, next)
+		}, dependencies.InvoiceAdjustments)
 	}
 
 	handler := recoveryMiddleware(logger,
