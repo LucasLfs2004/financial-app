@@ -15,6 +15,8 @@ import (
 	institutionapplication "github.com/lucas/financial-api/internal/financialinstitution/application"
 	institutionrepository "github.com/lucas/financial-api/internal/financialinstitution/repository"
 	"github.com/lucas/financial-api/internal/financialitem"
+	invoiceallocationapplication "github.com/lucas/financial-api/internal/invoiceallocation/application"
+	invoiceallocationrepository "github.com/lucas/financial-api/internal/invoiceallocation/repository"
 	"github.com/lucas/financial-api/internal/monthlysummary"
 	paymentmethodapplication "github.com/lucas/financial-api/internal/paymentmethod/application"
 	paymentmethodrepository "github.com/lucas/financial-api/internal/paymentmethod/repository"
@@ -61,6 +63,8 @@ func main() {
 	cardService := cardapplication.NewService(cardRepository)
 	paymentMethodRepository := paymentmethodrepository.NewPostgresRepository(databasePool)
 	paymentMethodService := paymentmethodapplication.NewService(paymentMethodRepository, planService)
+	invoiceMoveRepository := invoiceallocationrepository.NewPostgresRepository(databasePool)
+	invoiceMoveService := invoiceallocationapplication.NewService(invoiceMoveRepository, planService)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
 		Database:       databasePool,
@@ -73,6 +77,7 @@ func main() {
 		Institutions:   institutionService,
 		CreditCards:    cardService,
 		PaymentMethods: paymentMethodService,
+		InvoiceMoves:   invoiceMoveService,
 	})
 
 	serverErrors := make(chan error, 1)

@@ -157,26 +157,32 @@ integração PostgreSQL aprovados; validação consolidada em
 
 ### R2-T08 — Implementar forma de pagamento por vigência
 
-- [ ] expor criação de mudança de método;
-- [ ] expor histórico ordenado;
-- [ ] suportar `direct` e `credit_card`;
-- [ ] encerrar período anterior em transação;
-- [ ] preservar fallback direto anterior ao primeiro período;
-- [ ] rejeitar renda, cartão alheio/arquivado e sobreposição;
-- [ ] testar troca de cartão e retorno ao direto.
+- [x] expor criação de mudança de método;
+- [x] expor histórico ordenado;
+- [x] suportar `direct` e `credit_card`;
+- [x] encerrar período anterior em transação;
+- [x] preservar fallback direto anterior ao primeiro período;
+- [x] rejeitar renda, cartão alheio/arquivado e sobreposição;
+- [x] testar troca de cartão e retorno ao direto.
 
 Dependências: R2-T04, R2-T07.
 
+Status: concluída em 03/09/2026. Módulo vertical, rotas autenticadas,
+transação com lock e testes de domínio validados.
+
 ### R2-T09 — Implementar movimentação excepcional
 
-- [ ] resolver ocorrência e alocação atual;
-- [ ] mover para cartão/mês de destino;
-- [ ] registrar origem, destino, motivo, autor e instante;
-- [ ] expor histórico append-only;
-- [ ] rejeitar mesmo destino e origem obsoleta;
-- [ ] testar duas movimentações sucessivas.
+- [x] resolver ocorrência e alocação atual;
+- [x] mover para cartão/mês de destino;
+- [x] registrar origem, destino, motivo, autor e instante;
+- [x] expor histórico append-only;
+- [x] rejeitar mesmo destino e origem obsoleta;
+- [x] testar duas movimentações sucessivas.
 
 Dependências: R2-T05, R2-T07, R2-T08.
+
+Status: concluída em 03/09/2026. Movimentações usam a auditoria append-only
+existente, lock da ocorrência e ownership composto.
 
 ## Marco E — Faturas projetadas
 
