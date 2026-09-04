@@ -13,6 +13,7 @@ import (
 
 	cardhttp "github.com/lucas/financial-api/internal/creditcard/transport/http"
 	institutionhttp "github.com/lucas/financial-api/internal/financialinstitution/transport/http"
+	invoiceallocationhttp "github.com/lucas/financial-api/internal/invoiceallocation/transport/http"
 	paymentmethodhttp "github.com/lucas/financial-api/internal/paymentmethod/transport/http"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/config"
@@ -43,6 +44,7 @@ type Dependencies struct {
 	Institutions   institutionhttp.Service
 	CreditCards    cardhttp.Service
 	PaymentMethods paymentmethodhttp.Service
+	InvoiceMoves   invoiceallocationhttp.Service
 }
 
 func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *http.Server {
@@ -91,6 +93,11 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 		paymentmethodhttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
 			return authenticate(dependencies.Authenticator, next)
 		}, dependencies.PaymentMethods)
+	}
+	if dependencies.InvoiceMoves != nil {
+		invoiceallocationhttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
+			return authenticate(dependencies.Authenticator, next)
+		}, dependencies.InvoiceMoves)
 	}
 
 	handler := recoveryMiddleware(logger,
