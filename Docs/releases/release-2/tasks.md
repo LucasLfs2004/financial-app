@@ -203,14 +203,17 @@ Dependências: R2-T02, R2-T04, R2-T05, R2-T09.
 
 ### R2-T11 — Implementar ajustes consolidados
 
-- [ ] criar ajuste em fatura selecionada;
-- [ ] editar com evento de auditoria;
-- [ ] arquivar com evento de auditoria;
-- [ ] suportar referência opcional;
-- [ ] validar horizonte operacional;
-- [ ] testar zero, referência ausente e cartão arquivado.
+- [x] criar ajuste em fatura selecionada;
+- [x] editar com evento de auditoria;
+- [x] arquivar com evento de auditoria;
+- [x] suportar referência opcional;
+- [x] validar horizonte operacional;
+- [x] testar zero, referência ausente e cartão arquivado.
 
 Dependências: R2-T05, R2-T07.
+
+Status: concluída em 03/09/2026. CRUD de ajustes com horizonte operacional,
+arquivamento e eventos append-only integrado às rotas autenticadas.
 
 ### R2-T12 — Expor listagem e detalhe de faturas
 
