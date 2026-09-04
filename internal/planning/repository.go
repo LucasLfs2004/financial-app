@@ -148,7 +148,7 @@ func (repository *PostgresRepository) Activate(ctx context.Context, ownerID stri
 		return Activation{}, fmt.Errorf("build snapshot: %w", err)
 	}
 	var snapshot Snapshot
-	err = tx.QueryRow(ctx, `insert into public.plan_snapshots(plan_id,user_id,kind,schema_version,document) values($1,$2,'original',1,$3::jsonb) returning id,plan_id,kind,schema_version,created_at,document::text`, plan.ID, ownerID, documentText).Scan(&snapshot.ID, &snapshot.PlanID, &snapshot.Kind, &snapshot.SchemaVersion, &snapshot.CapturedAt, &documentText)
+	err = tx.QueryRow(ctx, `insert into public.plan_snapshots(plan_id,user_id,kind,schema_version,document) values($1,$2,'original',2,$3::jsonb) returning id,plan_id,kind,schema_version,created_at,document::text`, plan.ID, ownerID, documentText).Scan(&snapshot.ID, &snapshot.PlanID, &snapshot.Kind, &snapshot.SchemaVersion, &snapshot.CapturedAt, &documentText)
 	if err != nil {
 		return Activation{}, fmt.Errorf("create original snapshot: %w", err)
 	}
@@ -202,7 +202,13 @@ select jsonb_build_object(
     ) order by ip.start_month,ip.id) from public.financial_item_periods ip where ip.financial_item_id=i.id),'[]'::jsonb)
   ) order by i.created_at,i.id) from public.financial_items i where i.plan_id=p.id and i.user_id=$2),'[]'::jsonb),
   'savings',jsonb_build_object('configured',exists(select 1 from public.saving_periods s where s.plan_id=p.id and s.user_id=$2),
-    'periods',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'start_month',to_char(s.start_month,'YYYY-MM'),'end_month',case when s.end_month is null then null else to_char(s.end_month,'YYYY-MM') end,'amount_cents',s.amount_cents,'context',s.context,'created_at',s.created_at) order by s.start_month,s.id) from public.saving_periods s where s.plan_id=p.id and s.user_id=$2),'[]'::jsonb))
+    'periods',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'start_month',to_char(s.start_month,'YYYY-MM'),'end_month',case when s.end_month is null then null else to_char(s.end_month,'YYYY-MM') end,'amount_cents',s.amount_cents,'context',s.context,'created_at',s.created_at) order by s.start_month,s.id) from public.saving_periods s where s.plan_id=p.id and s.user_id=$2),'[]'::jsonb)),
+  'release_2',jsonb_build_object(
+    'financial_institutions',coalesce((select jsonb_agg(jsonb_build_object('id',fi.id,'name',fi.name,'status',fi.status) order by fi.id) from public.financial_institutions fi where fi.user_id=$2 and exists(select 1 from public.credit_cards cc where cc.institution_id=fi.id and cc.user_id=$2 and exists(select 1 from public.financial_item_payment_periods pp where pp.credit_card_id=cc.id and pp.plan_id=p.id and pp.user_id=$2))),'[]'::jsonb),
+    'credit_cards',coalesce((select jsonb_agg(jsonb_build_object('id',cc.id,'institution_id',cc.institution_id,'name',cc.name,'status',cc.status,'periods',coalesce((select jsonb_agg(jsonb_build_object('id',cp.id,'start_month',to_char(cp.start_month,'YYYY-MM'),'end_month',case when cp.end_month is null then null else to_char(cp.end_month,'YYYY-MM') end,'nominal_due_day',cp.nominal_due_day,'payment_month_offset',cp.payment_month_offset) order by cp.start_month,cp.id) from public.credit_card_periods cp where cp.credit_card_id=cc.id and cp.user_id=$2),'[]'::jsonb)) order by cc.id) from public.credit_cards cc where cc.user_id=$2 and exists(select 1 from public.financial_item_payment_periods pp where pp.credit_card_id=cc.id and pp.plan_id=p.id and pp.user_id=$2)),'[]'::jsonb),
+    'payment_methods',coalesce((select jsonb_agg(to_jsonb(pp) order by pp.start_month,pp.id) from public.financial_item_payment_periods pp where pp.plan_id=p.id and pp.user_id=$2),'[]'::jsonb),
+    'invoice_adjustments',coalesce((select jsonb_agg(to_jsonb(ia) order by ia.payment_month,ia.id) from public.card_invoice_adjustments ia where ia.plan_id=p.id and ia.user_id=$2),'[]'::jsonb),
+    'invoice_moves',coalesce((select jsonb_agg(to_jsonb(ae) order by ae.recorded_at,ae.id) from public.card_invoice_audit_events ae where ae.plan_id=p.id and ae.user_id=$2),'[]'::jsonb))
 )::text from public.plans p where p.id=$1 and p.user_id=$2`
 
 func scanPlan(row pgx.Row) (Plan, error) {
