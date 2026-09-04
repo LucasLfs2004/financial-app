@@ -14,6 +14,26 @@ import (
 
 type principalContextKey struct{}
 
+// OptionalString distinguishes an omitted JSON field from an explicit null.
+type OptionalString struct {
+	Set   bool
+	Value *string
+}
+
+func (value *OptionalString) UnmarshalJSON(data []byte) error {
+	value.Set = true
+	if string(data) == "null" {
+		value.Value = nil
+		return nil
+	}
+	var decoded string
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	value.Value = &decoded
+	return nil
+}
+
 func WithPrincipal(ctx context.Context, principal auth.Principal) context.Context {
 	return context.WithValue(ctx, principalContextKey{}, principal)
 }

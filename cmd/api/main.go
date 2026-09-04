@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	cardapplication "github.com/lucas/financial-api/internal/creditcard/application"
+	cardrepository "github.com/lucas/financial-api/internal/creditcard/repository"
 	institutionapplication "github.com/lucas/financial-api/internal/financialinstitution/application"
 	institutionrepository "github.com/lucas/financial-api/internal/financialinstitution/repository"
 	"github.com/lucas/financial-api/internal/financialitem"
@@ -53,6 +55,8 @@ func main() {
 	monthlySummaryService := monthlysummary.NewService(planService, financialItemRepository, savingsRepository)
 	institutionRepository := institutionrepository.NewPostgresRepository(databasePool)
 	institutionService := institutionapplication.NewService(institutionRepository)
+	cardRepository := cardrepository.NewPostgresRepository(databasePool)
+	cardService := cardapplication.NewService(cardRepository)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
 		Database:       databasePool,
@@ -63,6 +67,7 @@ func main() {
 		Savings:        savingsService,
 		MonthlySummary: monthlySummaryService,
 		Institutions:   institutionService,
+		CreditCards:    cardService,
 	})
 
 	serverErrors := make(chan error, 1)
