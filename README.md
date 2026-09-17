@@ -4,159 +4,78 @@ API de planejamento financeiro pessoal em Go e Supabase.
 
 ## Estado
 
-- Release 0: concluída no modelo local-first;
-- Release 1: Marcos A a F validados localmente; contrato, domínio, persistência,
-  planejamento, premissas, ativação, resumo mensal e isolamento estão
-  disponíveis. Resta apenas o smoke cloud, adiado até o provisionamento.
-- Release 2: Marcos A a C concluídos; contrato, domínio de projeção,
-  persistência e cadastro de instituições e cartões estão disponíveis.
+- Release 0: fundação da API concluída;
+- Release 1: planejamento, premissas, resumo mensal e snapshot original;
+- Release 2: concluída localmente, com instituições, cartões, formas de
+  pagamento temporais, faturas projetadas, ajustes, movimentações auditáveis,
+  resumo integrado e snapshot v2.
 
-Documentos:
+O smoke test em Supabase Cloud permanece pendente até o provisionamento do
+ambiente. A validação local completa está em
+[`Docs/releases/release-2/quality-report.md`](Docs/releases/release-2/quality-report.md).
 
-- [visão do produto](./Docs/documentacao-produto-planejador-financeiro.md);
-- [releases](./Docs/releases/README.md);
-- [Release 0](./Docs/releases/release-0/README.md);
-- [decisão Supabase local-first](./Docs/decisao-ambiente-supabase-local-first.md);
-- [Release 1 — spec](./Docs/releases/release-1/spec.md);
-- [Release 1 — design](./Docs/releases/release-1/design.md);
-- [Release 1 — tasks](./Docs/releases/release-1/tasks.md);
-- [Release 1 — relatório de qualidade](./Docs/releases/release-1/quality-report.md);
-- [Release 2 — spec](./Docs/releases/release-2/spec.md);
-- [Release 2 — design](./Docs/releases/release-2/design.md);
-- [Release 2 — tasks](./Docs/releases/release-2/tasks.md);
-- [collection Postman e trilha de validação](./Docs/postman-validation.md);
-- [fluxo Git e releases](./Docs/git-release-flow.md).
+## Estrutura
 
-## Requisitos
-
-- Go 1.25+; o módulo seleciona automaticamente o toolchain Go 1.26.6,
-  que contém as correções de segurança exigidas pela Release 1;
-- Docker Desktop;
-- Supabase CLI.
+- `cmd/api`: ponto de entrada da API;
+- `internal`: módulos de domínio, aplicação, persistência e transporte;
+- `internal/platform`: autenticação, configuração, banco e servidor HTTP;
+- `supabase`: migrations, seed e testes pgTAP;
+- `api/openapi.yaml`: contrato HTTP OpenAPI 3.1;
+- `postman`: collections e ambiente de validação manual;
+- `Docs/releases`: spec, design, tasks e evidências por release.
 
 ## Ambiente local
+
+Requisitos: Go 1.25+ com o toolchain indicado em `go.mod`, Docker Desktop e
+Supabase CLI.
 
 ```bash
 cp .env.example .env
 supabase start
-supabase status
+supabase db reset --local --yes
 ```
 
-Atualize `SUPABASE_PUBLISHABLE_KEY` em `.env` com a chave local exibida pelo
-CLI. Depois:
-
-```bash
-supabase db reset
-set -a
-source .env
-set +a
-go run ./cmd/api
-```
-
-Endpoints:
-
-```text
-GET http://localhost:8080/
-GET http://localhost:8080/health
-GET http://localhost:8080/ready
-GET http://localhost:8080/v1/me
-POST http://localhost:8080/v1/plans
-GET http://localhost:8080/v1/plans/current
-PATCH http://localhost:8080/v1/plans/current
-POST http://localhost:8080/v1/plans/current/activate
-GET http://localhost:8080/v1/plans/current/original
-POST http://localhost:8080/v1/plans/current/items
-GET http://localhost:8080/v1/plans/current/items
-GET http://localhost:8080/v1/plans/current/items/{item_id}
-PATCH http://localhost:8080/v1/plans/current/items/{item_id}
-POST http://localhost:8080/v1/plans/current/items/{item_id}/changes
-POST http://localhost:8080/v1/plans/current/items/{item_id}/archive
-GET http://localhost:8080/v1/plans/current/savings
-PUT http://localhost:8080/v1/plans/current/savings
-GET http://localhost:8080/v1/plans/current/months/{month}/summary?basis=cash
-POST http://localhost:8080/v1/financial-institutions
-GET http://localhost:8080/v1/financial-institutions
-PATCH http://localhost:8080/v1/financial-institutions/{institution_id}
-POST http://localhost:8080/v1/financial-institutions/{institution_id}/archive
-POST http://localhost:8080/v1/credit-cards
-GET http://localhost:8080/v1/credit-cards
-GET http://localhost:8080/v1/credit-cards/{card_id}
-PATCH http://localhost:8080/v1/credit-cards/{card_id}
-POST http://localhost:8080/v1/credit-cards/{card_id}/changes
-POST http://localhost:8080/v1/credit-cards/{card_id}/archive
-```
-
-`/v1/me` exige:
-
-```text
-Authorization: Bearer <supabase-access-token>
-```
-
-## Testes
-
-```bash
-go test ./...
-```
-
-O cenário integrado dos Marcos C a E usa o banco local:
-
-```bash
-TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable' \
-  go test -v ./internal/integration
-```
-
-Para incluir o cenário ponta a ponta com Auth e Data API usando o `.env` local:
+Atualize `SUPABASE_PUBLISHABLE_KEY` no `.env` com a chave exibida por
+`supabase status`. Depois carregue o ambiente e inicie a API:
 
 ```bash
 set -a
 . ./.env
 set +a
-TEST_DATABASE_URL="$DATABASE_URL" \
-TEST_SUPABASE_URL="$SUPABASE_URL" \
-TEST_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
-go test -count=1 -v ./internal/integration
+go run ./cmd/api
 ```
 
-Exemplos de resumo para julho de 2026:
+Endpoints de saúde:
 
-```bash
-curl -H 'Authorization: Bearer <supabase-access-token>' \
-  'http://localhost:8080/v1/plans/current/months/2026-07/summary?basis=cash'
-
-curl -H 'Authorization: Bearer <supabase-access-token>' \
-  'http://localhost:8080/v1/plans/current/months/2026-07/summary?basis=reference'
+```text
+GET http://localhost:8080/health
+GET http://localhost:8080/ready
 ```
 
-Para recriar o banco:
+Os endpoints `/v1` protegidos exigem `Authorization: Bearer <access-token>`.
+Consulte [`api/openapi.yaml`](api/openapi.yaml) para o contrato completo.
+
+## Validação
 
 ```bash
-supabase db reset
-```
-
-Para validar migrations e regras do banco:
-
-```bash
+go fmt ./...
+go vet ./...
+go test ./...
+go test -race ./...
 supabase test db supabase/tests --local
 supabase db lint --local --level warning
 ```
 
-## Docker da API
+A validação manual da Release 2 usa:
 
-O Supabase local deve estar ativo no host.
+- [`Financial API - Release 2.postman_collection.json`](postman/Financial%20API%20-%20Release%202.postman_collection.json);
+- [`Financial API - Local.postman_environment.json`](postman/Financial%20API%20-%20Local.postman_environment.json);
+- [`Docs/postman-validation.md`](Docs/postman-validation.md).
 
-```bash
-docker compose up --build
-```
+## Releases
 
-O compose utiliza `host.docker.internal` para alcançar o Supabase local.
-
-## Estrutura
-
-- `api`: contrato OpenAPI;
-- `cmd/api`: ponto de entrada;
-- `internal/platform`: infraestrutura compartilhada;
-- `internal/profile`: perfil associado ao Supabase Auth;
-- `internal/financialinstitution`: módulo vertical de instituições financeiras;
-- `internal/creditcard`: módulo vertical de cartões e suas configurações;
-- `supabase`: configuração, migrations e seed;
-- `Docs/releases`: spec, design e tasks das releases.
+- [mapa de releases](Docs/releases/README.md);
+- [Release 2 — especificação](Docs/releases/release-2/spec.md);
+- [Release 2 — design](Docs/releases/release-2/design.md);
+- [Release 2 — tasks](Docs/releases/release-2/tasks.md);
+- [fluxo Git e releases](Docs/git-release-flow.md).

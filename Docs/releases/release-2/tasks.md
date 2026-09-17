@@ -29,9 +29,15 @@ antes de R2-T01, sem reescrever o histórico já publicado.
   Marco C, mantendo uma única consulta e a ordenação determinística;
 - [x] alinhar a imagem de build com o toolchain Go declarado no módulo e
   atualizar o estado da R2 no `README.md` até o encerramento do Marco C;
-- [ ] avaliar, antes do encerramento da release, a extração de `Money`,
+- [x] avaliar, antes do encerramento da release, a extração de `Money`,
   `YearMonth` e `MonthInterval` para um pacote financeiro compartilhado, sem
   ampliar a refatoração caso não haja benefício líquido nesta release.
+
+Decisão de encerramento: manter os value objects em `internal/planning/domain`.
+Eles já são reutilizados pelos módulos da Release 2 sem dependência de
+infraestrutura, e movê-los agora ampliaria o diff sem ganho funcional. A
+extração pode ser reconsiderada quando outro bounded context exigir ownership
+independente desses tipos.
 
 Esses ajustes seguem a estratégia incremental: código novo adota o padrão
 modular e código estável da Release 1 só é reorganizado quando a task que o
@@ -320,18 +326,23 @@ nominal inválido e fotografia original v2.
 
 ### R2-T17 — Qualidade final e documentação operacional
 
-- [ ] executar `go fmt ./...`;
-- [ ] executar `go vet ./...`;
-- [ ] executar `go test ./...` e testes de corrida;
-- [ ] resetar banco do zero e validar migrations/testes SQL;
-- [ ] executar lint do banco;
-- [ ] validar OpenAPI e compatibilidade com Release 1;
-- [ ] atualizar README e mapa de releases;
-- [ ] criar collection Postman da Release 2 e trilha de validação;
-- [ ] registrar relatório de qualidade e riscos residuais;
-- [ ] documentar migration, rollback e smoke cloud pendente.
+- [x] executar `go fmt ./...`;
+- [x] executar `go vet ./...`;
+- [x] executar `go test ./...` e testes de corrida;
+- [x] resetar banco do zero e validar migrations/testes SQL;
+- [x] executar lint do banco;
+- [x] validar OpenAPI e compatibilidade com Release 1;
+- [x] atualizar README e mapa de releases;
+- [x] criar collection Postman da Release 2 e trilha de validação;
+- [x] registrar relatório de qualidade e riscos residuais;
+- [x] documentar migration, rollback e smoke cloud pendente.
 
 Dependências: todas.
+
+Status: concluída em 17/09/2026. Banco recriado do zero, 136 testes SQL e toda
+a suíte Go aprovados, inclusive race detector e integrações reais. OpenAPI,
+segurança, collection Postman, documentação operacional e riscos residuais
+foram validados e registrados no relatório final de qualidade.
 
 ## Ordem sugerida
 
