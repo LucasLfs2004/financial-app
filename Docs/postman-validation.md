@@ -1,6 +1,12 @@
 # Validação manual pelo Postman
 
-A collection da API está em [`postman/Financial API - Release 1.postman_collection.json`](../postman/Financial%20API%20-%20Release%201.postman_collection.json), acompanhada do ambiente [`postman/Financial API - Local.postman_environment.json`](../postman/Financial%20API%20-%20Local.postman_environment.json).
+As collections estão em:
+
+- [`Financial API - Release 1.postman_collection.json`](../postman/Financial%20API%20-%20Release%201.postman_collection.json);
+- [`Financial API - Release 2.postman_collection.json`](../postman/Financial%20API%20-%20Release%202.postman_collection.json).
+
+Ambas usam o ambiente
+[`Financial API - Local.postman_environment.json`](../postman/Financial%20API%20-%20Local.postman_environment.json).
 
 ## Preparar o ambiente
 
@@ -24,7 +30,7 @@ A collection da API está em [`postman/Financial API - Release 1.postman_collect
 A collection cria usuários novos automaticamente. Portanto, não é necessário
 preencher token, usuário ou IDs manualmente.
 
-## Trilha recomendada
+## Trilha da Release 1
 
 Execute as pastas na ordem:
 
@@ -43,11 +49,37 @@ Execute as pastas na ordem:
 6. **06 - Isolamento entre usuários** — cria um segundo usuário e confirma que
    a API Go retorna `404` e a Data API retorna `[]` para dados do primeiro.
 
+## Trilha da Release 2
+
+Execute as pastas da collection da Release 2 em ordem:
+
+1. **01 - Preparação** — cria usuário, plano, renda, aluguel, gasolina e
+   poupança explícita;
+2. **02 - Cartões e vínculos** — cria instituição, cartão offset `1`/dia `6`,
+   cartão dia `31`, vínculos e ajuste consolidado;
+3. **03 - Fatura e resumo** — valida total de R$ 1.880, competência, caixa,
+   ausência de dupla contagem e vencimento inexistente;
+4. **04 - Movimentação e transbordo** — move novembro para janeiro, consulta
+   histórico e valida a fatura fora do horizonte;
+5. **05 - Snapshot v2 e isolamento** — ativa o plano, inspeciona o snapshot v2
+   e comprova ownership na API e RLS no Data API.
+
+Execução automatizada opcional:
+
+```bash
+npm exec --yes newman -- run \
+  'postman/Financial API - Release 2.postman_collection.json' \
+  -e 'postman/Financial API - Local.postman_environment.json'
+```
+
+Na validação de encerramento foram aprovadas 24 requisições e 24 assertions,
+sem falhas.
+
 ## Resultado esperado
 
-Todas as requisições devem ficar verdes no Postman. O cenário deixa variáveis
-preenchidas no environment, como `planId`, `salaryId` e `originalSnapshotId`,
-para facilitar inspeção manual das respostas.
+Todas as requisições devem ficar verdes no Postman. Os cenários deixam
+variáveis preenchidas no environment, como `planId`, `cardId`, `fuelId`,
+`adjustmentId` e `originalSnapshotId`, para facilitar inspeção manual.
 
 Para limpar os usuários e dados criados, rode `supabase db reset` novamente.
 Esse comando é destrutivo para o banco local, mas não afeta qualquer projeto

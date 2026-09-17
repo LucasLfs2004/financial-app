@@ -35,6 +35,6 @@ gravam versão 2; snapshots existentes não são migrados nem reescritos. A
 consulta de leitura permanece neutra à versão e retorna o JSON persistido junto
 do discriminador, deixando a interpretação para o consumidor apropriado.
 
-O reset integral do banco local não foi executado durante este marco porque é
-uma operação destrutiva e exige autorização explícita. A suíte SQL e o reset do
-zero permanecem no gate de qualidade da R2-T17.
+O reset integral não fazia parte da execução original do Marco F. Ele foi
+posteriormente autorizado e aprovado no gate final da R2-T17, junto da suíte
+SQL completa e do lint do banco.

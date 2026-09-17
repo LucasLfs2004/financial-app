@@ -1,0 +1,185 @@
+{
+  "info": {
+    "_postman_id": "financial-api-release-2",
+    "name": "Financial API - Release 2",
+    "description": "Aceite local de cartões, faturas, resumo, isolamento e snapshot v2. Execute as pastas em ordem.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Preparação",
+      "item": [
+        {
+          "name": "Cadastrar usuário principal",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "apikey", "value": "{{supabasePublishableKey}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"financial-api-r2-{{$timestamp}}@example.com\",\n  \"password\": \"Release2-test-123!\"\n}" },
+            "url": "{{supabaseUrl}}/auth/v1/signup"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('signup principal', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.environment.set('accessToken', body.access_token);", "pm.environment.set('userId', body.user.id);"] } }]
+        },
+        {
+          "name": "Criar plano",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Aceite Release 2\",\n  \"start_month\": \"2026-01\",\n  \"end_month\": \"2026-12\",\n  \"currency_code\": \"BRL\"\n}" },
+            "url": "{{baseUrl}}/v1/plans"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('plano criado', () => pm.response.to.have.status(201));", "pm.environment.set('planId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar salário",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Salário\",\n  \"kind\": \"recurring_income\",\n  \"period\": {\"start_month\": \"2026-01\", \"end_month\": \"2026-12\", \"amount_cents\": 600000, \"recurrence\": \"monthly\", \"cash_month_offset\": 0}\n}" },
+            "url": "{{baseUrl}}/v1/plans/current/items"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('salário criado', () => pm.response.to.have.status(201));"] } }]
+        },
+        {
+          "name": "Criar aluguel",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Aluguel\",\n  \"kind\": \"fixed_expense\",\n  \"period\": {\"start_month\": \"2026-01\", \"end_month\": \"2026-12\", \"amount_cents\": 100000, \"recurrence\": \"monthly\", \"cash_month_offset\": 0}\n}" },
+            "url": "{{baseUrl}}/v1/plans/current/items"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('aluguel criado', () => pm.response.to.have.status(201));", "pm.environment.set('rentId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar gasolina",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Gasolina\",\n  \"kind\": \"projected_variable_expense\",\n  \"period\": {\"start_month\": \"2026-01\", \"end_month\": \"2026-12\", \"amount_cents\": 70000, \"recurrence\": \"monthly\", \"cash_month_offset\": 0}\n}" },
+            "url": "{{baseUrl}}/v1/plans/current/items"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('gasolina criada', () => pm.response.to.have.status(201));", "pm.environment.set('fuelId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Configurar poupança explícita",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"effective_from\": \"2026-01\",\n  \"end_month\": \"2026-12\",\n  \"amount_cents\": 0\n}" },
+            "url": "{{baseUrl}}/v1/plans/current/savings"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('poupança configurada', () => pm.response.to.have.status(200));"] } }]
+        }
+      ]
+    },
+    {
+      "name": "02 - Cartões e vínculos",
+      "item": [
+        {
+          "name": "Criar instituição",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Banco Aceite R2\"\n}" }, "url": "{{baseUrl}}/v1/financial-institutions" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('instituição criada', () => pm.response.to.have.status(201));", "pm.environment.set('institutionId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar cartão principal",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"institution_id\": \"{{institutionId}}\",\n  \"name\": \"Cartão principal\",\n  \"configuration\": {\"effective_from\": \"2026-01\", \"end_month\": null, \"nominal_due_day\": 6, \"payment_month_offset\": 1}\n}" }, "url": "{{baseUrl}}/v1/credit-cards" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('cartão principal criado', () => pm.response.to.have.status(201));", "pm.environment.set('cardId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar cartão dia 31",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"institution_id\": \"{{institutionId}}\",\n  \"name\": \"Cartão dia 31\",\n  \"configuration\": {\"effective_from\": \"2026-01\", \"end_month\": null, \"nominal_due_day\": 31, \"payment_month_offset\": 1}\n}" }, "url": "{{baseUrl}}/v1/credit-cards" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('cartão dia 31 criado', () => pm.response.to.have.status(201));", "pm.environment.set('day31CardId', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Vincular aluguel",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"effective_from\": \"2026-01\",\n  \"end_month\": \"2026-12\",\n  \"method\": \"credit_card\",\n  \"credit_card_id\": \"{{cardId}}\"\n}" }, "url": "{{baseUrl}}/v1/plans/current/items/{{rentId}}/payment-changes" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('aluguel vinculado', () => pm.response.to.have.status(201));"] } }]
+        },
+        {
+          "name": "Vincular gasolina",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"effective_from\": \"2026-01\",\n  \"end_month\": \"2026-12\",\n  \"method\": \"credit_card\",\n  \"credit_card_id\": \"{{cardId}}\"\n}" }, "url": "{{baseUrl}}/v1/plans/current/items/{{fuelId}}/payment-changes" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('gasolina vinculada', () => pm.response.to.have.status(201));"] } }]
+        },
+        {
+          "name": "Adicionar ajuste consolidado",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ajuste consolidado\",\n  \"amount_cents\": 18000\n}" }, "url": "{{baseUrl}}/v1/credit-cards/{{cardId}}/invoices/2026-12/adjustments" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('ajuste criado', () => pm.response.to.have.status(201));", "pm.environment.set('adjustmentId', pm.response.json().data.id);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "03 - Fatura e resumo",
+      "item": [
+        {
+          "name": "Detalhar dezembro",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/credit-cards/{{cardId}}/invoices/2026-12" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const invoice = pm.response.json().data;", "pm.test('fatura totaliza R$ 1.880', () => { pm.response.to.have.status(200); pm.expect(invoice.projected_total_cents).to.eql(188000); pm.expect(invoice.component_count).to.eql(3); });"] } }]
+        },
+        {
+          "name": "Resumo novembro reference",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/months/2026-11/summary?basis=reference" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const summary = pm.response.json().data;", "pm.test('reference usa competência', () => { pm.response.to.have.status(200); pm.expect(summary.commitments_cents).to.eql(170000); pm.expect(summary.breakdown.card_invoice_adjustments_cents).to.eql(0); });"] } }]
+        },
+        {
+          "name": "Resumo dezembro cash",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/months/2026-12/summary?basis=cash" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const summary = pm.response.json().data;", "const commitments = summary.sources.filter(source => source.effect === 'commitment').reduce((total, source) => total + source.amount_cents, 0);", "pm.test('cash não duplica fatura', () => { pm.response.to.have.status(200); pm.expect(summary.commitments_cents).to.eql(188000); pm.expect(commitments).to.eql(188000); });"] } }]
+        },
+        {
+          "name": "Validar dia inexistente",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/credit-cards/{{day31CardId}}/invoices/2027-02" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const invoice = pm.response.json().data;", "pm.test('dia 31 em fevereiro é explicado', () => { pm.response.to.have.status(200); pm.expect(invoice.nominal_due_date).to.eql(null); pm.expect(invoice.nominal_due_date_resolution).to.eql('invalid_for_month'); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "04 - Movimentação e transbordo",
+      "item": [
+        {
+          "name": "Mover gasolina de novembro para janeiro",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"target_credit_card_id\": \"{{cardId}}\",\n  \"target_payment_month\": \"2027-01\",\n  \"reason\": \"Exceção de fechamento\"\n}" }, "url": "{{baseUrl}}/v1/plans/current/items/{{fuelId}}/occurrences/2026-11/invoice-moves" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('movimentação criada', () => pm.response.to.have.status(201));", "pm.expect(pm.response.json().data.from_payment_month).to.eql('2026-12');", "pm.expect(pm.response.json().data.to_payment_month).to.eql('2027-01');"] } }]
+        },
+        {
+          "name": "Consultar histórico",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/items/{{fuelId}}/occurrences/2026-11/invoice-moves" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('histórico preservado', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().data.length).to.eql(1); });"] } }]
+        },
+        {
+          "name": "Consultar fatura de transbordo",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/credit-cards/{{cardId}}/invoices/2027-01" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const invoice = pm.response.json().data;", "pm.test('transbordo consultável', () => { pm.response.to.have.status(200); pm.expect(invoice.projected_total_cents).to.eql(240000); pm.expect(invoice.component_count).to.eql(3); });"] } }]
+        },
+        {
+          "name": "Resumo fora do horizonte",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/months/2027-01/summary?basis=cash" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('resumo fora do horizonte retorna 422', () => pm.response.to.have.status(422));"] } }]
+        }
+      ]
+    },
+    {
+      "name": "05 - Snapshot v2 e isolamento",
+      "item": [
+        {
+          "name": "Ativar plano",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/v1/plans/current/activate" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const original = pm.response.json().data.original;", "pm.test('snapshot v2 criado', () => { pm.response.to.have.status(200); pm.expect(original.schema_version).to.eql(2); pm.expect(original.plan.release_2.invoice_adjustments.length).to.eql(1); pm.expect(original.plan.release_2.invoice_moves.length).to.eql(1); });", "pm.environment.set('originalSnapshotId', original.id);"] } }]
+        },
+        {
+          "name": "Cadastrar segundo usuário",
+          "request": { "method": "POST", "header": [{ "key": "apikey", "value": "{{supabasePublishableKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"financial-api-r2-secondary-{{$timestamp}}@example.com\",\n  \"password\": \"Release2-test-123!\"\n}" }, "url": "{{supabaseUrl}}/auth/v1/signup" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('segundo signup', () => pm.response.to.have.status(200));", "pm.environment.set('secondAccessToken', pm.response.json().access_token);"] } }]
+        },
+        {
+          "name": "API bloqueia cartão alheio",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{secondAccessToken}}" }], "url": "{{baseUrl}}/v1/credit-cards/{{cardId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('API retorna 404', () => pm.response.to.have.status(404));"] } }]
+        },
+        {
+          "name": "Data API aplica RLS",
+          "request": { "method": "GET", "header": [{ "key": "apikey", "value": "{{supabasePublishableKey}}" }, { "key": "Authorization", "value": "Bearer {{secondAccessToken}}" }], "url": "{{supabaseUrl}}/rest/v1/credit_cards?id=eq.{{cardId}}&select=id" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('RLS retorna lista vazia', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.eql([]); });"] } }]
+        }
+      ]
+    }
+  ]
+}
