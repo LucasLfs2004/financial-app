@@ -391,6 +391,19 @@ em itens continuam somando em `fixed_expenses_cents` ou
 6. representa capacidades ainda não usadas com coleções vazias;
 7. grava snapshot e ativa na mesma transação existente.
 
+O número da versão permanece na coluna `plan_snapshots.schema_version`; o
+documento não replica esse discriminador. Escritas novas usam a versão 2,
+enquanto a leitura devolve o documento bruto acompanhado da versão persistida,
+permitindo que consumidores interpretem v1 e v2 sem migração retroativa. Uma
+reativação de plano já ativo retorna a fotografia existente e nunca tenta
+normalizá-la para a versão mais recente.
+
+No schema v2, um cartão é alcançável quando aparece em um período de forma de
+pagamento, em um ajuste de fatura ou como origem/destino de um evento de
+auditoria do plano. Somente as instituições desses cartões são capturadas.
+Arrays são ordenados por chaves estáveis (`id`, mês e instante, conforme o
+recurso), e capacidades sem registros são representadas por arrays vazios.
+
 ## 5. Contratos de resposta
 
 ### 5.1 Fatura reduzida

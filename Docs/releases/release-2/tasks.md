@@ -247,29 +247,37 @@ instituição e origem de alocação conforme o contrato OpenAPI.
 
 ### R2-T13 — Integrar cartões ao resumo mensal
 
-- [ ] usar o value object `Money` nas somas e subtrações do resumo, removendo
+- [x] usar o value object `Money` nas somas e subtrações do resumo, removendo
   os helpers aritméticos duplicados;
-- [ ] preservar seleção da Release 1 para rendas e despesas diretas;
-- [ ] excluir ocorrência de cartão do caminho direto em `cash`;
-- [ ] incluir componentes de fatura como sources;
-- [ ] incluir despesas de cartão normalmente em `reference`;
-- [ ] incluir ajustes apenas quando a base permitir;
-- [ ] adicionar metadados opcionais de fatura;
-- [ ] provar por teste que não há dupla contagem;
-- [ ] manter a suíte da Release 1 verde.
+- [x] preservar seleção da Release 1 para rendas e despesas diretas;
+- [x] excluir ocorrência de cartão do caminho direto em `cash`;
+- [x] incluir componentes de fatura como sources;
+- [x] incluir despesas de cartão normalmente em `reference`;
+- [x] incluir ajustes apenas quando a base permitir;
+- [x] adicionar metadados opcionais de fatura;
+- [x] provar por teste que não há dupla contagem;
+- [x] manter a suíte da Release 1 verde.
 
 Dependências: R2-T10, R2-T11, R2-T12.
 
+Status: concluída em 17/09/2026. O resumo reutiliza o seletor puro de
+componentes, mantém o caminho direto da Release 1, usa `Money` em todos os
+totais e diferencia competência e caixa sem duplicar ocorrências de cartão.
+
 ### R2-T14 — Evoluir fotografia original para schema v2
 
-- [ ] definir documento v2 determinístico;
-- [ ] incluir recursos da R2 alcançáveis pelo plano;
-- [ ] usar v2 em novas ativações sem reescrever snapshots existentes;
-- [ ] manter leitura de ambas as versões;
-- [ ] testar imutabilidade e ordenação;
-- [ ] documentar estratégia de evolução.
+- [x] definir documento v2 determinístico;
+- [x] incluir recursos da R2 alcançáveis pelo plano;
+- [x] usar v2 em novas ativações sem reescrever snapshots existentes;
+- [x] manter leitura de ambas as versões;
+- [x] testar imutabilidade e ordenação;
+- [x] documentar estratégia de evolução.
 
 Dependências: R2-T06 a R2-T11.
+
+Status: concluída em 17/09/2026. Novas ativações gravam schema v2 com recursos
+R2 alcançáveis e ordenação estável; a leitura continua orientada por
+`schema_version`, sem conversão ou regravação de fotografias v1.
 
 ## Marco G — Segurança e encerramento
 
