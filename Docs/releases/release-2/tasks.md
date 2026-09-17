@@ -188,18 +188,29 @@ existente, lock da ocorrência e ownership composto.
 
 ### R2-T10 — Implementar seleção de componentes
 
-- [ ] dividir o projetor puro de `cardinvoice` em arquivos coesos antes de
+- [x] dividir o projetor puro de `cardinvoice` em arquivos coesos antes de
   ampliar suas responsabilidades, sem alterar comportamento existente;
-- [ ] selecionar ocorrências financeiras por referência;
-- [ ] resolver método aplicável;
-- [ ] derivar mês padrão pelo cartão;
-- [ ] aplicar última movimentação;
-- [ ] incluir ajustes ativos;
-- [ ] distinguir referência conhecida e ausente;
-- [ ] garantir unicidade da ocorrência;
-- [ ] testar determinismo, overflow e transbordo.
+- [x] selecionar ocorrências financeiras por referência;
+- [x] resolver método aplicável;
+- [x] derivar mês padrão pelo cartão;
+- [x] aplicar última movimentação;
+- [x] incluir ajustes ativos;
+- [x] distinguir referência conhecida e ausente;
+- [x] garantir unicidade da ocorrência;
+- [x] testar determinismo, overflow e transbordo.
 
 Dependências: R2-T02, R2-T04, R2-T05, R2-T09.
+
+Status: concluída em 09/09/2026. O seletor puro expande premissas financeiras,
+resolve vigências de pagamento e cartão e reutiliza o projetor para
+movimentações, ajustes, ordenação e soma segura. A leitura PostgreSQL usa uma
+fotografia `repeatable read`, sem N+1, e o cenário integrado valida vigência,
+transbordo, ajuste e ownership.
+
+Exceção histórica: a branch publicada `feature/r2-t10-invoice-components`
+implementou o trabalho posteriormente classificado como R2-T11. Seu histórico
+foi preservado; a implementação efetiva desta task foi realizada em
+`feature/r2-t10-component-selection`.
 
 ### R2-T11 — Implementar ajustes consolidados
 
