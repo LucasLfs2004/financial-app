@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	invoicerepository "github.com/lucas/financial-api/internal/cardinvoice/repository"
 	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/monthlysummary"
 	"github.com/lucas/financial-api/internal/planning"
@@ -66,7 +67,7 @@ func TestRelease1AcceptanceAndIsolation(t *testing.T) {
 	itemService := financialitem.NewService(itemRepository, planService)
 	savingRepository := savings.NewPostgresRepository(pool)
 	savingService := savings.NewService(savingRepository, planService)
-	summaryService := monthlysummary.NewService(planService, itemRepository, savingRepository)
+	summaryService := monthlysummary.NewService(planService, itemRepository, savingRepository, invoicerepository.NewPostgresRepository(pool))
 	server := httpserver.New(config.Config{HTTP: config.HTTPConfig{}}, slog.New(slog.NewTextHandler(io.Discard, nil)), httpserver.Dependencies{
 		Database: pool, Authenticator: auth.NewClient(config.SupabaseConfig{URL: supabaseURL, PublishableKey: publishableKey, AuthTimeout: 5 * time.Second}),
 		Profiles: profile.NewRepository(pool), Plans: planService, FinancialItems: itemService, Savings: savingService, MonthlySummary: summaryService,

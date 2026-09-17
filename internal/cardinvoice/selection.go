@@ -63,6 +63,26 @@ type SelectionInput struct {
 	Moves        []OccurrenceMove
 }
 
+type PaymentMonthComponentsInput struct {
+	PlanStart    planning.YearMonth
+	PlanEnd      planning.YearMonth
+	PaymentMonth planning.YearMonth
+	Cards        []Card
+	Items        []FinancialItem
+	Adjustments  []Adjustment
+	Moves        []OccurrenceMove
+}
+
+type ReferenceMonthComponentsInput struct {
+	PlanStart      planning.YearMonth
+	PlanEnd        planning.YearMonth
+	ReferenceMonth planning.YearMonth
+	Cards          []Card
+	Items          []FinancialItem
+	Adjustments    []Adjustment
+	Moves          []OccurrenceMove
+}
+
 // SelectInvoiceComponents expands financial premises into occurrences,
 // resolves each occurrence's effective payment method and default invoice,
 // and delegates final movement, adjustment, ordering and total rules to the
@@ -99,17 +119,77 @@ func SelectInvoiceComponents(input SelectionInput) (Invoice, error) {
 	})
 }
 
+// SelectPaymentMonthComponents returns the normalized components paid in one
+// month across all cards. It intentionally does not resolve invoice due dates,
+// which are presentation data and do not participate in monthly totals.
+func SelectPaymentMonthComponents(input PaymentMonthComponentsInput) ([]Component, error) {
+	if !input.PlanStart.Valid() || !input.PlanEnd.Valid() || input.PlanEnd.Before(input.PlanStart) || !input.PaymentMonth.Valid() {
+		return nil, ErrInvalidProjectionInput
+	}
+	cards, err := indexAllCards(input.Cards)
+	if err != nil {
+		return nil, err
+	}
+	occurrences, err := selectCardOccurrences(input.PlanStart, input.PlanEnd, input.Items, cards)
+	if err != nil {
+		return nil, err
+	}
+	components, err := projectComponents(occurrences, input.Adjustments, input.Moves, func(_ string, paymentMonth planning.YearMonth) bool {
+		return paymentMonth == input.PaymentMonth
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, component := range components {
+		if _, exists := cards[component.CardID]; !exists {
+			return nil, fmt.Errorf("%w: component references card %s", ErrInconsistentProjection, component.CardID)
+		}
+	}
+	return components, nil
+}
+
+// SelectReferenceMonthComponents returns card-backed financial occurrences
+// and explicitly referenced invoice adjustments for one competence month.
+// Movement events are applied before filtering, so invoice metadata reflects
+// the effective allocation without changing the component's competence.
+func SelectReferenceMonthComponents(input ReferenceMonthComponentsInput) ([]Component, error) {
+	if !input.PlanStart.Valid() || !input.PlanEnd.Valid() || input.PlanEnd.Before(input.PlanStart) || !input.ReferenceMonth.Valid() {
+		return nil, ErrInvalidProjectionInput
+	}
+	cards, err := indexAllCards(input.Cards)
+	if err != nil {
+		return nil, err
+	}
+	occurrences, err := selectCardOccurrences(input.PlanStart, input.PlanEnd, input.Items, cards)
+	if err != nil {
+		return nil, err
+	}
+	components, err := projectComponents(occurrences, input.Adjustments, input.Moves, func(_ string, _ planning.YearMonth) bool {
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	selected := make([]Component, 0, len(components))
+	for _, component := range components {
+		if component.ReferenceMonth == nil || *component.ReferenceMonth != input.ReferenceMonth {
+			continue
+		}
+		if _, exists := cards[component.CardID]; !exists {
+			return nil, fmt.Errorf("%w: component references card %s", ErrInconsistentProjection, component.CardID)
+		}
+		selected = append(selected, component)
+	}
+	return selected, nil
+}
+
 func indexCards(values []Card, targetID string) (map[string]Card, Card, error) {
-	cards := make(map[string]Card, len(values))
+	cards, err := indexAllCards(values)
+	if err != nil {
+		return nil, Card{}, err
+	}
 	var target Card
-	for _, card := range values {
-		if strings.TrimSpace(card.ID) == "" || strings.TrimSpace(card.Name) == "" {
-			return nil, Card{}, ErrInvalidProjectionInput
-		}
-		if _, duplicate := cards[card.ID]; duplicate {
-			return nil, Card{}, fmt.Errorf("%w: duplicate card %s", ErrInconsistentProjection, card.ID)
-		}
-		cards[card.ID] = card
+	for _, card := range cards {
 		if card.ID == targetID {
 			target = card
 		}
@@ -118,6 +198,20 @@ func indexCards(values []Card, targetID string) (map[string]Card, Card, error) {
 		return nil, Card{}, ErrCardNotFound
 	}
 	return cards, target, nil
+}
+
+func indexAllCards(values []Card) (map[string]Card, error) {
+	cards := make(map[string]Card, len(values))
+	for _, card := range values {
+		if strings.TrimSpace(card.ID) == "" || strings.TrimSpace(card.Name) == "" {
+			return nil, ErrInvalidProjectionInput
+		}
+		if _, duplicate := cards[card.ID]; duplicate {
+			return nil, fmt.Errorf("%w: duplicate card %s", ErrInconsistentProjection, card.ID)
+		}
+		cards[card.ID] = card
+	}
+	return cards, nil
 }
 
 func selectCardOccurrences(planStart, planEnd planning.YearMonth, items []FinancialItem, cards map[string]Card) ([]Occurrence, error) {

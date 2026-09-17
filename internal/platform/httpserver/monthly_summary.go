@@ -59,11 +59,34 @@ func writeMonthlySummaryError(w http.ResponseWriter, err error) {
 func monthlySummaryResponse(summary monthlysummary.Summary) map[string]any {
 	sources := make([]map[string]any, len(summary.Sources))
 	for index, source := range summary.Sources {
-		sources[index] = map[string]any{
+		referenceMonth := any(nil)
+		if source.ReferenceMonth != nil {
+			referenceMonth = source.ReferenceMonth.String()
+		}
+		response := map[string]any{
 			"source_id": source.SourceID, "item_id": source.ItemID, "name": source.Name,
-			"kind": source.Kind, "effect": source.Effect, "reference_month": source.ReferenceMonth.String(),
+			"kind": source.Kind, "effect": source.Effect, "reference_month": referenceMonth,
 			"cash_month": source.CashMonth.String(), "amount_cents": source.AmountCents,
 		}
+		if source.SourceType != "" {
+			response["source_type"] = source.SourceType
+		}
+		if source.PaymentMethod != nil {
+			response["payment_method"] = *source.PaymentMethod
+		}
+		if source.CreditCardID != nil {
+			response["credit_card_id"] = *source.CreditCardID
+		}
+		if source.InvoicePaymentMonth != nil {
+			response["invoice_payment_month"] = source.InvoicePaymentMonth.String()
+		}
+		if source.InvoiceAllocation != nil {
+			response["invoice_allocation"] = *source.InvoiceAllocation
+		}
+		if source.ReferenceKnown != nil {
+			response["reference_known"] = *source.ReferenceKnown
+		}
+		sources[index] = response
 	}
 	return map[string]any{
 		"month": summary.Month.String(), "basis": summary.Basis, "result_kind": summary.ResultKind,
@@ -75,6 +98,7 @@ func monthlySummaryResponse(summary monthlysummary.Summary) map[string]any {
 			"one_time_income_cents":             summary.Breakdown.OneTimeIncomeCents,
 			"fixed_expenses_cents":              summary.Breakdown.FixedExpensesCents,
 			"projected_variable_expenses_cents": summary.Breakdown.ProjectedVariableExpensesCents,
+			"card_invoice_adjustments_cents":    summary.Breakdown.CardInvoiceAdjustmentsCents,
 		},
 		"sources": sources,
 	}

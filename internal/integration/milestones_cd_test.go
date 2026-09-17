@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	invoicerepository "github.com/lucas/financial-api/internal/cardinvoice/repository"
 	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/monthlysummary"
 	"github.com/lucas/financial-api/internal/planning"
@@ -46,7 +47,7 @@ func TestMilestonesCThroughE(t *testing.T) {
 	items := financialitem.NewService(itemRepository, plans)
 	savingRepository := savings.NewPostgresRepository(pool)
 	savingService := savings.NewService(savingRepository, plans)
-	summaryService := monthlysummary.NewService(plans, itemRepository, savingRepository)
+	summaryService := monthlysummary.NewService(plans, itemRepository, savingRepository, invoicerepository.NewPostgresRepository(pool))
 	for _, owner := range []string{ownerOne, ownerTwo} {
 		_, err = plans.Create(ctx, owner, planning.CreateInput{Name: "Planejamento", StartMonth: month(t, "2026-01"), EndMonth: month(t, "2026-12"), CurrencyCode: "BRL"})
 		if err != nil {
