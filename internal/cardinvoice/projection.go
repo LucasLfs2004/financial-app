@@ -99,63 +99,12 @@ func ProjectInvoice(input ProjectionInput) (Invoice, error) {
 	if err != nil {
 		return Invoice{}, fmt.Errorf("%w: %v", ErrInvalidProjectionInput, err)
 	}
-	latestMoves, err := selectLatestMoves(input.Moves)
+	components, err := projectComponents(input.Occurrences, input.Adjustments, input.Moves, func(cardID string, paymentMonth planning.YearMonth) bool {
+		return cardID == input.CardID && paymentMonth == input.PaymentMonth
+	})
 	if err != nil {
 		return Invoice{}, err
 	}
-	components := make([]Component, 0, len(input.Occurrences)+len(input.Adjustments))
-	seenOccurrences := make(map[string]struct{}, len(input.Occurrences))
-	for _, occurrence := range input.Occurrences {
-		key, validationError := validateOccurrence(occurrence)
-		if validationError != nil {
-			return Invoice{}, validationError
-		}
-		if _, duplicate := seenOccurrences[key]; duplicate {
-			return Invoice{}, fmt.Errorf("%w: %s", ErrDuplicateOccurrence, key)
-		}
-		seenOccurrences[key] = struct{}{}
-		cardID := occurrence.DefaultCardID
-		paymentMonth := occurrence.DefaultPaymentMonth
-		allocation := AllocationCalculatedFromReference
-		if move, moved := latestMoves[key]; moved {
-			cardID = move.ToCardID
-			paymentMonth = move.ToPaymentMonth
-			allocation = AllocationMovedByUser
-		}
-		if cardID != input.CardID || paymentMonth != input.PaymentMonth {
-			continue
-		}
-		itemID := occurrence.ItemID
-		referenceMonth := occurrence.ReferenceMonth
-		components = append(components, Component{
-			SourceID: occurrence.SourceID, SourceType: ComponentTypeFinancialItemOccurrence,
-			ItemID: &itemID, Name: occurrence.Name, ReferenceMonth: &referenceMonth,
-			ReferenceKnown: true, PaymentMonth: paymentMonth, CardID: cardID,
-			Amount: occurrence.Amount, Allocation: allocation,
-		})
-	}
-	seenAdjustments := make(map[string]struct{}, len(input.Adjustments))
-	for _, adjustment := range input.Adjustments {
-		if err := validateAdjustment(adjustment); err != nil {
-			return Invoice{}, err
-		}
-		if _, duplicate := seenAdjustments[adjustment.ID]; duplicate {
-			return Invoice{}, fmt.Errorf("%w: %s", ErrDuplicateAdjustment, adjustment.ID)
-		}
-		seenAdjustments[adjustment.ID] = struct{}{}
-		if adjustment.Status == AdjustmentStatusArchived || adjustment.CardID != input.CardID || adjustment.PaymentMonth != input.PaymentMonth {
-			continue
-		}
-		adjustmentID := adjustment.ID
-		components = append(components, Component{
-			SourceID: adjustment.ID, SourceType: ComponentTypeInvoiceAdjustment,
-			AdjustmentID: &adjustmentID, Name: adjustment.Name,
-			ReferenceMonth: adjustment.ReferenceMonth, ReferenceKnown: adjustment.ReferenceMonth != nil,
-			PaymentMonth: adjustment.PaymentMonth, CardID: adjustment.CardID,
-			Amount: adjustment.Amount, Allocation: AllocationSelectedInvoice,
-		})
-	}
-	sortComponents(components)
 	total := planning.ZeroMoney()
 	for _, component := range components {
 		total, err = total.Add(component.Amount)
@@ -168,6 +117,67 @@ func ProjectInvoice(input ProjectionInput) (Invoice, error) {
 		CurrencyCode: input.CurrencyCode, NominalDueDate: dueDate, Total: total,
 		Components: components,
 	}, nil
+}
+
+func projectComponents(occurrences []Occurrence, adjustments []Adjustment, moves []OccurrenceMove, include func(string, planning.YearMonth) bool) ([]Component, error) {
+	latestMoves, err := selectLatestMoves(moves)
+	if err != nil {
+		return nil, err
+	}
+	components := make([]Component, 0, len(occurrences)+len(adjustments))
+	seenOccurrences := make(map[string]struct{}, len(occurrences))
+	for _, occurrence := range occurrences {
+		key, validationError := validateOccurrence(occurrence)
+		if validationError != nil {
+			return nil, validationError
+		}
+		if _, duplicate := seenOccurrences[key]; duplicate {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateOccurrence, key)
+		}
+		seenOccurrences[key] = struct{}{}
+		cardID := occurrence.DefaultCardID
+		paymentMonth := occurrence.DefaultPaymentMonth
+		allocation := AllocationCalculatedFromReference
+		if move, moved := latestMoves[key]; moved {
+			cardID = move.ToCardID
+			paymentMonth = move.ToPaymentMonth
+			allocation = AllocationMovedByUser
+		}
+		if !include(cardID, paymentMonth) {
+			continue
+		}
+		itemID := occurrence.ItemID
+		referenceMonth := occurrence.ReferenceMonth
+		components = append(components, Component{
+			SourceID: occurrence.SourceID, SourceType: ComponentTypeFinancialItemOccurrence,
+			ItemID: &itemID, Name: occurrence.Name, ReferenceMonth: &referenceMonth,
+			ReferenceKnown: true, PaymentMonth: paymentMonth, CardID: cardID,
+			Amount: occurrence.Amount, Allocation: allocation,
+		})
+	}
+	seenAdjustments := make(map[string]struct{}, len(adjustments))
+	for _, adjustment := range adjustments {
+		if err := validateAdjustment(adjustment); err != nil {
+			return nil, err
+		}
+		if _, duplicate := seenAdjustments[adjustment.ID]; duplicate {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateAdjustment, adjustment.ID)
+		}
+		seenAdjustments[adjustment.ID] = struct{}{}
+		if adjustment.Status == AdjustmentStatusArchived || !include(adjustment.CardID, adjustment.PaymentMonth) {
+			continue
+		}
+		adjustmentID := adjustment.ID
+		components = append(components, Component{
+			SourceID: adjustment.ID, SourceType: ComponentTypeInvoiceAdjustment,
+			AdjustmentID: &adjustmentID, Name: adjustment.Name,
+			ReferenceMonth: adjustment.ReferenceMonth, ReferenceKnown: adjustment.ReferenceMonth != nil,
+			PaymentMonth: adjustment.PaymentMonth, CardID: adjustment.CardID,
+			Amount: adjustment.Amount, Allocation: AllocationSelectedInvoice,
+		})
+	}
+	sortComponents(components)
+	return components, nil
 }
 
 func validateOccurrence(occurrence Occurrence) (string, error) {

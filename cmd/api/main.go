@@ -60,7 +60,8 @@ func main() {
 	financialItemService := financialitem.NewService(financialItemRepository, planService)
 	savingsRepository := savings.NewPostgresRepository(databasePool)
 	savingsService := savings.NewService(savingsRepository, planService)
-	monthlySummaryService := monthlysummary.NewService(planService, financialItemRepository, savingsRepository)
+	invoiceRepository := invoicerepository.NewPostgresRepository(databasePool)
+	monthlySummaryService := monthlysummary.NewService(planService, financialItemRepository, savingsRepository, invoiceRepository)
 	institutionRepository := institutionrepository.NewPostgresRepository(databasePool)
 	institutionService := institutionapplication.NewService(institutionRepository)
 	cardRepository := cardrepository.NewPostgresRepository(databasePool)
@@ -71,7 +72,6 @@ func main() {
 	invoiceMoveService := invoiceallocationapplication.NewService(invoiceMoveRepository, planService)
 	invoiceAdjustmentRepository := invoiceadjustmentrepository.NewPostgresRepository(databasePool)
 	invoiceAdjustmentService := invoiceadjustmentapplication.NewService(invoiceAdjustmentRepository, planService)
-	invoiceRepository := invoicerepository.NewPostgresRepository(databasePool)
 	invoiceService := invoiceapplication.NewService(invoiceRepository, planService)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
