@@ -300,18 +300,23 @@ nomes ou valores financeiros.
 
 ### R2-T16 — Executar cenário de aceite
 
-- [ ] cadastrar instituição e cartão com offset 1/dia 6;
-- [ ] vincular aluguel e gasolina;
-- [ ] adicionar ajuste consolidado;
-- [ ] validar total e composição;
-- [ ] validar novembro em `reference` e dezembro em `cash`;
-- [ ] provar ausência de dupla contagem;
-- [ ] trocar cartão a partir de agosto;
-- [ ] mover uma ocorrência e validar histórico;
-- [ ] validar dia inexistente e transbordo;
-- [ ] ativar rascunho e validar snapshot v2.
+- [x] cadastrar instituição e cartão com offset 1/dia 6;
+- [x] vincular aluguel e gasolina;
+- [x] adicionar ajuste consolidado;
+- [x] validar total e composição;
+- [x] validar novembro em `reference` e dezembro em `cash`;
+- [x] provar ausência de dupla contagem;
+- [x] trocar cartão a partir de agosto;
+- [x] mover uma ocorrência e validar histórico;
+- [x] validar dia inexistente e transbordo;
+- [x] ativar rascunho e validar snapshot v2.
 
 Dependências: R2-T13, R2-T14, R2-T15.
+
+Status: concluída em 17/09/2026. O cenário automatizado percorre os dez
+critérios de aceite da Release 2 pela API HTTP real, incluindo composição de
+R$ 1.880, competência/caixa, movimentação auditável, transbordo, vencimento
+nominal inválido e fotografia original v2.
 
 ### R2-T17 — Qualidade final e documentação operacional
 
