@@ -228,15 +228,20 @@ arquivamento e eventos append-only integrado às rotas autenticadas.
 
 ### R2-T12 — Expor listagem e detalhe de faturas
 
-- [ ] listar intervalo inclusivo de até 24 meses;
-- [ ] retornar meses com componentes e omitir meses vazios por padrão;
-- [ ] detalhar composição e origem;
-- [ ] resolver vencimento nominal;
-- [ ] garantir total igual à soma dos componentes;
-- [ ] suportar fatura de transbordo;
-- [ ] testar ordenação, erros e ownership.
+- [x] listar intervalo inclusivo de até 24 meses;
+- [x] retornar meses com componentes e omitir meses vazios por padrão;
+- [x] detalhar composição e origem;
+- [x] resolver vencimento nominal;
+- [x] garantir total igual à soma dos componentes;
+- [x] suportar fatura de transbordo;
+- [x] testar ordenação, erros e ownership.
 
 Dependências: R2-T07, R2-T10, R2-T11.
+
+Status: concluída em 17/09/2026. Listagem e detalhe reutilizam uma única
+fotografia das fontes por requisição, respeitam o intervalo inclusivo de até 24
+meses, omitem faturas vazias por padrão e retornam composição, vencimento,
+instituição e origem de alocação conforme o contrato OpenAPI.
 
 ## Marco F — Integração financeira
 

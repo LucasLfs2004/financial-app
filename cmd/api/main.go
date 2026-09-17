@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	invoiceapplication "github.com/lucas/financial-api/internal/cardinvoice/application"
+	invoicerepository "github.com/lucas/financial-api/internal/cardinvoice/repository"
 	cardapplication "github.com/lucas/financial-api/internal/creditcard/application"
 	cardrepository "github.com/lucas/financial-api/internal/creditcard/repository"
 	institutionapplication "github.com/lucas/financial-api/internal/financialinstitution/application"
@@ -69,6 +71,8 @@ func main() {
 	invoiceMoveService := invoiceallocationapplication.NewService(invoiceMoveRepository, planService)
 	invoiceAdjustmentRepository := invoiceadjustmentrepository.NewPostgresRepository(databasePool)
 	invoiceAdjustmentService := invoiceadjustmentapplication.NewService(invoiceAdjustmentRepository, planService)
+	invoiceRepository := invoicerepository.NewPostgresRepository(databasePool)
+	invoiceService := invoiceapplication.NewService(invoiceRepository, planService)
 
 	server := httpserver.New(cfg, logger, httpserver.Dependencies{
 		Database:           databasePool,
@@ -83,6 +87,7 @@ func main() {
 		PaymentMethods:     paymentMethodService,
 		InvoiceMoves:       invoiceMoveService,
 		InvoiceAdjustments: invoiceAdjustmentService,
+		CardInvoices:       invoiceService,
 	})
 
 	serverErrors := make(chan error, 1)

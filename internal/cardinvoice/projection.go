@@ -57,6 +57,7 @@ type OccurrenceMove struct {
 type ProjectionInput struct {
 	CardID        string
 	CardName      string
+	Institution   Institution
 	PaymentMonth  planning.YearMonth
 	CurrencyCode  string
 	NominalDueDay int
@@ -82,6 +83,7 @@ type Component struct {
 type Invoice struct {
 	CardID         string
 	CardName       string
+	Institution    Institution
 	PaymentMonth   planning.YearMonth
 	CurrencyCode   string
 	NominalDueDate NominalDueDate
@@ -162,7 +164,7 @@ func ProjectInvoice(input ProjectionInput) (Invoice, error) {
 		}
 	}
 	return Invoice{
-		CardID: input.CardID, CardName: input.CardName, PaymentMonth: input.PaymentMonth,
+		CardID: input.CardID, CardName: input.CardName, Institution: input.Institution, PaymentMonth: input.PaymentMonth,
 		CurrencyCode: input.CurrencyCode, NominalDueDate: dueDate, Total: total,
 		Components: components,
 	}, nil
