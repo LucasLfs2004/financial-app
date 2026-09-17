@@ -283,15 +283,20 @@ R2 alcançáveis e ordenação estável; a leitura continua orientada por
 
 ### R2-T15 — Validar isolamento ponta a ponta
 
-- [ ] criar dois usuários com instituições e cartões distintos;
-- [ ] tentar leitura e alteração cruzadas;
-- [ ] tentar vincular item a cartão alheio;
-- [ ] tentar mover ocorrência para cartão alheio;
-- [ ] validar RLS pelo Data API;
-- [ ] validar ownership pela API Go;
-- [ ] revisar logs para ausência de dados financeiros.
+- [x] criar dois usuários com instituições e cartões distintos;
+- [x] tentar leitura e alteração cruzadas;
+- [x] tentar vincular item a cartão alheio;
+- [x] tentar mover ocorrência para cartão alheio;
+- [x] validar RLS pelo Data API;
+- [x] validar ownership pela API Go;
+- [x] revisar logs para ausência de dados financeiros.
 
 Dependências: R2-T06 a R2-T14.
+
+Status: concluída em 17/09/2026. O cenário E2E usa dois usuários reais do
+Supabase Auth e comprova isolamento na API Go e no Data API para instituições,
+cartões, faturas, vínculos e movimentações. Os logs HTTP não expõem tokens,
+nomes ou valores financeiros.
 
 ### R2-T16 — Executar cenário de aceite
 
