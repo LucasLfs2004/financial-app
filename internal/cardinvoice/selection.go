@@ -3,14 +3,25 @@ package cardinvoice
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	planning "github.com/lucas/financial-api/internal/planning/domain"
 )
+
+type Institution struct {
+	ID         string
+	Name       string
+	Status     FinancialResourceStatus
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
 
 // Card carries only the card data required by the pure invoice selector.
 type Card struct {
 	ID             string
 	Name           string
+	Institution    Institution
 	Configurations []CardConfigurationPeriod
 }
 
@@ -78,6 +89,7 @@ func SelectInvoiceComponents(input SelectionInput) (Invoice, error) {
 	return ProjectInvoice(ProjectionInput{
 		CardID:        targetCard.ID,
 		CardName:      targetCard.Name,
+		Institution:   targetCard.Institution,
 		PaymentMonth:  input.PaymentMonth,
 		CurrencyCode:  input.CurrencyCode,
 		NominalDueDay: dueConfiguration.NominalDueDay(),

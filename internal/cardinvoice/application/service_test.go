@@ -57,6 +57,27 @@ func TestProjectDelegatesPureComponentSelection(t *testing.T) {
 	}
 }
 
+func TestListOmitsEmptyInvoicesAndLimitsInclusiveRange(t *testing.T) {
+	configuration, _ := cardinvoice.NewCardConfiguration(6, 1)
+	interval, _ := planningdomain.NewOpenMonthInterval(month(t, "2026-01"))
+	configurationPeriod, _ := cardinvoice.NewCardConfigurationPeriod("configuration", interval, configuration)
+	repository := &repositoryStub{data: cardinvoice.ProjectionData{Cards: []cardinvoice.Card{{ID: "card", Name: "Principal", Configurations: []cardinvoice.CardConfigurationPeriod{configurationPeriod}}}}}
+	service := NewService(repository, planReaderStub{plan: testPlan(t)})
+
+	invoices, err := service.List(context.Background(), "owner", "card", month(t, "2026-01"), month(t, "2026-02"), false)
+	if err != nil || len(invoices) != 0 {
+		t.Fatalf("empty invoices=%+v error=%v", invoices, err)
+	}
+	invoices, err = service.List(context.Background(), "owner", "card", month(t, "2026-01"), month(t, "2026-02"), true)
+	if err != nil || len(invoices) != 2 {
+		t.Fatalf("included invoices=%+v error=%v", invoices, err)
+	}
+	_, err = service.List(context.Background(), "owner", "card", month(t, "2026-01"), month(t, "2028-01"), true)
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("expected range validation, got %v", err)
+	}
+}
+
 func testPlan(t *testing.T) planning.Plan {
 	t.Helper()
 	return planning.Plan{ID: "plan", StartMonth: month(t, "2026-01"), EndMonth: month(t, "2026-12"), CurrencyCode: "BRL"}

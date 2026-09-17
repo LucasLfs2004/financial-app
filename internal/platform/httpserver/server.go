@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	invoicehttp "github.com/lucas/financial-api/internal/cardinvoice/transport/http"
 	cardhttp "github.com/lucas/financial-api/internal/creditcard/transport/http"
 	institutionhttp "github.com/lucas/financial-api/internal/financialinstitution/transport/http"
 	invoiceadjustmenthttp "github.com/lucas/financial-api/internal/invoiceadjustment/transport/http"
@@ -47,6 +48,7 @@ type Dependencies struct {
 	PaymentMethods     paymentmethodhttp.Service
 	InvoiceMoves       invoiceallocationhttp.Service
 	InvoiceAdjustments invoiceadjustmenthttp.Service
+	CardInvoices       invoicehttp.Service
 }
 
 func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *http.Server {
@@ -105,6 +107,11 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 		invoiceadjustmenthttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
 			return authenticate(dependencies.Authenticator, next)
 		}, dependencies.InvoiceAdjustments)
+	}
+	if dependencies.CardInvoices != nil {
+		invoicehttp.RegisterRoutes(mux, func(next http.Handler) http.Handler {
+			return authenticate(dependencies.Authenticator, next)
+		}, dependencies.CardInvoices)
 	}
 
 	handler := recoveryMiddleware(logger,

@@ -122,6 +122,17 @@ func TestRelease2InvoiceComponentSelection(t *testing.T) {
 	if invoice.Total.Cents() != 1200 || len(invoice.Components) != 2 || invoice.Components[1].ReferenceKnown {
 		t.Fatalf("initial invoice=%+v", invoice)
 	}
+	listed, err := invoices.List(ctx, invoiceOwnerOne, card.ID, month(t, "2026-10"), month(t, "2027-01"), false)
+	if err != nil || len(listed) != 2 || listed[0].PaymentMonth.String() != "2026-12" || listed[1].PaymentMonth.String() != "2027-01" {
+		t.Fatalf("listed invoices=%+v error=%v", listed, err)
+	}
+	withEmpty, err := invoices.List(ctx, invoiceOwnerOne, card.ID, month(t, "2026-10"), month(t, "2027-01"), true)
+	if err != nil || len(withEmpty) != 4 {
+		t.Fatalf("listed invoices with empty months=%+v error=%v", withEmpty, err)
+	}
+	if listed[1].Total.Cents() != 1000 || len(listed[1].Components) != 1 {
+		t.Fatalf("overflow invoice=%+v", listed[1])
+	}
 
 	_, err = invoices.Project(ctx, invoiceOwnerTwo, card.ID, month(t, "2026-12"))
 	if !errors.Is(err, cardinvoice.ErrCardNotFound) {
@@ -131,6 +142,12 @@ func TestRelease2InvoiceComponentSelection(t *testing.T) {
 
 func cleanupInvoiceOwners(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, `delete from public.card_invoice_audit_events where user_id in ($1, $2)`, invoiceOwnerOne, invoiceOwnerTwo); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, `delete from public.financial_item_payment_periods where user_id in ($1, $2)`, invoiceOwnerOne, invoiceOwnerTwo); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, `delete from public.card_invoice_adjustments where user_id in ($1, $2)`, invoiceOwnerOne, invoiceOwnerTwo); err != nil {
 		return err
 	}
 	if _, err := pool.Exec(ctx, `delete from auth.users where id in ($1, $2)`, invoiceOwnerOne, invoiceOwnerTwo); err != nil {

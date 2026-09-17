@@ -54,9 +54,12 @@ func (repository *PostgresRepository) LoadProjectionData(ctx context.Context, ow
 
 func loadCards(ctx context.Context, tx pgx.Tx, ownerID string) ([]cardinvoice.Card, error) {
 	rows, err := tx.Query(ctx, `
-		select c.id, c.name, p.id, p.start_month, p.end_month,
+		select c.id, c.name, i.id, i.name, i.status, i.archived_at, i.created_at, i.updated_at,
+			p.id, p.start_month, p.end_month,
 			p.nominal_due_day, p.payment_month_offset
 		from public.credit_cards c
+		join public.financial_institutions i
+			on i.id = c.institution_id and i.user_id = c.user_id
 		left join public.credit_card_periods p
 			on p.credit_card_id = c.id and p.user_id = c.user_id
 		where c.user_id = $1
@@ -71,17 +74,27 @@ func loadCards(ctx context.Context, tx pgx.Tx, ownerID string) ([]cardinvoice.Ca
 	indexes := make(map[string]int)
 	for rows.Next() {
 		var id, name string
+		var institution cardinvoice.Institution
+		var institutionStatus string
 		var periodID *string
 		var start, end *time.Time
 		var dueDay, offset *int
-		if err := rows.Scan(&id, &name, &periodID, &start, &end, &dueDay, &offset); err != nil {
+		if err := rows.Scan(
+			&id, &name, &institution.ID, &institution.Name, &institutionStatus,
+			&institution.ArchivedAt, &institution.CreatedAt, &institution.UpdatedAt,
+			&periodID, &start, &end, &dueDay, &offset,
+		); err != nil {
 			return nil, fmt.Errorf("scan invoice card: %w", err)
+		}
+		institution.Status, err = cardinvoice.ParseFinancialResourceStatus(institutionStatus)
+		if err != nil {
+			return nil, fmt.Errorf("parse invoice institution %s status: %w", institution.ID, err)
 		}
 		index, exists := indexes[id]
 		if !exists {
 			index = len(cards)
 			indexes[id] = index
-			cards = append(cards, cardinvoice.Card{ID: id, Name: name, Configurations: []cardinvoice.CardConfigurationPeriod{}})
+			cards = append(cards, cardinvoice.Card{ID: id, Name: name, Institution: institution, Configurations: []cardinvoice.CardConfigurationPeriod{}})
 		}
 		if periodID == nil {
 			continue
