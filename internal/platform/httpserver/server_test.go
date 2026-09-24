@@ -116,7 +116,7 @@ func (*fakeFinancialItems) Find(context.Context, string, string) (financialitem.
 }
 func (items *fakeFinancialItems) Update(_ context.Context, ownerID, _ string, input financialitem.UpdateInput) (financialitem.Item, error) {
 	items.updateOwner, items.updateInput = ownerID, input
-	return financialitem.Item{ID: "item", PlanID: "plan", Name: "Salário", Kind: domain.FinancialItemKindRecurringIncome, Status: domain.FinancialItemStatusActive, Periods: []financialitem.Period{}}, nil
+	return financialitem.Item{ID: "item", CurrencyCode: "BRL", Name: "Salário", Kind: domain.FinancialItemKindRecurringIncome, Status: domain.FinancialItemStatusActive, Periods: []financialitem.Period{}}, nil
 }
 func (*fakeFinancialItems) Change(context.Context, string, string, financialitem.ChangeInput) (financialitem.Item, error) {
 	return financialitem.Item{}, nil
@@ -316,9 +316,9 @@ func TestUpdatePlanMapsActivePlanToConflict(t *testing.T) {
 }
 
 func TestCreateFinancialItemUsesAuthenticatedUserAndPreservesOffset(t *testing.T) {
-	items := &fakeFinancialItems{createResult: financialitem.Item{ID: "item", PlanID: "plan", Name: "Salário", Kind: domain.FinancialItemKindRecurringIncome, Status: domain.FinancialItemStatusActive, Periods: []financialitem.Period{}}}
+	items := &fakeFinancialItems{createResult: financialitem.Item{ID: "item", CurrencyCode: "BRL", Name: "Salário", Kind: domain.FinancialItemKindRecurringIncome, Status: domain.FinancialItemStatusActive, Periods: []financialitem.Period{}}}
 	server := newTestServerWithServices(authenticatedTestClient(), &fakePlans{}, items, &fakeSavings{})
-	request := httptest.NewRequest(http.MethodPost, "/v1/plans/current/items", strings.NewReader(`{"name":"Salário","kind":"recurring_income","period":{"start_month":"2026-01","end_month":"2026-12","amount_cents":600000,"recurrence":"monthly","cash_month_offset":1}}`))
+	request := httptest.NewRequest(http.MethodPost, "/v1/financial-items", strings.NewReader(`{"name":"Salário","kind":"recurring_income","period":{"start_month":"2026-01","end_month":"2026-12","amount_cents":600000,"recurrence":"monthly","cash_month_offset":1}}`))
 	request.Header.Set("Authorization", "Bearer valid-token")
 	response := httptest.NewRecorder()
 

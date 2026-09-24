@@ -98,7 +98,7 @@ func TestRelease2InvoiceComponentSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	paymentMethods := paymentapplication.NewService(paymentrepository.NewPostgresRepository(pool), plans)
+	paymentMethods := paymentapplication.NewService(paymentrepository.NewPostgresRepository(pool))
 	if _, err = paymentMethods.Create(ctx, invoiceOwnerOne, item.ID, paymentapplication.Input{
 		EffectiveFrom: month(t, "2026-11"), EndMonth: monthPtr(t, "2026-12"),
 		Method: paymentdomain.CreditCard, CreditCardID: &card.ID,

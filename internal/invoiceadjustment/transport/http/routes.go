@@ -108,7 +108,7 @@ func response(a domain.Adjustment) map[string]any {
 	if a.ReferenceMonth != nil {
 		ref = a.ReferenceMonth.String()
 	}
-	return map[string]any{"id": a.ID, "credit_card_id": a.CardID, "payment_month": a.PaymentMonth.String(), "reference_month": ref, "name": a.Name, "amount_cents": a.AmountCents, "context": a.Context, "status": a.Status, "archived_at": a.ArchivedAt, "created_at": a.CreatedAt, "updated_at": a.UpdatedAt}
+	return map[string]any{"id": a.ID, "currency_code": a.CurrencyCode, "credit_card_id": a.CardID, "payment_month": a.PaymentMonth.String(), "reference_month": ref, "name": a.Name, "amount_cents": a.AmountCents, "context": a.Context, "status": a.Status, "archived_at": a.ArchivedAt, "created_at": a.CreatedAt, "updated_at": a.UpdatedAt}
 }
 func unauth(w http.ResponseWriter) {
 	httpapi.WriteError(w, 401, "unauthorized", "Authentication is required")

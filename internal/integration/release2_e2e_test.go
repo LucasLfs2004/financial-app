@@ -204,7 +204,7 @@ func TestRelease2AcceptanceScenario(t *testing.T) {
 	if err := json.Unmarshal(activation, &activated); err != nil {
 		t.Fatal(err)
 	}
-	if activated.Original.SchemaVersion != 2 || len(activated.Original.Plan.Release2.Cards) != 2 || len(activated.Original.Plan.Release2.Adjustments) != 1 || len(activated.Original.Plan.Release2.Moves) != 1 {
+	if activated.Original.SchemaVersion != 3 || len(activated.Original.Plan.Release2.Cards) != 2 || len(activated.Original.Plan.Release2.Adjustments) != 1 || len(activated.Original.Plan.Release2.Moves) != 1 {
 		t.Fatalf("activation snapshot=%+v", activated.Original)
 	}
 }
@@ -300,7 +300,7 @@ func newRelease2TestServer(t *testing.T, pool *pgxpool.Pool, supabaseURL, publis
 	invoiceRepository := invoicerepository.NewPostgresRepository(pool)
 	institutions := institutionapplication.NewService(institutionrepository.NewPostgresRepository(pool))
 	cards := cardapplication.NewService(cardrepository.NewPostgresRepository(pool))
-	paymentMethods := paymentapplication.NewService(paymentrepository.NewPostgresRepository(pool), plans)
+	paymentMethods := paymentapplication.NewService(paymentrepository.NewPostgresRepository(pool))
 	moves := moveapplication.NewService(moverepository.NewPostgresRepository(pool), plans)
 	adjustments := adjustmentapplication.NewService(adjustmentrepository.NewPostgresRepository(pool), plans)
 	invoices := invoiceapplication.NewService(invoiceRepository, plans)

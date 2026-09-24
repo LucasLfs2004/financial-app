@@ -17,31 +17,33 @@ func (plans fakePlans) Current(context.Context, string) (planning.Plan, error) {
 
 type fakeRepository struct {
 	created  CreateInput
+	currency string
 	changed  ChangeInput
 	findItem Item
 }
 
-func (repository *fakeRepository) Create(_ context.Context, _, _ string, input CreateInput) (Item, error) {
+func (repository *fakeRepository) Create(_ context.Context, _, currency string, input CreateInput) (Item, error) {
 	repository.created = input
+	repository.currency = currency
 	return Item{}, nil
 }
-func (*fakeRepository) List(context.Context, string, string, Filters) ([]Item, error) {
+func (*fakeRepository) List(context.Context, string, Filters) ([]Item, error) {
 	return []Item{}, nil
 }
-func (repository *fakeRepository) Find(context.Context, string, string, string) (Item, error) {
+func (repository *fakeRepository) Find(context.Context, string, string) (Item, error) {
 	if repository.findItem.Kind.Valid() {
 		return repository.findItem, nil
 	}
 	return Item{Kind: domain.FinancialItemKindRecurringIncome, Periods: []Period{{StartMonth: mustMonth("2026-01"), EndMonth: monthPointer("2026-12"), Recurrence: domain.RecurrenceMonthly}}}, nil
 }
-func (*fakeRepository) Update(context.Context, string, string, string, UpdateInput) (Item, error) {
+func (*fakeRepository) Update(context.Context, string, string, UpdateInput) (Item, error) {
 	return Item{}, nil
 }
-func (repository *fakeRepository) Change(_ context.Context, _, _, _ string, input ChangeInput) (Item, error) {
+func (repository *fakeRepository) Change(_ context.Context, _, _ string, input ChangeInput) (Item, error) {
 	repository.changed = input
 	return Item{}, nil
 }
-func (*fakeRepository) Archive(context.Context, string, string, string, ArchiveInput) (Item, error) {
+func (*fakeRepository) Archive(context.Context, string, string, ArchiveInput) (Item, error) {
 	return Item{}, nil
 }
 
@@ -55,6 +57,9 @@ func TestCreateAcceptsDeferredRecurringIncome(t *testing.T) {
 	if repository.created.Period.CashMonthOffset != 1 {
 		t.Fatal("cash offset was not preserved")
 	}
+	if repository.currency != "BRL" {
+		t.Fatalf("currency=%q", repository.currency)
+	}
 }
 func TestCreateRejectsInvalidKindRecurrence(t *testing.T) {
 	service := NewService(&fakeRepository{}, fakePlans{testPlan(t)})
@@ -63,11 +68,15 @@ func TestCreateRejectsInvalidKindRecurrence(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 }
-func TestCreateRejectsPeriodOutsideHorizon(t *testing.T) {
-	service := NewService(&fakeRepository{}, fakePlans{testPlan(t)})
-	_, err := service.Create(context.Background(), "owner", CreateInput{Name: "Aluguel", Kind: domain.FinancialItemKindFixedExpense, Period: PeriodInput{StartMonth: testMonth(t, "2027-01"), AmountCents: 100, Recurrence: domain.RecurrenceMonthly}})
-	if !errors.Is(err, ErrValidation) {
-		t.Fatalf("error=%v", err)
+func TestCreateAcceptsPeriodOutsidePlanHorizon(t *testing.T) {
+	repository := &fakeRepository{}
+	service := NewService(repository, fakePlans{testPlan(t)})
+	_, err := service.Create(context.Background(), "owner", CreateInput{Name: "Seguro", Kind: domain.FinancialItemKindFixedExpense, Period: PeriodInput{StartMonth: testMonth(t, "2026-09"), EndMonth: testMonthPtr(t, "2027-09"), AmountCents: 100, Recurrence: domain.RecurrenceMonthly}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repository.created.Period.EndMonth == nil || repository.created.Period.EndMonth.String() != "2027-09" {
+		t.Fatalf("end=%v", repository.created.Period.EndMonth)
 	}
 }
 
@@ -81,7 +90,7 @@ func TestChangeValidatesOriginalOnceRecurrence(t *testing.T) {
 }
 
 func testPlan(t *testing.T) planning.Plan {
-	return planning.Plan{ID: "plan", StartMonth: testMonth(t, "2026-01"), EndMonth: testMonth(t, "2026-12"), Status: domain.PlanStatusDraft}
+	return planning.Plan{ID: "plan", StartMonth: testMonth(t, "2026-01"), EndMonth: testMonth(t, "2026-12"), CurrencyCode: "BRL", Status: domain.PlanStatusDraft}
 }
 func testMonth(t *testing.T, value string) domain.YearMonth {
 	t.Helper()

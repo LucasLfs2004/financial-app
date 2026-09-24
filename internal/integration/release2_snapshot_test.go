@@ -59,10 +59,10 @@ func TestSnapshotV2IsReachableOrderedImmutableAndV1RemainsReadable(t *testing.T)
 	}
 	itemIDs := make([]string, 3)
 	for index, definition := range []struct{ name, kind string }{{"Salário", "recurring_income"}, {"Cartão B", "fixed_expense"}, {"Cartão A", "projected_variable_expense"}} {
-		if err = pool.QueryRow(ctx, `insert into public.financial_items(plan_id,user_id,name,kind) values($1,$2,$3,$4) returning id`, planID, ownerID, definition.name, definition.kind).Scan(&itemIDs[index]); err != nil {
+		if err = pool.QueryRow(ctx, `insert into public.financial_items(user_id,currency_code,name,kind) values($1,'BRL',$2,$3) returning id`, ownerID, definition.name, definition.kind).Scan(&itemIDs[index]); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = pool.Exec(ctx, `insert into public.financial_item_periods(financial_item_id,plan_id,user_id,start_month,end_month,amount_cents,recurrence) values($1,$2,$3,'2026-01-01','2026-12-01',10000,'monthly')`, itemIDs[index], planID, ownerID); err != nil {
+		if _, err = pool.Exec(ctx, `insert into public.financial_item_periods(financial_item_id,user_id,start_month,end_month,amount_cents,recurrence) values($1,$2,'2026-01-01','2026-12-01',10000,'monthly')`, itemIDs[index], ownerID); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -89,12 +89,12 @@ func TestSnapshotV2IsReachableOrderedImmutableAndV1RemainsReadable(t *testing.T)
 	}
 	paymentIDs := make([]string, 2)
 	for index := range 2 {
-		if err = pool.QueryRow(ctx, `insert into public.financial_item_payment_periods(financial_item_id,plan_id,user_id,start_month,end_month,method,credit_card_id) values($1,$2,$3,'2026-01-01','2026-12-01','credit_card',$4) returning id`, itemIDs[index+1], planID, ownerID, cardIDs[index]).Scan(&paymentIDs[index]); err != nil {
+		if err = pool.QueryRow(ctx, `insert into public.financial_item_payment_periods(financial_item_id,user_id,start_month,end_month,method,credit_card_id) values($1,$2,'2026-01-01','2026-12-01','credit_card',$3) returning id`, itemIDs[index+1], ownerID, cardIDs[index]).Scan(&paymentIDs[index]); err != nil {
 			t.Fatal(err)
 		}
 	}
 	var adjustmentID string
-	if err = pool.QueryRow(ctx, `insert into public.card_invoice_adjustments(plan_id,user_id,credit_card_id,payment_month,name,amount_cents) values($1,$2,$3,'2026-08-01','Tarifa',500) returning id`, planID, ownerID, cardIDs[1]).Scan(&adjustmentID); err != nil {
+	if err = pool.QueryRow(ctx, `insert into public.card_invoice_adjustments(user_id,currency_code,credit_card_id,payment_month,name,amount_cents) values($1,'BRL',$2,'2026-08-01','Tarifa',500) returning id`, ownerID, cardIDs[1]).Scan(&adjustmentID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,7 +103,7 @@ func TestSnapshotV2IsReachableOrderedImmutableAndV1RemainsReadable(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Original.SchemaVersion != 2 {
+	if first.Original.SchemaVersion != 3 {
 		t.Fatalf("schema version=%d", first.Original.SchemaVersion)
 	}
 	var document snapshotV2Document

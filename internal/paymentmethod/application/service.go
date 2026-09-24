@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/lucas/financial-api/internal/paymentmethod/domain"
-	"github.com/lucas/financial-api/internal/planning"
 	planningdomain "github.com/lucas/financial-api/internal/planning/domain"
 )
 
@@ -18,12 +17,8 @@ var (
 )
 
 type Repository interface {
-	Create(context.Context, string, string, string, Input) (domain.Period, error)
-	List(context.Context, string, string, string) ([]domain.Period, error)
-}
-
-type PlanReader interface {
-	Current(context.Context, string) (planning.Plan, error)
+	Create(context.Context, string, string, Input) (domain.Period, error)
+	List(context.Context, string, string) ([]domain.Period, error)
 }
 
 type Input struct {
@@ -36,11 +31,10 @@ type Input struct {
 
 type Service struct {
 	repository Repository
-	plans      PlanReader
 }
 
-func NewService(repository Repository, plans PlanReader) *Service {
-	return &Service{repository: repository, plans: plans}
+func NewService(repository Repository) *Service {
+	return &Service{repository: repository}
 }
 
 func (service *Service) Create(ctx context.Context, ownerID, itemID string, input Input) (domain.Period, error) {
@@ -56,23 +50,12 @@ func (service *Service) Create(ctx context.Context, ownerID, itemID string, inpu
 	if input.Context != nil && len(*input.Context) > 500 {
 		return domain.Period{}, domain.ErrValidation
 	}
-	plan, err := service.plans.Current(ctx, ownerID)
-	if err != nil {
-		return domain.Period{}, err
-	}
-	if input.EffectiveFrom.Before(plan.StartMonth) || (input.EndMonth != nil && input.EndMonth.After(plan.EndMonth)) {
-		return domain.Period{}, domain.ErrValidation
-	}
-	return service.repository.Create(ctx, ownerID, plan.ID, itemID, input)
+	return service.repository.Create(ctx, ownerID, itemID, input)
 }
 
 func (service *Service) List(ctx context.Context, ownerID, itemID string) ([]domain.Period, error) {
 	if strings.TrimSpace(ownerID) == "" || strings.TrimSpace(itemID) == "" {
 		return nil, domain.ErrValidation
 	}
-	plan, err := service.plans.Current(ctx, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	return service.repository.List(ctx, ownerID, plan.ID, itemID)
+	return service.repository.List(ctx, ownerID, itemID)
 }

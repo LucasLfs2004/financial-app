@@ -18,45 +18,44 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (repository *PostgresRepository) Create(ctx context.Context, ownerID, planID string, input CreateInput) (Item, error) {
+func (repository *PostgresRepository) Create(ctx context.Context, ownerID, currencyCode string, input CreateInput) (Item, error) {
 	tx, err := repository.pool.Begin(ctx)
 	if err != nil {
 		return Item{}, fmt.Errorf("begin create item: %w", err)
 	}
 	defer tx.Rollback(ctx)
 	var itemID string
-	err = tx.QueryRow(ctx, `insert into public.financial_items (plan_id,user_id,name,kind,description) values ($1,$2,$3,$4,$5) returning id`, planID, ownerID, input.Name, input.Kind, input.Description).Scan(&itemID)
+	err = tx.QueryRow(ctx, `insert into public.financial_items (user_id,currency_code,name,kind,description) values ($1,$2,$3,$4,$5) returning id`, ownerID, currencyCode, input.Name, input.Kind, input.Description).Scan(&itemID)
 	if err != nil {
 		return Item{}, mapError("create item", err)
 	}
-	_, err = tx.Exec(ctx, `insert into public.financial_item_periods (financial_item_id,plan_id,user_id,start_month,end_month,amount_cents,recurrence,cash_month_offset,context) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, itemID, planID, ownerID, input.Period.StartMonth.Time(), monthTime(input.Period.EndMonth), input.Period.AmountCents, input.Period.Recurrence, input.Period.CashMonthOffset, input.Period.Context)
+	_, err = tx.Exec(ctx, `insert into public.financial_item_periods (financial_item_id,user_id,start_month,end_month,amount_cents,recurrence,cash_month_offset,context) values ($1,$2,$3,$4,$5,$6,$7,$8)`, itemID, ownerID, input.Period.StartMonth.Time(), monthTime(input.Period.EndMonth), input.Period.AmountCents, input.Period.Recurrence, input.Period.CashMonthOffset, input.Period.Context)
 	if err != nil {
 		return Item{}, mapError("create item period", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Item{}, fmt.Errorf("commit create item: %w", err)
 	}
-	return repository.Find(ctx, ownerID, planID, itemID)
+	return repository.Find(ctx, ownerID, itemID)
 }
 
-func (repository *PostgresRepository) List(ctx context.Context, ownerID, planID string, filters Filters) ([]Item, error) {
+func (repository *PostgresRepository) List(ctx context.Context, ownerID string, filters Filters) ([]Item, error) {
 	rows, err := repository.pool.Query(ctx, `
 		select
-			i.id, i.plan_id, i.name, i.kind, i.description, i.status,
+			i.id, i.currency_code, i.name, i.kind, i.description, i.status,
 			i.archived_at, i.created_at, i.updated_at,
 			p.id, p.start_month, p.end_month, p.amount_cents, p.recurrence,
 			p.cash_month_offset, p.context, p.recorded_at, p.created_at
 		from public.financial_items i
 		left join public.financial_item_periods p
 			on p.financial_item_id = i.id
-			and p.plan_id = i.plan_id
 			and p.user_id = i.user_id
 		where i.user_id = $1
-			and i.plan_id = $2
-			and ($3::financial_item_kind is null or i.kind = $3)
-			and ($4::financial_item_status is null or i.status = $4)
+			and ($2::financial_item_kind is null or i.kind = $2)
+			and ($3::financial_item_status is null or i.status = $3)
+			and ($4::text is null or i.currency_code = $4)
 		order by i.created_at, i.id, p.start_month, p.id
-	`, ownerID, planID, enumValue(filters.Kind), enumValue(filters.Status))
+	`, ownerID, enumValue(filters.Kind), enumValue(filters.Status), nullable(filters.CurrencyCode))
 	if err != nil {
 		return nil, fmt.Errorf("list items: %w", err)
 	}
@@ -76,7 +75,7 @@ func (repository *PostgresRepository) List(ctx context.Context, ownerID, planID 
 		var recordedAt, periodCreatedAt *time.Time
 
 		if err := rows.Scan(
-			&item.ID, &item.PlanID, &item.Name, &kind, &item.Description, &status,
+			&item.ID, &item.CurrencyCode, &item.Name, &kind, &item.Description, &status,
 			&item.ArchivedAt, &item.CreatedAt, &item.UpdatedAt,
 			&periodID, &periodStart, &periodEnd, &periodAmount, &recurrence,
 			&cashMonthOffset, &periodContext, &recordedAt, &periodCreatedAt,
@@ -135,27 +134,27 @@ func (repository *PostgresRepository) List(ctx context.Context, ownerID, planID 
 	return items, nil
 }
 
-func (repository *PostgresRepository) Find(ctx context.Context, ownerID, planID, itemID string) (Item, error) {
-	item, err := findItem(ctx, repository.pool, ownerID, planID, itemID)
+func (repository *PostgresRepository) Find(ctx context.Context, ownerID, itemID string) (Item, error) {
+	item, err := findItem(ctx, repository.pool, ownerID, itemID)
 	if err != nil {
 		return Item{}, err
 	}
-	item.Periods, err = repository.periods(ctx, repository.pool, ownerID, planID, itemID)
+	item.Periods, err = repository.periods(ctx, repository.pool, ownerID, itemID)
 	return item, err
 }
 
-func (repository *PostgresRepository) Update(ctx context.Context, ownerID, planID, itemID string, input UpdateInput) (Item, error) {
-	result, err := repository.pool.Exec(ctx, `update public.financial_items set name=coalesce($4,name), description=case when $5 then $6 else description end where id=$1 and plan_id=$2 and user_id=$3`, itemID, planID, ownerID, nullable(input.Name), input.DescriptionSet, nullable(input.Description))
+func (repository *PostgresRepository) Update(ctx context.Context, ownerID, itemID string, input UpdateInput) (Item, error) {
+	result, err := repository.pool.Exec(ctx, `update public.financial_items set name=coalesce($3,name), description=case when $4 then $5 else description end where id=$1 and user_id=$2`, itemID, ownerID, nullable(input.Name), input.DescriptionSet, nullable(input.Description))
 	if err != nil {
 		return Item{}, mapError("update item", err)
 	}
 	if result.RowsAffected() == 0 {
 		return Item{}, ErrNotFound
 	}
-	return repository.Find(ctx, ownerID, planID, itemID)
+	return repository.Find(ctx, ownerID, itemID)
 }
 
-func (repository *PostgresRepository) Change(ctx context.Context, ownerID, planID, itemID string, input ChangeInput) (Item, error) {
+func (repository *PostgresRepository) Change(ctx context.Context, ownerID, itemID string, input ChangeInput) (Item, error) {
 	tx, err := repository.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Item{}, fmt.Errorf("begin change item: %w", err)
@@ -164,7 +163,7 @@ func (repository *PostgresRepository) Change(ctx context.Context, ownerID, planI
 	var periodID string
 	var start time.Time
 	var recurrence string
-	err = tx.QueryRow(ctx, `select id,start_month,recurrence from public.financial_item_periods where financial_item_id=$1 and plan_id=$2 and user_id=$3 and start_month<=$4 and (end_month is null or end_month>=$4) for update`, itemID, planID, ownerID, input.EffectiveFrom.Time()).Scan(&periodID, &start, &recurrence)
+	err = tx.QueryRow(ctx, `select id,start_month,recurrence from public.financial_item_periods where financial_item_id=$1 and user_id=$2 and start_month<=$3 and (end_month is null or end_month>=$3) for update`, itemID, ownerID, input.EffectiveFrom.Time()).Scan(&periodID, &start, &recurrence)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Item{}, ErrNotFound
 	}
@@ -183,23 +182,23 @@ func (repository *PostgresRepository) Change(ctx context.Context, ownerID, planI
 	if err != nil {
 		return Item{}, fmt.Errorf("close applicable period: %w", err)
 	}
-	_, err = tx.Exec(ctx, `insert into public.financial_item_periods (financial_item_id,plan_id,user_id,start_month,end_month,amount_cents,recurrence,cash_month_offset,context,recorded_at) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())`, itemID, planID, ownerID, input.EffectiveFrom.Time(), monthTime(input.EndMonth), input.AmountCents, recurrence, input.CashMonthOffset, input.Context)
+	_, err = tx.Exec(ctx, `insert into public.financial_item_periods (financial_item_id,user_id,start_month,end_month,amount_cents,recurrence,cash_month_offset,context,recorded_at) values ($1,$2,$3,$4,$5,$6,$7,$8,now())`, itemID, ownerID, input.EffectiveFrom.Time(), monthTime(input.EndMonth), input.AmountCents, recurrence, input.CashMonthOffset, input.Context)
 	if err != nil {
 		return Item{}, mapError("create changed period", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Item{}, fmt.Errorf("commit item change: %w", err)
 	}
-	return repository.Find(ctx, ownerID, planID, itemID)
+	return repository.Find(ctx, ownerID, itemID)
 }
 
-func (repository *PostgresRepository) Archive(ctx context.Context, ownerID, planID, itemID string, input ArchiveInput) (Item, error) {
+func (repository *PostgresRepository) Archive(ctx context.Context, ownerID, itemID string, input ArchiveInput) (Item, error) {
 	tx, err := repository.pool.Begin(ctx)
 	if err != nil {
 		return Item{}, fmt.Errorf("begin archive item: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	result, err := tx.Exec(ctx, `update public.financial_items set status='archived',archived_at=now() where id=$1 and plan_id=$2 and user_id=$3 and status='active'`, itemID, planID, ownerID)
+	result, err := tx.Exec(ctx, `update public.financial_items set status='archived',archived_at=now() where id=$1 and user_id=$2 and status='active'`, itemID, ownerID)
 	if err != nil {
 		return Item{}, fmt.Errorf("archive item: %w", err)
 	}
@@ -207,13 +206,13 @@ func (repository *PostgresRepository) Archive(ctx context.Context, ownerID, plan
 		return Item{}, ErrNotFound
 	}
 	if input.EffectiveFrom != nil {
-		_, err = tx.Exec(ctx, `delete from public.financial_item_periods where financial_item_id=$1 and plan_id=$2 and user_id=$3 and start_month >= $4`, itemID, planID, ownerID, input.EffectiveFrom.Time())
+		_, err = tx.Exec(ctx, `delete from public.financial_item_periods where financial_item_id=$1 and user_id=$2 and start_month >= $3`, itemID, ownerID, input.EffectiveFrom.Time())
 		if err == nil {
 			previous, previousErr := input.EffectiveFrom.AddMonths(-1)
 			if previousErr != nil {
 				return Item{}, ErrValidation
 			}
-			_, err = tx.Exec(ctx, `update public.financial_item_periods set end_month=$4 where financial_item_id=$1 and plan_id=$2 and user_id=$3 and start_month < $5 and (end_month is null or end_month >= $5)`, itemID, planID, ownerID, previous.Time(), input.EffectiveFrom.Time())
+			_, err = tx.Exec(ctx, `update public.financial_item_periods set end_month=$3 where financial_item_id=$1 and user_id=$2 and start_month < $4 and (end_month is null or end_month >= $4)`, itemID, ownerID, previous.Time(), input.EffectiveFrom.Time())
 		}
 		if err != nil {
 			return Item{}, fmt.Errorf("close archived item periods: %w", err)
@@ -222,7 +221,7 @@ func (repository *PostgresRepository) Archive(ctx context.Context, ownerID, plan
 	if err := tx.Commit(ctx); err != nil {
 		return Item{}, fmt.Errorf("commit archive item: %w", err)
 	}
-	return repository.Find(ctx, ownerID, planID, itemID)
+	return repository.Find(ctx, ownerID, itemID)
 }
 
 type queryer interface {
@@ -230,8 +229,8 @@ type queryer interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func findItem(ctx context.Context, database queryer, ownerID, planID, itemID string) (Item, error) {
-	item, err := scanItem(database.QueryRow(ctx, `select id,plan_id,name,kind,description,status,archived_at,created_at,updated_at from public.financial_items where id=$1 and plan_id=$2 and user_id=$3`, itemID, planID, ownerID))
+func findItem(ctx context.Context, database queryer, ownerID, itemID string) (Item, error) {
+	item, err := scanItem(database.QueryRow(ctx, `select id,currency_code,name,kind,description,status,archived_at,created_at,updated_at from public.financial_items where id=$1 and user_id=$2`, itemID, ownerID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Item{}, ErrNotFound
 	}
@@ -241,8 +240,8 @@ func findItem(ctx context.Context, database queryer, ownerID, planID, itemID str
 	return item, nil
 }
 
-func (repository *PostgresRepository) periods(ctx context.Context, database queryer, ownerID, planID, itemID string) ([]Period, error) {
-	rows, err := database.Query(ctx, `select id,start_month,end_month,amount_cents,recurrence,cash_month_offset,context,recorded_at,created_at from public.financial_item_periods where financial_item_id=$1 and plan_id=$2 and user_id=$3 order by start_month,id`, itemID, planID, ownerID)
+func (repository *PostgresRepository) periods(ctx context.Context, database queryer, ownerID, itemID string) ([]Period, error) {
+	rows, err := database.Query(ctx, `select id,start_month,end_month,amount_cents,recurrence,cash_month_offset,context,recorded_at,created_at from public.financial_item_periods where financial_item_id=$1 and user_id=$2 order by start_month,id`, itemID, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list item periods: %w", err)
 	}
@@ -267,7 +266,7 @@ func (repository *PostgresRepository) periods(ctx context.Context, database quer
 func scanItem(row pgx.Row) (Item, error) {
 	var item Item
 	var kind, status string
-	if err := row.Scan(&item.ID, &item.PlanID, &item.Name, &kind, &item.Description, &status, &item.ArchivedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.ID, &item.CurrencyCode, &item.Name, &kind, &item.Description, &status, &item.ArchivedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return Item{}, err
 	}
 	item.Kind, _ = domain.ParseFinancialItemKind(kind)

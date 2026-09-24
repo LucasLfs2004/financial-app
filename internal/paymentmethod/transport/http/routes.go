@@ -19,6 +19,8 @@ type Middleware func(http.Handler) http.Handler
 func RegisterRoutes(mux *http.ServeMux, auth Middleware, service Service) {
 	mux.Handle("POST /v1/plans/current/items/{item_id}/payment-changes", auth(http.HandlerFunc(createHandler(service))))
 	mux.Handle("GET /v1/plans/current/items/{item_id}/payment-history", auth(http.HandlerFunc(listHandler(service))))
+	mux.Handle("POST /v1/financial-items/{item_id}/payment-changes", auth(http.HandlerFunc(createHandler(service))))
+	mux.Handle("GET /v1/financial-items/{item_id}/payment-history", auth(http.HandlerFunc(listHandler(service))))
 }
 
 type request struct {
