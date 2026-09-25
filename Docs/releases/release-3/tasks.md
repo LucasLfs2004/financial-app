@@ -27,9 +27,9 @@ commits já publicados.
 
 ## Preparação arquitetural incremental
 
-- [ ] confirmar reuso de `Money`, `YearMonth` e intervalos;
-- [ ] definir porta de ocorrências consumível por fatura e resumo;
-- [ ] manter regras de dívida fora do módulo genérico `financialitem`;
+- [x] confirmar reuso de `Money`, `YearMonth` e intervalos;
+- [x] definir porta de ocorrências consumível por fatura e resumo;
+- [x] manter regras de dívida fora do módulo genérico `financialitem`;
 - [ ] incorporar dívidas ao carregamento `repeatable read` sem N+1;
 - [ ] registrar no design qualquer mudança de fronteira.
 
@@ -54,13 +54,13 @@ e realizado.
 
 ### R3-T02 — Implementar domínio e projetor puro
 
-- [ ] criar tipos de dívida, ocorrência, quitação e liberação;
-- [ ] derivar parcelas restantes e término;
-- [ ] numerar por competência e selecionar valor temporal;
-- [ ] aplicar quitação substitutiva;
-- [ ] calcular término efetivo, liberação e status;
-- [ ] garantir ordenação e soma segura;
-- [ ] testar bordas, virada de ano e overflow.
+- [x] criar tipos de dívida, ocorrência, quitação e liberação;
+- [x] derivar parcelas restantes e término;
+- [x] numerar por competência e selecionar valor temporal;
+- [x] aplicar quitação substitutiva;
+- [x] calcular término efetivo, liberação e status;
+- [x] garantir ordenação e soma segura;
+- [x] testar bordas, virada de ano e overflow.
 
 Dependências: R3-T01.
 

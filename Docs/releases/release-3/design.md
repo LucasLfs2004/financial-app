@@ -196,6 +196,12 @@ type Projection struct {
 `OccurrenceKind` aceita `scheduled` e `early_settlement`. Parcela regular usa
 o período como `SourceID`; quitação usa o evento.
 
+`remaining_installments` inclui a ocorrência do próprio `as_of_month` no
+término natural. Antes de uma quitação, conta as ocorrências projetadas até o
+evento substitutivo; a partir do mês em que a quitação já está registrada,
+retorna zero. Dívidas arquivadas também retornam zero, sem perder a capacidade
+de reconstruir seu cronograma para auditoria.
+
 ## 5. Fluxos
 
 ### 5.1 Criar dívida
