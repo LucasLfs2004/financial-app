@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Financial API
-  version: 2.1.0-draft
+  version: 3.0.0-draft
   description: |
     API de planejamento financeiro pessoal.
 
@@ -9,7 +9,9 @@ info:
     despesas projetadas, definir quanto guardar e consultar um resumo mensal
     explicável pelas bases de competência (`reference`) e caixa (`cash`). A
     Release 2 adiciona instituições, cartões, vínculos temporais e faturas
-    projetadas sem exigir o registro de compras individuais.
+    projetadas sem exigir o registro de compras individuais. A Release 3
+    adiciona dívidas parceladas, cronogramas derivados, quitação antecipada e
+    a visualização do valor mensal liberado após o encerramento.
 servers:
   - url: http://localhost:8080
     description: Ambiente local
@@ -24,6 +26,8 @@ tags:
     description: Ciclo de vida do planejamento financeiro principal.
   - name: Financial items
     description: Rendas, despesas projetadas e suas vigências.
+  - name: Debts
+    description: Dívidas parceladas, cronogramas e liberações do usuário.
   - name: Savings
     description: Valor planejado para guardar e suas vigências.
   - name: Financial institutions
@@ -426,6 +430,326 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/debts:
+    post:
+      operationId: createDebt
+      tags: [Debts]
+      summary: Cadastrar uma dívida parcelada
+      description: |
+        Cria atomicamente o item especializado, seu primeiro período, os dados
+        estruturais da dívida e o método de pagamento opcional. A dívida
+        pertence ao usuário e independe do horizonte do planejamento atual.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDebtRequest"
+            example:
+              name: Transplante
+              description: Parcelamento já em andamento
+              original_total_cents: 720000
+              total_installments: 12
+              first_projected_installment: 5
+              scheduled_start_month: 2026-09
+              installment_amount_cents: 60000
+              cash_month_offset: 0
+              context: Parcela mensal projetada
+              payment_method: direct
+              credit_card_id: null
+      responses:
+        "201":
+          description: Dívida criada com cronograma derivado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/DebtRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: listDebts
+      tags: [Debts]
+      summary: Listar dívidas do usuário
+      parameters:
+        - $ref: "#/components/parameters/DebtAsOfMonth"
+        - $ref: "#/components/parameters/DebtProjectionStatusFilter"
+        - $ref: "#/components/parameters/FinancialItemStatusFilter"
+      responses:
+        "200":
+          description: Dívidas ordenadas por término efetivo e identificador
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/debts/{debt_id}:
+    parameters:
+      - $ref: "#/components/parameters/DebtID"
+    get:
+      operationId: getDebt
+      tags: [Debts]
+      summary: Consultar uma dívida e seu término projetado
+      parameters:
+        - $ref: "#/components/parameters/DebtAsOfMonth"
+      responses:
+        "200":
+          description: Dívida pertencente ao usuário autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    patch:
+      operationId: updateDebt
+      tags: [Debts]
+      summary: Alterar nome ou descrição da dívida
+      description: Estrutura, numeração e início não podem ser alterados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDebtRequest"
+      responses:
+        "200":
+          description: Dívida atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/debts/{debt_id}/changes:
+    parameters:
+      - $ref: "#/components/parameters/DebtID"
+    post:
+      operationId: changeDebtAmountFromMonth
+      tags: [Debts]
+      summary: Alterar o valor projetado a partir de uma competência
+      description: |
+        Preserva o passado, a numeração e o término estrutural. A competência
+        deve pertencer ao cronograma e não pode ser posterior à quitação.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDebtChangeRequest"
+            example:
+              effective_from: 2027-01
+              installment_amount_cents: 65000
+              context: Reajuste contratual
+      responses:
+        "201":
+          description: Novo período da dívida criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/DebtRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/debts/{debt_id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/DebtID"
+    post:
+      operationId: archiveDebt
+      tags: [Debts]
+      summary: Arquivar uma dívida sem apagar seu histórico
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveFinancialItemRequest"
+      responses:
+        "200":
+          description: Dívida arquivada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/debts/{debt_id}/schedule:
+    parameters:
+      - $ref: "#/components/parameters/DebtID"
+    get:
+      operationId: getDebtSchedule
+      tags: [Debts]
+      summary: Projetar o cronograma da dívida em um intervalo
+      description: |
+        O intervalo é inclusivo, aceita no máximo 120 meses e é limitado ao
+        cronograma efetivo da dívida. As ocorrências são projeções, não baixas.
+      parameters:
+        - $ref: "#/components/parameters/DebtFromMonth"
+        - $ref: "#/components/parameters/DebtToMonth"
+      responses:
+        "200":
+          description: Cronograma projetado em ordem de competência
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtScheduleResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/DebtRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/debts/{debt_id}/early-settlement:
+    parameters:
+      - $ref: "#/components/parameters/DebtID"
+    post:
+      operationId: createDebtEarlySettlement
+      tags: [Debts]
+      summary: Registrar quitação antecipada projetada
+      description: |
+        O evento é único e imutável. Ele substitui a parcela regular do mês e
+        suprime as ocorrências posteriores, sem confirmar pagamento realizado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDebtEarlySettlementRequest"
+            example:
+              reference_month: 2026-10
+              amount_cents: 150000
+              reason: Liquidação negociada
+      responses:
+        "201":
+          description: Quitação antecipada registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtEarlySettlementResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/DebtRuleViolation"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: getDebtEarlySettlement
+      tags: [Debts]
+      summary: Consultar a quitação antecipada da dívida
+      responses:
+        "200":
+          description: Evento imutável de quitação antecipada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtEarlySettlementResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/debt-releases:
+    get:
+      operationId: listDebtReleases
+      tags: [Debts]
+      summary: Listar valores mensais liberados pelo término de dívidas
+      description: |
+        A liberação é informativa e nunca é contabilizada como renda, economia
+        ou source positiva do resumo mensal.
+      parameters:
+        - $ref: "#/components/parameters/DebtFromMonth"
+        - $ref: "#/components/parameters/DebtToMonth"
+      responses:
+        "200":
+          description: Liberações por dívida e totais mensais ordenados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtReleaseListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/DebtRuleViolation"
         "500":
           $ref: "#/components/responses/InternalError"
         "503":
@@ -1161,6 +1485,7 @@ paths:
                         one_time_income_cents: 0
                         fixed_expenses_cents: 210000
                         projected_variable_expenses_cents: 70000
+                        debt_installments_cents: 0
                         card_invoice_adjustments_cents: 0
                       sources:
                         - source_id: 1960b556-1201-4bc0-8292-b4adc600bc5e
@@ -1219,6 +1544,13 @@ components:
       schema:
         type: string
         format: uuid
+    DebtID:
+      name: debt_id
+      in: path
+      required: true
+      description: Identificador da dívida pertencente ao usuário autenticado.
+      schema:
+        $ref: "#/components/schemas/UUID"
     Month:
       name: month
       in: path
@@ -1287,6 +1619,35 @@ components:
       required: false
       schema:
         $ref: "#/components/schemas/FinancialResourceStatus"
+    DebtAsOfMonth:
+      name: as_of
+      in: query
+      required: false
+      description: |
+        Mês usado para calcular status e parcelas restantes. Quando ausente,
+        usa o mês atual no timezone do perfil do usuário.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
+    DebtProjectionStatusFilter:
+      name: projection_status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/DebtProjectionStatus"
+    DebtFromMonth:
+      name: from
+      in: query
+      required: true
+      description: Primeiro mês do intervalo inclusivo, limitado a 120 meses.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
+    DebtToMonth:
+      name: to
+      in: query
+      required: true
+      description: Último mês do intervalo inclusivo, limitado a 120 meses.
+      schema:
+        $ref: "#/components/schemas/YearMonth"
   schemas:
     Status:
       type: object
@@ -1312,6 +1673,12 @@ components:
       minimum: 0
       description: Valor monetário não negativo representado em centavos.
       examples: [120000]
+    PositiveAmountCents:
+      type: integer
+      format: int64
+      minimum: 1
+      description: Valor monetário positivo representado em centavos.
+      examples: [60000]
     SignedAmountCents:
       type: integer
       format: int64
@@ -1322,6 +1689,15 @@ components:
       enum: [draft, active, archived]
     FinancialItemKind:
       type: string
+      enum:
+        - recurring_income
+        - one_time_income
+        - fixed_expense
+        - projected_variable_expense
+        - debt_installment
+    CreatableFinancialItemKind:
+      type: string
+      description: Tipos aceitos pela criação genérica de itens financeiros.
       enum:
         - recurring_income
         - one_time_income
@@ -1367,6 +1743,15 @@ components:
     Completeness:
       type: string
       enum: [projected]
+    DebtProjectionStatus:
+      type: string
+      enum: [planned, active, completed, settled_early, archived]
+    DebtOccurrenceKind:
+      type: string
+      enum: [scheduled, early_settlement]
+    DebtReleaseReason:
+      type: string
+      enum: [scheduled_completion, early_settlement]
     CurrentUser:
       type: object
       additionalProperties: false
@@ -1591,7 +1976,7 @@ components:
           minLength: 1
           maxLength: 120
         kind:
-          $ref: "#/components/schemas/FinancialItemKind"
+          $ref: "#/components/schemas/CreatableFinancialItemKind"
         description:
           type: [string, "null"]
           maxLength: 1000
@@ -1660,6 +2045,355 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FinancialItem"
+    CreateDebtRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - original_total_cents
+        - total_installments
+        - first_projected_installment
+        - scheduled_start_month
+        - installment_amount_cents
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: [string, "null"]
+          maxLength: 1000
+        original_total_cents:
+          oneOf:
+            - $ref: "#/components/schemas/AmountCents"
+            - type: "null"
+          description: Informativo; não é usado para inferir saldo ou parcela.
+        total_installments:
+          type: integer
+          format: int32
+          minimum: 1
+        first_projected_installment:
+          type: integer
+          format: int32
+          minimum: 1
+        scheduled_start_month:
+          $ref: "#/components/schemas/YearMonth"
+        installment_amount_cents:
+          $ref: "#/components/schemas/PositiveAmountCents"
+        cash_month_offset:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 12
+          default: 0
+        context:
+          type: [string, "null"]
+          maxLength: 500
+        payment_method:
+          allOf:
+            - $ref: "#/components/schemas/PaymentMethod"
+          default: direct
+        credit_card_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+    UpdateDebtRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: [string, "null"]
+          maxLength: 1000
+    CreateDebtChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [effective_from, installment_amount_cents]
+      properties:
+        effective_from:
+          $ref: "#/components/schemas/YearMonth"
+        installment_amount_cents:
+          $ref: "#/components/schemas/PositiveAmountCents"
+        context:
+          type: [string, "null"]
+          maxLength: 500
+    CreateDebtEarlySettlementRequest:
+      type: object
+      additionalProperties: false
+      required: [reference_month, amount_cents]
+      properties:
+        reference_month:
+          $ref: "#/components/schemas/YearMonth"
+        amount_cents:
+          $ref: "#/components/schemas/PositiveAmountCents"
+        reason:
+          type: [string, "null"]
+          maxLength: 500
+    DebtEarlySettlement:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - debt_id
+        - reference_month
+        - amount_cents
+        - reason
+        - recorded_by
+        - recorded_at
+        - created_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        debt_id:
+          $ref: "#/components/schemas/UUID"
+        reference_month:
+          $ref: "#/components/schemas/YearMonth"
+        amount_cents:
+          $ref: "#/components/schemas/PositiveAmountCents"
+        reason:
+          type: [string, "null"]
+          maxLength: 500
+        recorded_by:
+          $ref: "#/components/schemas/UUID"
+        recorded_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    Debt:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - currency_code
+        - name
+        - description
+        - original_total_cents
+        - total_installments
+        - first_projected_installment
+        - scheduled_start_month
+        - scheduled_end_month
+        - effective_end_month
+        - release_from_month
+        - released_monthly_cents
+        - as_of_month
+        - projection_status
+        - remaining_installments
+        - status
+        - settlement
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: [string, "null"]
+          maxLength: 1000
+        original_total_cents:
+          oneOf:
+            - $ref: "#/components/schemas/AmountCents"
+            - type: "null"
+        total_installments:
+          type: integer
+          format: int32
+          minimum: 1
+        first_projected_installment:
+          type: integer
+          format: int32
+          minimum: 1
+        scheduled_start_month:
+          $ref: "#/components/schemas/YearMonth"
+        scheduled_end_month:
+          $ref: "#/components/schemas/YearMonth"
+        effective_end_month:
+          $ref: "#/components/schemas/YearMonth"
+        release_from_month:
+          $ref: "#/components/schemas/YearMonth"
+        released_monthly_cents:
+          $ref: "#/components/schemas/PositiveAmountCents"
+        as_of_month:
+          $ref: "#/components/schemas/YearMonth"
+        projection_status:
+          $ref: "#/components/schemas/DebtProjectionStatus"
+        remaining_installments:
+          type: integer
+          format: int32
+          minimum: 0
+        status:
+          $ref: "#/components/schemas/FinancialItemStatus"
+        settlement:
+          oneOf:
+            - $ref: "#/components/schemas/DebtEarlySettlement"
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    DebtOccurrence:
+      type: object
+      additionalProperties: false
+      required:
+        - debt_id
+        - source_id
+        - reference_month
+        - installment_number
+        - installments_total
+        - amount_cents
+        - debt_occurrence_kind
+        - payment_method
+        - cash_month
+        - credit_card_id
+        - invoice_payment_month
+        - completeness
+      properties:
+        debt_id:
+          $ref: "#/components/schemas/UUID"
+        source_id:
+          $ref: "#/components/schemas/UUID"
+        reference_month:
+          $ref: "#/components/schemas/YearMonth"
+        installment_number:
+          type: integer
+          format: int32
+          minimum: 1
+        installments_total:
+          type: integer
+          format: int32
+          minimum: 1
+        amount_cents:
+          $ref: "#/components/schemas/PositiveAmountCents"
+        debt_occurrence_kind:
+          $ref: "#/components/schemas/DebtOccurrenceKind"
+        payment_method:
+          $ref: "#/components/schemas/PaymentMethod"
+        cash_month:
+          $ref: "#/components/schemas/YearMonth"
+        credit_card_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        invoice_payment_month:
+          oneOf:
+            - $ref: "#/components/schemas/YearMonth"
+            - type: "null"
+        completeness:
+          $ref: "#/components/schemas/Completeness"
+    DebtSchedule:
+      type: object
+      additionalProperties: false
+      required: [debt, range, occurrences]
+      properties:
+        debt:
+          $ref: "#/components/schemas/Debt"
+        range:
+          $ref: "#/components/schemas/MonthRange"
+        occurrences:
+          type: array
+          items:
+            $ref: "#/components/schemas/DebtOccurrence"
+    DebtRelease:
+      type: object
+      additionalProperties: false
+      required:
+        - debt_id
+        - name
+        - currency_code
+        - scheduled_end_month
+        - effective_end_month
+        - release_from_month
+        - released_monthly_cents
+        - reason
+      properties:
+        debt_id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+        scheduled_end_month:
+          $ref: "#/components/schemas/YearMonth"
+        effective_end_month:
+          $ref: "#/components/schemas/YearMonth"
+        release_from_month:
+          $ref: "#/components/schemas/YearMonth"
+        released_monthly_cents:
+          $ref: "#/components/schemas/PositiveAmountCents"
+        reason:
+          $ref: "#/components/schemas/DebtReleaseReason"
+    DebtReleaseMonthlyTotal:
+      type: object
+      additionalProperties: false
+      required: [month, released_monthly_cents]
+      properties:
+        month:
+          $ref: "#/components/schemas/YearMonth"
+        released_monthly_cents:
+          $ref: "#/components/schemas/AmountCents"
+    DebtReleaseList:
+      type: object
+      additionalProperties: false
+      required: [releases, monthly_totals]
+      properties:
+        releases:
+          type: array
+          items:
+            $ref: "#/components/schemas/DebtRelease"
+        monthly_totals:
+          type: array
+          items:
+            $ref: "#/components/schemas/DebtReleaseMonthlyTotal"
+    DebtResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Debt"
+    DebtListResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Debt"
+    DebtScheduleResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/DebtSchedule"
+    DebtEarlySettlementResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/DebtEarlySettlement"
+    DebtReleaseListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, range]
+      properties:
+        data:
+          $ref: "#/components/schemas/DebtReleaseList"
+        range:
+          $ref: "#/components/schemas/MonthRange"
     SavingPeriod:
       type: object
       additionalProperties: false
@@ -2050,6 +2784,22 @@ components:
           $ref: "#/components/schemas/AmountCents"
         allocation:
           $ref: "#/components/schemas/InvoiceAllocationOrigin"
+        debt_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        installment_number:
+          type: [integer, "null"]
+          format: int32
+          minimum: 1
+        installments_total:
+          type: [integer, "null"]
+          format: int32
+          minimum: 1
+        debt_occurrence_kind:
+          oneOf:
+            - $ref: "#/components/schemas/DebtOccurrenceKind"
+            - type: "null"
     CardInvoiceSummary:
       type: object
       required:
@@ -2378,6 +3128,7 @@ components:
         - one_time_income_cents
         - fixed_expenses_cents
         - projected_variable_expenses_cents
+        - debt_installments_cents
         - card_invoice_adjustments_cents
       properties:
         recurring_income_cents:
@@ -2387,6 +3138,8 @@ components:
         fixed_expenses_cents:
           $ref: "#/components/schemas/AmountCents"
         projected_variable_expenses_cents:
+          $ref: "#/components/schemas/AmountCents"
+        debt_installments_cents:
           $ref: "#/components/schemas/AmountCents"
         card_invoice_adjustments_cents:
           $ref: "#/components/schemas/AmountCents"
@@ -2446,6 +3199,22 @@ components:
             - type: "null"
         reference_known:
           type: boolean
+        debt_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        installment_number:
+          type: [integer, "null"]
+          format: int32
+          minimum: 1
+        installments_total:
+          type: [integer, "null"]
+          format: int32
+          minimum: 1
+        debt_occurrence_kind:
+          oneOf:
+            - $ref: "#/components/schemas/DebtOccurrenceKind"
+            - type: "null"
     MonthlySummary:
       type: object
       additionalProperties: false
@@ -2596,6 +3365,28 @@ components:
             error:
               code: invalid_payment_method
               message: The payment method is incompatible with this resource
+    DebtRuleViolation:
+      description: A requisição viola uma regra de cronograma da dívida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            invalidSchedule:
+              value:
+                error:
+                  code: invalid_debt_schedule
+                  message: The debt schedule is invalid
+            scheduleTooLong:
+              value:
+                error:
+                  code: debt_schedule_too_long
+                  message: The debt schedule exceeds 120 months
+            invalidSettlementMonth:
+              value:
+                error:
+                  code: invalid_early_settlement_month
+                  message: The settlement month must precede the last installment
     InvoiceOutsideOperationalHorizon:
       description: A fatura está fora do horizonte operacional do planejamento
       content:
