@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/lucas/financial-api/internal/cardinvoice"
 	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	planningdomain "github.com/lucas/financial-api/internal/planning/domain"
 	"github.com/lucas/financial-api/internal/profile"
@@ -28,6 +29,7 @@ var (
 	ErrPaymentMethodUnsupported = errors.New("debt payment method is not available yet")
 	ErrChangeOutsideSchedule    = errors.New("debt change is outside the schedule")
 	ErrChangeAfterSettlement    = errors.New("debt change is after early settlement")
+	ErrProjectionInconsistent   = errors.New("debt projection is inconsistent")
 )
 
 type Repository interface {
@@ -37,6 +39,7 @@ type Repository interface {
 	Update(context.Context, string, string, UpdateInput) (debtdomain.Debt, error)
 	Change(context.Context, string, string, ChangeInput) (debtdomain.Debt, error)
 	Archive(context.Context, string, string) (debtdomain.Debt, error)
+	PaymentContext(context.Context, string, string) (PaymentContext, error)
 }
 
 type ProfileReader interface {
@@ -104,6 +107,27 @@ type View struct {
 	Debt       debtdomain.Debt
 	Projection debtdomain.Projection
 	AsOf       planningdomain.YearMonth
+}
+
+type PaymentContext struct {
+	Periods            []cardinvoice.PaymentMethodPeriod
+	CardConfigurations map[string][]cardinvoice.CardConfigurationPeriod
+}
+
+type ScheduleOccurrence struct {
+	Occurrence          debtdomain.Occurrence
+	PaymentMethod       cardinvoice.PaymentMethod
+	CashMonth           planningdomain.YearMonth
+	CreditCardID        *string
+	InvoicePaymentMonth *planningdomain.YearMonth
+	Completeness        planningdomain.Completeness
+}
+
+type Schedule struct {
+	Debt        View
+	From        planningdomain.YearMonth
+	To          planningdomain.YearMonth
+	Occurrences []ScheduleOccurrence
 }
 
 func (service *Service) Create(ctx context.Context, ownerID string, input CreateInput) (View, error) {
@@ -248,6 +272,68 @@ func (service *Service) Archive(ctx context.Context, ownerID, debtID string, inp
 	return projectView(debt, asOf)
 }
 
+func (service *Service) Schedule(ctx context.Context, ownerID, debtID string, from, to planningdomain.YearMonth) (Schedule, error) {
+	if strings.TrimSpace(ownerID) == "" || strings.TrimSpace(debtID) == "" || !from.Valid() || !to.Valid() {
+		return Schedule{}, ErrValidation
+	}
+	asOf, err := service.resolveAsOf(ctx, ownerID, nil)
+	if err != nil {
+		return Schedule{}, err
+	}
+	debt, err := service.repository.Find(ctx, ownerID, debtID)
+	if err != nil {
+		return Schedule{}, err
+	}
+	projection, err := debtdomain.ProjectDebt(debtdomain.ProjectionInput{Debt: debt, From: from, To: to, AsOf: asOf})
+	if err != nil {
+		return Schedule{}, err
+	}
+	paymentContext, err := service.repository.PaymentContext(ctx, ownerID, debtID)
+	if err != nil {
+		return Schedule{}, err
+	}
+	occurrences := make([]ScheduleOccurrence, 0, len(projection.Occurrences))
+	for _, occurrence := range projection.Occurrences {
+		selection, selectErr := cardinvoice.SelectPaymentMethod(occurrence.ReferenceMonth, paymentContext.Periods)
+		if selectErr != nil {
+			return Schedule{}, fmt.Errorf("%w: select payment method: %v", ErrProjectionInconsistent, selectErr)
+		}
+		result := ScheduleOccurrence{
+			Occurrence: occurrence, PaymentMethod: selection.Method,
+			Completeness: planningdomain.CompletenessProjected,
+		}
+		if selection.Method == cardinvoice.PaymentMethodCreditCard {
+			configuration, configurationErr := cardinvoice.SelectCardConfiguration(
+				occurrence.ReferenceMonth, paymentContext.CardConfigurations[selection.CardID],
+			)
+			if configurationErr != nil {
+				return Schedule{}, fmt.Errorf("%w: select card configuration: %v", ErrProjectionInconsistent, configurationErr)
+			}
+			paymentMonth, monthErr := configuration.PaymentMonth(occurrence.ReferenceMonth)
+			if monthErr != nil {
+				return Schedule{}, fmt.Errorf("%w: calculate invoice month: %v", ErrProjectionInconsistent, monthErr)
+			}
+			cardID := selection.CardID
+			result.CreditCardID = &cardID
+			result.CashMonth = paymentMonth
+			result.InvoicePaymentMonth = &paymentMonth
+		} else {
+			period, exists := installmentPeriodAt(debt.Periods, occurrence.ReferenceMonth)
+			if !exists {
+				return Schedule{}, ErrProjectionInconsistent
+			}
+			cashMonth, monthErr := occurrence.ReferenceMonth.AddMonths(period.CashMonthOffset)
+			if monthErr != nil {
+				return Schedule{}, fmt.Errorf("%w: calculate direct cash month: %v", ErrProjectionInconsistent, monthErr)
+			}
+			result.CashMonth = cashMonth
+		}
+		occurrences = append(occurrences, result)
+	}
+	view := View{Debt: debt, Projection: projection, AsOf: asOf}
+	return Schedule{Debt: view, From: from, To: to, Occurrences: occurrences}, nil
+}
+
 func validateCreate(input CreateInput) (CreateRecord, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || utf8.RuneCountInString(input.Name) > maximumNameLength ||
@@ -335,4 +421,13 @@ func currentMonth(now time.Time, timezone string) planningdomain.YearMonth {
 
 func validOptionalText(value *string, maximum int) bool {
 	return value == nil || utf8.RuneCountInString(*value) <= maximum
+}
+
+func installmentPeriodAt(periods []debtdomain.InstallmentPeriod, month planningdomain.YearMonth) (debtdomain.InstallmentPeriod, bool) {
+	for _, period := range periods {
+		if period.Interval.Contains(month) {
+			return period, true
+		}
+	}
+	return debtdomain.InstallmentPeriod{}, false
 }

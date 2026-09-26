@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lucas/financial-api/internal/cardinvoice"
 	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	planningdomain "github.com/lucas/financial-api/internal/planning/domain"
 	"github.com/lucas/financial-api/internal/profile"
@@ -14,6 +15,7 @@ import (
 type repositoryStub struct {
 	created CreateRecord
 	debts   []debtdomain.Debt
+	payment PaymentContext
 	err     error
 }
 
@@ -50,6 +52,9 @@ func (repository *repositoryStub) Archive(context.Context, string, string) (debt
 		return debtdomain.Debt{}, repository.err
 	}
 	return repository.debts[0], nil
+}
+func (repository *repositoryStub) PaymentContext(context.Context, string, string) (PaymentContext, error) {
+	return repository.payment, repository.err
 }
 
 type profileStub struct{ value profile.Profile }
@@ -118,6 +123,61 @@ func TestChangeRejectsMonthAfterSettlement(t *testing.T) {
 	})
 	if !errors.Is(err, ErrChangeAfterSettlement) {
 		t.Fatalf("expected change after settlement error, got %v", err)
+	}
+}
+
+func TestScheduleResolvesDirectCashOffset(t *testing.T) {
+	debt := debtFixture("owner", "BRL", "debt", "Debt", month(t, "2026-01"), month(t, "2026-02"), 2, 1, 100)
+	debt.Periods[0].CashMonthOffset = 2
+	service := NewService(&repositoryStub{debts: []debtdomain.Debt{debt}}, profileStub{profile.Profile{Timezone: "UTC"}})
+	service.now = func() time.Time { return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC) }
+	schedule, err := service.Schedule(context.Background(), "owner", "debt", month(t, "2026-01"), month(t, "2026-02"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schedule.Occurrences) != 2 || schedule.Occurrences[0].PaymentMethod != cardinvoice.PaymentMethodDirect ||
+		schedule.Occurrences[0].CashMonth.String() != "2026-03" || schedule.Occurrences[0].InvoicePaymentMonth != nil {
+		t.Fatalf("schedule=%+v", schedule)
+	}
+}
+
+func TestScheduleResolvesCreditCardInvoiceMonth(t *testing.T) {
+	debt := debtFixture("owner", "BRL", "debt", "Debt", month(t, "2026-01"), month(t, "2026-02"), 2, 1, 100)
+	interval, _ := planningdomain.NewMonthInterval(month(t, "2026-01"), month(t, "2026-02"))
+	paymentPeriod, _ := cardinvoice.NewPaymentMethodPeriod("payment", interval, cardinvoice.PaymentMethodCreditCard, "card")
+	configuration, _ := cardinvoice.NewCardConfiguration(10, 1)
+	configurationPeriod, _ := cardinvoice.NewCardConfigurationPeriod("configuration", interval, configuration)
+	service := NewService(&repositoryStub{
+		debts: []debtdomain.Debt{debt},
+		payment: PaymentContext{
+			Periods:            []cardinvoice.PaymentMethodPeriod{paymentPeriod},
+			CardConfigurations: map[string][]cardinvoice.CardConfigurationPeriod{"card": {configurationPeriod}},
+		},
+	}, profileStub{profile.Profile{Timezone: "UTC"}})
+	service.now = func() time.Time { return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC) }
+	schedule, err := service.Schedule(context.Background(), "owner", "debt", month(t, "2026-01"), month(t, "2026-02"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := schedule.Occurrences[0]
+	if first.PaymentMethod != cardinvoice.PaymentMethodCreditCard || first.CreditCardID == nil || *first.CreditCardID != "card" ||
+		first.InvoicePaymentMonth == nil || first.InvoicePaymentMonth.String() != "2026-02" || first.CashMonth.String() != "2026-02" {
+		t.Fatalf("occurrence=%+v", first)
+	}
+}
+
+func TestScheduleOmitsOccurrencesAfterSettlement(t *testing.T) {
+	debt := debtFixture("owner", "BRL", "debt", "Debt", month(t, "2026-01"), month(t, "2026-03"), 3, 1, 100)
+	debt.Settlement = &debtdomain.EarlySettlement{ID: "settlement", ReferenceMonth: month(t, "2026-02"), Amount: planningdomain.NewMoney(150)}
+	service := NewService(&repositoryStub{debts: []debtdomain.Debt{debt}}, profileStub{profile.Profile{Timezone: "UTC"}})
+	service.now = func() time.Time { return time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC) }
+	schedule, err := service.Schedule(context.Background(), "owner", "debt", month(t, "2026-01"), month(t, "2026-03"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schedule.Occurrences) != 2 || schedule.Occurrences[1].Occurrence.Kind != debtdomain.OccurrenceKindEarlySettlement ||
+		schedule.Occurrences[1].Occurrence.Amount.Cents() != 150 {
+		t.Fatalf("schedule=%+v", schedule)
 	}
 }
 

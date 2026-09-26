@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lucas/financial-api/internal/cardinvoice"
 	debtapplication "github.com/lucas/financial-api/internal/debt/application"
 	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	planningdomain "github.com/lucas/financial-api/internal/planning/domain"
@@ -239,6 +240,100 @@ func (repository *PostgresRepository) Archive(ctx context.Context, ownerID, debt
 	return repository.Find(ctx, ownerID, debtID)
 }
 
+func (repository *PostgresRepository) PaymentContext(ctx context.Context, ownerID, debtID string) (debtapplication.PaymentContext, error) {
+	rows, err := repository.pool.Query(ctx, `
+		select id, start_month, end_month, method, credit_card_id
+		from public.financial_item_payment_periods
+		where financial_item_id = $1 and user_id = $2
+		order by start_month, id
+	`, debtID, ownerID)
+	if err != nil {
+		return debtapplication.PaymentContext{}, fmt.Errorf("list debt payment periods: %w", err)
+	}
+	periods := []cardinvoice.PaymentMethodPeriod{}
+	for rows.Next() {
+		var id, rawMethod string
+		var start time.Time
+		var end *time.Time
+		var cardID *string
+		if err := rows.Scan(&id, &start, &end, &rawMethod, &cardID); err != nil {
+			rows.Close()
+			return debtapplication.PaymentContext{}, fmt.Errorf("scan debt payment period: %w", err)
+		}
+		interval, intervalErr := monthInterval(start, end)
+		if intervalErr != nil {
+			rows.Close()
+			return debtapplication.PaymentContext{}, intervalErr
+		}
+		method, parseErr := cardinvoice.ParsePaymentMethod(rawMethod)
+		if parseErr != nil {
+			rows.Close()
+			return debtapplication.PaymentContext{}, parseErr
+		}
+		selectedCardID := ""
+		if cardID != nil {
+			selectedCardID = *cardID
+		}
+		period, periodErr := cardinvoice.NewPaymentMethodPeriod(id, interval, method, selectedCardID)
+		if periodErr != nil {
+			rows.Close()
+			return debtapplication.PaymentContext{}, periodErr
+		}
+		periods = append(periods, period)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return debtapplication.PaymentContext{}, fmt.Errorf("list debt payment periods: %w", err)
+	}
+	rows.Close()
+
+	cardRows, err := repository.pool.Query(ctx, `
+		select configuration.id, configuration.credit_card_id,
+			configuration.start_month, configuration.end_month,
+			configuration.nominal_due_day, configuration.payment_month_offset
+		from public.credit_card_periods configuration
+		where configuration.user_id = $1
+			and configuration.credit_card_id in (
+				select distinct payment.credit_card_id
+				from public.financial_item_payment_periods payment
+				where payment.financial_item_id = $2 and payment.user_id = $1
+					and payment.credit_card_id is not null
+			)
+		order by configuration.credit_card_id, configuration.start_month, configuration.id
+	`, ownerID, debtID)
+	if err != nil {
+		return debtapplication.PaymentContext{}, fmt.Errorf("list debt card configurations: %w", err)
+	}
+	defer cardRows.Close()
+	configurations := make(map[string][]cardinvoice.CardConfigurationPeriod)
+	for cardRows.Next() {
+		var id, cardID string
+		var start time.Time
+		var end *time.Time
+		var dueDay, offset int
+		if err := cardRows.Scan(&id, &cardID, &start, &end, &dueDay, &offset); err != nil {
+			return debtapplication.PaymentContext{}, fmt.Errorf("scan debt card configuration: %w", err)
+		}
+		interval, intervalErr := monthInterval(start, end)
+		if intervalErr != nil {
+			return debtapplication.PaymentContext{}, intervalErr
+		}
+		configuration, configurationErr := cardinvoice.NewCardConfiguration(dueDay, offset)
+		if configurationErr != nil {
+			return debtapplication.PaymentContext{}, configurationErr
+		}
+		period, periodErr := cardinvoice.NewCardConfigurationPeriod(id, interval, configuration)
+		if periodErr != nil {
+			return debtapplication.PaymentContext{}, periodErr
+		}
+		configurations[cardID] = append(configurations[cardID], period)
+	}
+	if err := cardRows.Err(); err != nil {
+		return debtapplication.PaymentContext{}, fmt.Errorf("list debt card configurations: %w", err)
+	}
+	return debtapplication.PaymentContext{Periods: periods, CardConfigurations: configurations}, nil
+}
+
 func (repository *PostgresRepository) missingOrArchived(ctx context.Context, ownerID, debtID string) error {
 	var status string
 	err := repository.pool.QueryRow(ctx, `
@@ -272,7 +367,9 @@ const debtSelect = `
 				'id', period.id,
 				'start_month', to_char(period.start_month, 'YYYY-MM'),
 				'end_month', to_char(period.end_month, 'YYYY-MM'),
-				'amount_cents', period.amount_cents
+				'amount_cents', period.amount_cents,
+				'cash_month_offset', period.cash_month_offset,
+				'context', period.context
 			) order by period.start_month, period.id)
 			from public.financial_item_periods period
 			where period.financial_item_id = d.financial_item_id
@@ -298,10 +395,12 @@ const debtSelect = `
 `
 
 type periodJSON struct {
-	ID          string `json:"id"`
-	StartMonth  string `json:"start_month"`
-	EndMonth    string `json:"end_month"`
-	AmountCents int64  `json:"amount_cents"`
+	ID              string  `json:"id"`
+	StartMonth      string  `json:"start_month"`
+	EndMonth        string  `json:"end_month"`
+	AmountCents     int64   `json:"amount_cents"`
+	CashMonthOffset int     `json:"cash_month_offset"`
+	Context         *string `json:"context"`
 }
 
 type settlementJSON struct {
@@ -364,6 +463,7 @@ func scanDebt(row rowScanner) (debtdomain.Debt, error) {
 		}
 		periods = append(periods, debtdomain.InstallmentPeriod{
 			ID: encoded.ID, Interval: interval, Amount: planningdomain.NewMoney(encoded.AmountCents),
+			CashMonthOffset: encoded.CashMonthOffset, Context: encoded.Context,
 		})
 	}
 
@@ -435,4 +535,19 @@ func enumValue[T ~string](value *T) any {
 
 func sameMonth(value time.Time, month planningdomain.YearMonth) bool {
 	return value.Year() == month.Year() && value.Month() == month.Month()
+}
+
+func monthInterval(start time.Time, end *time.Time) (planningdomain.MonthInterval, error) {
+	startMonth, err := planningdomain.NewYearMonth(start.Year(), start.Month())
+	if err != nil {
+		return planningdomain.MonthInterval{}, err
+	}
+	if end == nil {
+		return planningdomain.NewOpenMonthInterval(startMonth)
+	}
+	endMonth, err := planningdomain.NewYearMonth(end.Year(), end.Month())
+	if err != nil {
+		return planningdomain.MonthInterval{}, err
+	}
+	return planningdomain.NewMonthInterval(startMonth, endMonth)
 }

@@ -41,7 +41,7 @@ func TestRelease3DebtRegistrationLifecycleAndOwnership(t *testing.T) {
 	created, err := service.Create(ctx, ownerID, debtapplication.CreateInput{
 		Name: "Transplante", OriginalTotalCents: &original,
 		TotalInstallments: 12, FirstProjectedInstallment: 5,
-		ScheduledStart: month(t, "2026-09"), InstallmentAmountCents: 60000,
+		ScheduledStart: month(t, "2026-09"), InstallmentAmountCents: 60000, CashMonthOffset: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -86,6 +86,16 @@ func TestRelease3DebtRegistrationLifecycleAndOwnership(t *testing.T) {
 		EffectiveFrom: month(t, "2027-05"), InstallmentAmountCents: 1,
 	}); !errors.Is(err, debtapplication.ErrChangeOutsideSchedule) {
 		t.Fatalf("expected outside schedule error, got %v", err)
+	}
+	schedule, err := service.Schedule(ctx, ownerID, created.Debt.ID, month(t, "2026-12"), month(t, "2027-01"))
+	if err != nil || len(schedule.Occurrences) != 2 ||
+		schedule.Occurrences[0].Occurrence.InstallmentNumber != 8 ||
+		schedule.Occurrences[0].Occurrence.Amount.Cents() != 61000 ||
+		schedule.Occurrences[0].CashMonth.String() != "2027-01" ||
+		schedule.Occurrences[1].Occurrence.InstallmentNumber != 9 ||
+		schedule.Occurrences[1].Occurrence.Amount.Cents() != 65000 ||
+		schedule.Occurrences[1].CashMonth.String() != "2027-02" {
+		t.Fatalf("schedule=%+v error=%v", schedule, err)
 	}
 
 	name := "Transplante atualizado"

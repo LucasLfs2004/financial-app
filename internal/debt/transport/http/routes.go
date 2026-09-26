@@ -19,6 +19,7 @@ type Service interface {
 	Update(context.Context, string, string, debtapplication.UpdateInput) (debtapplication.View, error)
 	Change(context.Context, string, string, debtapplication.ChangeInput) (debtapplication.View, error)
 	Archive(context.Context, string, string, debtapplication.ArchiveInput) (debtapplication.View, error)
+	Schedule(context.Context, string, string, planningdomain.YearMonth, planningdomain.YearMonth) (debtapplication.Schedule, error)
 }
 
 type Middleware func(http.Handler) http.Handler
@@ -30,6 +31,7 @@ func RegisterRoutes(mux *http.ServeMux, authenticate Middleware, service Service
 	mux.Handle("PATCH /v1/debts/{debt_id}", authenticate(http.HandlerFunc(updateHandler(service))))
 	mux.Handle("POST /v1/debts/{debt_id}/changes", authenticate(http.HandlerFunc(changeHandler(service))))
 	mux.Handle("POST /v1/debts/{debt_id}/archive", authenticate(http.HandlerFunc(archiveHandler(service))))
+	mux.Handle("GET /v1/debts/{debt_id}/schedule", authenticate(http.HandlerFunc(scheduleHandler(service))))
 }
 
 type optionalInt64 struct {
@@ -261,6 +263,53 @@ func archiveHandler(service Service) http.HandlerFunc {
 	}
 }
 
+func scheduleHandler(service Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		ownerID, ok := ownerFromRequest(request)
+		if !ok {
+			unauthorized(w)
+			return
+		}
+		from, fromErr := planningdomain.ParseYearMonth(request.URL.Query().Get("from"))
+		to, toErr := planningdomain.ParseYearMonth(request.URL.Query().Get("to"))
+		if fromErr != nil || toErr != nil {
+			validationError(w)
+			return
+		}
+		schedule, err := service.Schedule(request.Context(), ownerID, request.PathValue("debt_id"), from, to)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		occurrences := make([]map[string]any, len(schedule.Occurrences))
+		for index, occurrence := range schedule.Occurrences {
+			var invoicePaymentMonth any
+			if occurrence.InvoicePaymentMonth != nil {
+				invoicePaymentMonth = occurrence.InvoicePaymentMonth.String()
+			}
+			occurrences[index] = map[string]any{
+				"debt_id":               occurrence.Occurrence.DebtID,
+				"source_id":             occurrence.Occurrence.SourceID,
+				"reference_month":       occurrence.Occurrence.ReferenceMonth.String(),
+				"installment_number":    occurrence.Occurrence.InstallmentNumber,
+				"installments_total":    occurrence.Occurrence.InstallmentsTotal,
+				"amount_cents":          occurrence.Occurrence.Amount.Cents(),
+				"debt_occurrence_kind":  occurrence.Occurrence.Kind,
+				"payment_method":        occurrence.PaymentMethod,
+				"cash_month":            occurrence.CashMonth.String(),
+				"credit_card_id":        occurrence.CreditCardID,
+				"invoice_payment_month": invoicePaymentMonth,
+				"completeness":          occurrence.Completeness,
+			}
+		}
+		httpapi.WriteJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
+			"debt":        debtResponse(schedule.Debt),
+			"range":       map[string]string{"from": schedule.From.String(), "to": schedule.To.String()},
+			"occurrences": occurrences,
+		}})
+	}
+}
+
 func debtResponse(view debtapplication.View) map[string]any {
 	debt := view.Debt
 	projection := view.Projection
@@ -326,6 +375,10 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		httpapi.WriteError(w, http.StatusUnprocessableEntity, "debt_period_gap", "The debt schedule contains a period gap")
 	case errors.Is(err, debtdomain.ErrInvalidDebt):
 		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_debt_schedule", "The debt schedule is invalid")
+	case errors.Is(err, debtdomain.ErrInvalidProjectionRange):
+		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_debt_schedule", "The debt projection range is invalid")
+	case errors.Is(err, debtapplication.ErrProjectionInconsistent):
+		httpapi.WriteError(w, http.StatusUnprocessableEntity, "debt_projection_inconsistent", "The debt projection is inconsistent")
 	default:
 		httpapi.WriteError(w, http.StatusInternalServerError, "internal_error", "An unexpected internal error occurred")
 	}

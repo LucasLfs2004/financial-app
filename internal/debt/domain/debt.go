@@ -53,9 +53,11 @@ const (
 )
 
 type InstallmentPeriod struct {
-	ID       string
-	Interval planning.MonthInterval
-	Amount   planning.Money
+	ID              string
+	Interval        planning.MonthInterval
+	Amount          planning.Money
+	CashMonthOffset int
+	Context         *string
 }
 
 type EarlySettlement struct {
@@ -172,6 +174,7 @@ func validateAndSortPeriods(periods []InstallmentPeriod, start, end planning.Yea
 	for index, period := range ordered {
 		periodEnd, hasEnd := period.Interval.End()
 		if strings.TrimSpace(period.ID) == "" || !period.Interval.Valid() || !hasEnd || period.Amount.Cents() <= 0 ||
+			period.CashMonthOffset < planning.MinimumCashMonthOffset || period.CashMonthOffset > planning.MaximumCashMonthOffset ||
 			period.Interval.Start().Before(start) || periodEnd.After(end) {
 			return nil, fmt.Errorf("%w: invalid period at index %d", ErrInvalidDebt, index)
 		}

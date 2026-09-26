@@ -117,11 +117,11 @@ Dependências: R3-T05.
 
 ### R3-T07 — Expor cronograma projetado
 
-- [ ] listar intervalo inclusivo;
-- [ ] retornar número, total, término e pagamento;
-- [ ] retornar cartão/fatura quando aplicável;
-- [ ] omitir meses após quitação;
-- [ ] testar ordenação, limites e conclusão.
+- [x] listar intervalo inclusivo;
+- [x] retornar número, total, término e pagamento;
+- [x] retornar cartão/fatura quando aplicável;
+- [x] omitir meses após quitação;
+- [x] testar ordenação, limites e conclusão.
 
 Dependências: R3-T02, R3-T05, R3-T06.
 
