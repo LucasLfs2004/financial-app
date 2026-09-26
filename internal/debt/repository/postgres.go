@@ -124,6 +124,102 @@ func (repository *PostgresRepository) Update(ctx context.Context, ownerID, debtI
 	return repository.Find(ctx, ownerID, debtID)
 }
 
+func (repository *PostgresRepository) Change(ctx context.Context, ownerID, debtID string, input debtapplication.ChangeInput) (debtdomain.Debt, error) {
+	tx, err := repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return debtdomain.Debt{}, fmt.Errorf("begin debt amount change: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var status string
+	var scheduledStart, scheduledEnd time.Time
+	var settlementMonth *time.Time
+	err = tx.QueryRow(ctx, `
+		select item.status, debt.scheduled_start_month, debt.scheduled_end_month,
+			(select settlement.reference_month
+			 from public.debt_early_settlements settlement
+			 where settlement.financial_item_id = debt.financial_item_id
+			   and settlement.user_id = debt.user_id)
+		from public.debts debt
+		join public.financial_items item
+			on item.id = debt.financial_item_id and item.user_id = debt.user_id
+		where debt.financial_item_id = $1 and debt.user_id = $2
+		for update of debt, item
+	`, debtID, ownerID).Scan(&status, &scheduledStart, &scheduledEnd, &settlementMonth)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return debtdomain.Debt{}, debtapplication.ErrNotFound
+	}
+	if err != nil {
+		return debtdomain.Debt{}, fmt.Errorf("lock debt for amount change: %w", err)
+	}
+	if status == string(planningdomain.FinancialItemStatusArchived) {
+		return debtdomain.Debt{}, debtapplication.ErrArchived
+	}
+	effectiveTime := input.EffectiveFrom.Time()
+	if effectiveTime.Before(scheduledStart) || effectiveTime.After(scheduledEnd) {
+		return debtdomain.Debt{}, debtapplication.ErrChangeOutsideSchedule
+	}
+	if settlementMonth != nil && effectiveTime.After(*settlementMonth) {
+		return debtdomain.Debt{}, debtapplication.ErrChangeAfterSettlement
+	}
+
+	var applicablePeriodID string
+	var applicableStart time.Time
+	var cashMonthOffset int
+	err = tx.QueryRow(ctx, `
+		select id, start_month, cash_month_offset
+		from public.financial_item_periods
+		where financial_item_id = $1 and user_id = $2
+			and start_month <= $3 and end_month >= $3
+		for update
+	`, debtID, ownerID, effectiveTime).Scan(&applicablePeriodID, &applicableStart, &cashMonthOffset)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return debtdomain.Debt{}, debtdomain.ErrDebtPeriodGap
+	}
+	if err != nil {
+		return debtdomain.Debt{}, fmt.Errorf("lock applicable debt period: %w", err)
+	}
+
+	if sameMonth(applicableStart, input.EffectiveFrom) {
+		_, err = tx.Exec(ctx, `
+			delete from public.financial_item_periods
+			where financial_item_id = $1 and user_id = $2 and start_month >= $3
+		`, debtID, ownerID, effectiveTime)
+	} else {
+		previousMonth, previousErr := input.EffectiveFrom.AddMonths(-1)
+		if previousErr != nil {
+			return debtdomain.Debt{}, debtapplication.ErrValidation
+		}
+		_, err = tx.Exec(ctx, `
+			update public.financial_item_periods set end_month = $2
+			where id = $1
+		`, applicablePeriodID, previousMonth.Time())
+		if err == nil {
+			_, err = tx.Exec(ctx, `
+				delete from public.financial_item_periods
+				where financial_item_id = $1 and user_id = $2 and start_month >= $3
+			`, debtID, ownerID, effectiveTime)
+		}
+	}
+	if err != nil {
+		return debtdomain.Debt{}, mapError("replace future debt periods", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		insert into public.financial_item_periods (
+			financial_item_id, user_id, start_month, end_month,
+			amount_cents, recurrence, cash_month_offset, context, recorded_at
+		) values ($1, $2, $3, $4, $5, 'monthly', $6, $7, now())
+	`, debtID, ownerID, effectiveTime, scheduledEnd, input.InstallmentAmountCents, cashMonthOffset, input.Context)
+	if err != nil {
+		return debtdomain.Debt{}, mapError("create changed debt period", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return debtdomain.Debt{}, mapError("commit debt amount change", err)
+	}
+	return repository.Find(ctx, ownerID, debtID)
+}
+
 func (repository *PostgresRepository) Archive(ctx context.Context, ownerID, debtID string) (debtdomain.Debt, error) {
 	result, err := repository.pool.Exec(ctx, `
 		update public.financial_items as item
@@ -335,4 +431,8 @@ func enumValue[T ~string](value *T) any {
 		return nil
 	}
 	return string(*value)
+}
+
+func sameMonth(value time.Time, month planningdomain.YearMonth) bool {
+	return value.Year() == month.Year() && value.Month() == month.Month()
 }

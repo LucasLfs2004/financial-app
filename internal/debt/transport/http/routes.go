@@ -17,6 +17,7 @@ type Service interface {
 	List(context.Context, string, debtapplication.Filters) ([]debtapplication.View, error)
 	Find(context.Context, string, string, *planningdomain.YearMonth) (debtapplication.View, error)
 	Update(context.Context, string, string, debtapplication.UpdateInput) (debtapplication.View, error)
+	Change(context.Context, string, string, debtapplication.ChangeInput) (debtapplication.View, error)
 	Archive(context.Context, string, string, debtapplication.ArchiveInput) (debtapplication.View, error)
 }
 
@@ -27,6 +28,7 @@ func RegisterRoutes(mux *http.ServeMux, authenticate Middleware, service Service
 	mux.Handle("GET /v1/debts", authenticate(http.HandlerFunc(listHandler(service))))
 	mux.Handle("GET /v1/debts/{debt_id}", authenticate(http.HandlerFunc(findHandler(service))))
 	mux.Handle("PATCH /v1/debts/{debt_id}", authenticate(http.HandlerFunc(updateHandler(service))))
+	mux.Handle("POST /v1/debts/{debt_id}/changes", authenticate(http.HandlerFunc(changeHandler(service))))
 	mux.Handle("POST /v1/debts/{debt_id}/archive", authenticate(http.HandlerFunc(archiveHandler(service))))
 }
 
@@ -70,6 +72,12 @@ type updateRequest struct {
 
 type archiveRequest struct {
 	Reason *string `json:"reason"`
+}
+
+type changeRequest struct {
+	EffectiveFrom          string  `json:"effective_from"`
+	InstallmentAmountCents int64   `json:"installment_amount_cents"`
+	Context                *string `json:"context"`
 }
 
 func createHandler(service Service) http.HandlerFunc {
@@ -201,6 +209,35 @@ func updateHandler(service Service) http.HandlerFunc {
 	}
 }
 
+func changeHandler(service Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		ownerID, ok := ownerFromRequest(request)
+		if !ok {
+			unauthorized(w)
+			return
+		}
+		var payload changeRequest
+		if httpapi.DecodeJSON(request, &payload) != nil {
+			validationError(w)
+			return
+		}
+		effectiveFrom, err := planningdomain.ParseYearMonth(payload.EffectiveFrom)
+		if err != nil {
+			validationError(w)
+			return
+		}
+		view, err := service.Change(request.Context(), ownerID, request.PathValue("debt_id"), debtapplication.ChangeInput{
+			EffectiveFrom: effectiveFrom, InstallmentAmountCents: payload.InstallmentAmountCents,
+			Context: payload.Context,
+		})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"data": debtResponse(view)})
+	}
+}
+
 func archiveHandler(service Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, request *http.Request) {
 		ownerID, ok := ownerFromRequest(request)
@@ -281,6 +318,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		httpapi.WriteError(w, http.StatusConflict, "debt_archived", "The debt is archived")
 	case errors.Is(err, debtapplication.ErrPaymentMethodUnsupported):
 		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_payment_method", "The payment method is incompatible with this resource")
+	case errors.Is(err, debtapplication.ErrChangeOutsideSchedule), errors.Is(err, debtapplication.ErrChangeAfterSettlement):
+		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_debt_schedule", "The debt change is outside the mutable schedule")
 	case errors.Is(err, debtdomain.ErrDebtScheduleTooLong):
 		httpapi.WriteError(w, http.StatusUnprocessableEntity, "debt_schedule_too_long", "The debt schedule exceeds 120 months")
 	case errors.Is(err, debtdomain.ErrDebtPeriodGap):

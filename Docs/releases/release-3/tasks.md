@@ -106,12 +106,12 @@ Dependências: R3-T01, R3-T03.
 
 ### R3-T06 — Implementar mudança de valor
 
-- [ ] expor mudança especializada;
-- [ ] bloquear dívida e períodos;
-- [ ] fechar período anterior e criar novo até o término;
-- [ ] preservar passado, numeração e término;
-- [ ] impedir lacuna, sobreposição e mudança após quitação;
-- [ ] testar primeira, intermediária e última parcela.
+- [x] expor mudança especializada;
+- [x] bloquear dívida e períodos;
+- [x] fechar período anterior e criar novo até o término;
+- [x] preservar passado, numeração e término;
+- [x] impedir lacuna, sobreposição e mudança após quitação;
+- [x] testar primeira, intermediária e última parcela.
 
 Dependências: R3-T05.
 

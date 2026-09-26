@@ -58,6 +58,35 @@ func TestRelease3DebtRegistrationLifecycleAndOwnership(t *testing.T) {
 	if _, err = service.Find(ctx, otherID, created.Debt.ID, monthPtr(t, "2026-09")); !errors.Is(err, debtapplication.ErrNotFound) {
 		t.Fatalf("expected ownership-safe not found, got %v", err)
 	}
+	for _, change := range []struct {
+		month  string
+		amount int64
+	}{
+		{month: "2026-09", amount: 61000},
+		{month: "2027-01", amount: 65000},
+		{month: "2027-04", amount: 70000},
+	} {
+		changed, changeErr := service.Change(ctx, ownerID, created.Debt.ID, debtapplication.ChangeInput{
+			EffectiveFrom: month(t, change.month), InstallmentAmountCents: change.amount,
+		})
+		if changeErr != nil {
+			t.Fatalf("change %s: %v", change.month, changeErr)
+		}
+		created = changed
+	}
+	if len(created.Debt.Periods) != 3 || len(created.Projection.Occurrences) != 8 ||
+		created.Projection.Occurrences[0].Amount.Cents() != 61000 ||
+		created.Projection.Occurrences[4].Amount.Cents() != 65000 ||
+		created.Projection.Occurrences[7].Amount.Cents() != 70000 ||
+		created.Projection.Occurrences[7].InstallmentNumber != 12 ||
+		created.Projection.ScheduledEnd.String() != "2027-04" {
+		t.Fatalf("changed schedule=%+v periods=%+v", created.Projection, created.Debt.Periods)
+	}
+	if _, err = service.Change(ctx, ownerID, created.Debt.ID, debtapplication.ChangeInput{
+		EffectiveFrom: month(t, "2027-05"), InstallmentAmountCents: 1,
+	}); !errors.Is(err, debtapplication.ErrChangeOutsideSchedule) {
+		t.Fatalf("expected outside schedule error, got %v", err)
+	}
 
 	name := "Transplante atualizado"
 	updated, err := service.Update(ctx, ownerID, created.Debt.ID, debtapplication.UpdateInput{Name: &name})

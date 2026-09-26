@@ -14,7 +14,10 @@ import (
 	"github.com/lucas/financial-api/internal/platform/httpapi"
 )
 
-type serviceStub struct{ created debtapplication.CreateInput }
+type serviceStub struct {
+	created debtapplication.CreateInput
+	changed debtapplication.ChangeInput
+}
 
 func (service *serviceStub) Create(_ context.Context, _ string, input debtapplication.CreateInput) (debtapplication.View, error) {
 	service.created = input
@@ -27,6 +30,10 @@ func (*serviceStub) Find(context.Context, string, string, *planningdomain.YearMo
 	return debtapplication.View{}, debtapplication.ErrNotFound
 }
 func (*serviceStub) Update(context.Context, string, string, debtapplication.UpdateInput) (debtapplication.View, error) {
+	return responseView(tMonth("2026-09")), nil
+}
+func (service *serviceStub) Change(_ context.Context, _, _ string, input debtapplication.ChangeInput) (debtapplication.View, error) {
+	service.changed = input
 	return responseView(tMonth("2026-09")), nil
 }
 func (*serviceStub) Archive(context.Context, string, string, debtapplication.ArchiveInput) (debtapplication.View, error) {
@@ -73,6 +80,21 @@ func TestListDebtRouteRejectsInvalidProjectionStatus(t *testing.T) {
 	mux.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestChangeDebtAmountRoute(t *testing.T) {
+	service := &serviceStub{}
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, service)
+	body := `{"effective_from":"2027-01","installment_amount_cents":65000,"context":"Reajuste"}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/debts/debt/changes", strings.NewReader(body))
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated || service.changed.EffectiveFrom.String() != "2027-01" ||
+		service.changed.InstallmentAmountCents != 65000 {
+		t.Fatalf("status=%d input=%+v body=%s", recorder.Code, service.changed, recorder.Body.String())
 	}
 }
 

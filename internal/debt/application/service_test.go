@@ -39,6 +39,12 @@ func (repository *repositoryStub) Update(context.Context, string, string, Update
 	}
 	return repository.debts[0], nil
 }
+func (repository *repositoryStub) Change(context.Context, string, string, ChangeInput) (debtdomain.Debt, error) {
+	if repository.err != nil {
+		return debtdomain.Debt{}, repository.err
+	}
+	return repository.debts[0], nil
+}
 func (repository *repositoryStub) Archive(context.Context, string, string) (debtdomain.Debt, error) {
 	if repository.err != nil {
 		return debtdomain.Debt{}, repository.err
@@ -100,6 +106,18 @@ func TestListFiltersProjectionStatusAndSortsByEffectiveEnd(t *testing.T) {
 	}
 	if len(views) != 2 || views[0].Debt.ID != "early" || views[1].Debt.ID != "late" {
 		t.Fatalf("views=%+v", views)
+	}
+}
+
+func TestChangeRejectsMonthAfterSettlement(t *testing.T) {
+	debt := debtFixture("owner", "BRL", "debt", "Debt", month(t, "2026-01"), month(t, "2026-03"), 3, 1, 100)
+	debt.Settlement = &debtdomain.EarlySettlement{ID: "settlement", ReferenceMonth: month(t, "2026-02"), Amount: planningdomain.NewMoney(150)}
+	service := NewService(&repositoryStub{debts: []debtdomain.Debt{debt}}, profileStub{profile.Profile{Timezone: "UTC"}})
+	_, err := service.Change(context.Background(), "owner", "debt", ChangeInput{
+		EffectiveFrom: month(t, "2026-03"), InstallmentAmountCents: 120,
+	})
+	if !errors.Is(err, ErrChangeAfterSettlement) {
+		t.Fatalf("expected change after settlement error, got %v", err)
 	}
 }
 

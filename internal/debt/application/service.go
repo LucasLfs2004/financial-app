@@ -26,6 +26,8 @@ var (
 	ErrNotFound                 = errors.New("debt not found")
 	ErrArchived                 = errors.New("debt is archived")
 	ErrPaymentMethodUnsupported = errors.New("debt payment method is not available yet")
+	ErrChangeOutsideSchedule    = errors.New("debt change is outside the schedule")
+	ErrChangeAfterSettlement    = errors.New("debt change is after early settlement")
 )
 
 type Repository interface {
@@ -33,6 +35,7 @@ type Repository interface {
 	List(context.Context, string, *planningdomain.FinancialItemStatus) ([]debtdomain.Debt, error)
 	Find(context.Context, string, string) (debtdomain.Debt, error)
 	Update(context.Context, string, string, UpdateInput) (debtdomain.Debt, error)
+	Change(context.Context, string, string, ChangeInput) (debtdomain.Debt, error)
 	Archive(context.Context, string, string) (debtdomain.Debt, error)
 }
 
@@ -90,6 +93,12 @@ type UpdateInput struct {
 }
 
 type ArchiveInput struct{ Reason *string }
+
+type ChangeInput struct {
+	EffectiveFrom          planningdomain.YearMonth
+	InstallmentAmountCents int64
+	Context                *string
+}
 
 type View struct {
 	Debt       debtdomain.Debt
@@ -183,6 +192,36 @@ func (service *Service) Update(ctx context.Context, ownerID, debtID string, inpu
 		return View{}, ErrValidation
 	}
 	debt, err := service.repository.Update(ctx, ownerID, debtID, input)
+	if err != nil {
+		return View{}, err
+	}
+	asOf, err := service.resolveAsOf(ctx, ownerID, nil)
+	if err != nil {
+		return View{}, err
+	}
+	return projectView(debt, asOf)
+}
+
+func (service *Service) Change(ctx context.Context, ownerID, debtID string, input ChangeInput) (View, error) {
+	if strings.TrimSpace(ownerID) == "" || strings.TrimSpace(debtID) == "" ||
+		!input.EffectiveFrom.Valid() || input.InstallmentAmountCents <= 0 ||
+		!validOptionalText(input.Context, maximumContextLength) {
+		return View{}, ErrValidation
+	}
+	current, err := service.repository.Find(ctx, ownerID, debtID)
+	if err != nil {
+		return View{}, err
+	}
+	if current.Status == planningdomain.FinancialItemStatusArchived {
+		return View{}, ErrArchived
+	}
+	if input.EffectiveFrom.Before(current.ScheduledStart) || input.EffectiveFrom.After(current.ScheduledEnd) {
+		return View{}, ErrChangeOutsideSchedule
+	}
+	if current.Settlement != nil && input.EffectiveFrom.After(current.Settlement.ReferenceMonth) {
+		return View{}, ErrChangeAfterSettlement
+	}
+	debt, err := service.repository.Change(ctx, ownerID, debtID, input)
 	if err != nil {
 		return View{}, err
 	}
