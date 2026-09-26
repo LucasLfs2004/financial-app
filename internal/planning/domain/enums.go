@@ -29,6 +29,7 @@ const (
 	FinancialItemKindOneTimeIncome            FinancialItemKind = "one_time_income"
 	FinancialItemKindFixedExpense             FinancialItemKind = "fixed_expense"
 	FinancialItemKindProjectedVariableExpense FinancialItemKind = "projected_variable_expense"
+	FinancialItemKindDebtInstallment          FinancialItemKind = "debt_installment"
 )
 
 func ParseFinancialItemKind(value string) (FinancialItemKind, error) {
@@ -44,7 +45,8 @@ func (k FinancialItemKind) Valid() bool {
 	case FinancialItemKindRecurringIncome,
 		FinancialItemKindOneTimeIncome,
 		FinancialItemKindFixedExpense,
-		FinancialItemKindProjectedVariableExpense:
+		FinancialItemKindProjectedVariableExpense,
+		FinancialItemKindDebtInstallment:
 		return true
 	default:
 		return false

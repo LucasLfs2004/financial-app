@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	planning "github.com/lucas/financial-api/internal/planning/domain"
 )
@@ -61,11 +62,18 @@ type EarlySettlement struct {
 	ID             string
 	ReferenceMonth planning.YearMonth
 	Amount         planning.Money
+	Reason         *string
+	RecordedBy     string
+	RecordedAt     time.Time
+	CreatedAt      time.Time
 }
 
 type Debt struct {
 	ID                        string
+	UserID                    string
+	CurrencyCode              string
 	Name                      string
+	Description               *string
 	OriginalTotal             *planning.Money
 	TotalInstallments         int
 	FirstProjectedInstallment int
@@ -74,11 +82,17 @@ type Debt struct {
 	Periods                   []InstallmentPeriod
 	Settlement                *EarlySettlement
 	Status                    planning.FinancialItemStatus
+	ArchivedAt                *time.Time
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }
 
 type NewDebtInput struct {
 	ID                        string
+	UserID                    string
+	CurrencyCode              string
 	Name                      string
+	Description               *string
 	OriginalTotal             *planning.Money
 	TotalInstallments         int
 	FirstProjectedInstallment int
@@ -86,6 +100,9 @@ type NewDebtInput struct {
 	Periods                   []InstallmentPeriod
 	Settlement                *EarlySettlement
 	Status                    planning.FinancialItemStatus
+	ArchivedAt                *time.Time
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }
 
 // NewDebt validates the complete structural schedule and derives its end. It
@@ -120,7 +137,10 @@ func NewDebt(input NewDebtInput) (Debt, error) {
 
 	return Debt{
 		ID:                        input.ID,
+		UserID:                    input.UserID,
+		CurrencyCode:              input.CurrencyCode,
 		Name:                      input.Name,
+		Description:               input.Description,
 		OriginalTotal:             input.OriginalTotal,
 		TotalInstallments:         input.TotalInstallments,
 		FirstProjectedInstallment: input.FirstProjectedInstallment,
@@ -129,6 +149,9 @@ func NewDebt(input NewDebtInput) (Debt, error) {
 		Periods:                   periods,
 		Settlement:                input.Settlement,
 		Status:                    input.Status,
+		ArchivedAt:                input.ArchivedAt,
+		CreatedAt:                 input.CreatedAt,
+		UpdatedAt:                 input.UpdatedAt,
 	}, nil
 }
 

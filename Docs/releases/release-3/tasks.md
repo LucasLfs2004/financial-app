@@ -94,13 +94,13 @@ Dependências: R3-T02, R3-T03.
 
 ### R3-T05 — Implementar cadastro e consulta
 
-- [ ] criar módulo vertical `debt`;
-- [ ] criar item, período e dívida em transação;
-- [ ] listar com `as_of` e status;
-- [ ] detalhar término e quantidade restante;
-- [ ] editar metadados e arquivar;
-- [ ] rejeitar criação genérica do kind;
-- [ ] testar erros e ownership.
+- [x] criar módulo vertical `debt`;
+- [x] criar item, período e dívida em transação;
+- [x] listar com `as_of` e status;
+- [x] detalhar término e quantidade restante;
+- [x] editar metadados e arquivar;
+- [x] rejeitar criação genérica do kind;
+- [x] testar erros e ownership.
 
 Dependências: R3-T01, R3-T03.
 

@@ -111,7 +111,7 @@ func (service *Service) Create(ctx context.Context, ownerID string, input Create
 		return Item{}, err
 	}
 	input.Name = strings.TrimSpace(input.Name)
-	if input.Name == "" || len(input.Name) > 120 || !input.Kind.Valid() {
+	if input.Name == "" || len(input.Name) > 120 || !input.Kind.Valid() || input.Kind == domain.FinancialItemKindDebtInstallment {
 		return Item{}, ErrValidation
 	}
 	if err := validateDescription(input.Description, 1000); err != nil {

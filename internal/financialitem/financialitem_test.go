@@ -68,6 +68,20 @@ func TestCreateRejectsInvalidKindRecurrence(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 }
+
+func TestCreateRejectsSpecializedDebtKind(t *testing.T) {
+	service := NewService(&fakeRepository{}, fakePlans{testPlan(t)})
+	_, err := service.Create(context.Background(), "owner", CreateInput{
+		Name: "Dívida", Kind: domain.FinancialItemKindDebtInstallment,
+		Period: PeriodInput{
+			StartMonth: testMonth(t, "2026-01"), EndMonth: testMonthPtr(t, "2026-02"),
+			AmountCents: 100, Recurrence: domain.RecurrenceMonthly,
+		},
+	})
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
 func TestCreateAcceptsPeriodOutsidePlanHorizon(t *testing.T) {
 	repository := &fakeRepository{}
 	service := NewService(repository, fakePlans{testPlan(t)})

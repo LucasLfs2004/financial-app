@@ -216,7 +216,10 @@ func ProjectReleases(input ReleaseProjectionInput) (ReleaseProjection, error) {
 func normalizeDebt(candidate Debt) (Debt, error) {
 	debt, err := NewDebt(NewDebtInput{
 		ID:                        candidate.ID,
+		UserID:                    candidate.UserID,
+		CurrencyCode:              candidate.CurrencyCode,
 		Name:                      candidate.Name,
+		Description:               candidate.Description,
 		OriginalTotal:             candidate.OriginalTotal,
 		TotalInstallments:         candidate.TotalInstallments,
 		FirstProjectedInstallment: candidate.FirstProjectedInstallment,
@@ -224,6 +227,9 @@ func normalizeDebt(candidate Debt) (Debt, error) {
 		Periods:                   candidate.Periods,
 		Settlement:                candidate.Settlement,
 		Status:                    candidate.Status,
+		ArchivedAt:                candidate.ArchivedAt,
+		CreatedAt:                 candidate.CreatedAt,
+		UpdatedAt:                 candidate.UpdatedAt,
 	})
 	if err != nil {
 		return Debt{}, err
