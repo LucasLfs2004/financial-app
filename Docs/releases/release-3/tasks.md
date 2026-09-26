@@ -81,12 +81,12 @@ Dependências: R3-T02.
 
 ### R3-T04 — Persistir quitação antecipada
 
-- [ ] criar `debt_early_settlements`;
-- [ ] garantir unicidade por dívida;
-- [ ] validar mês, valor e proprietário;
-- [ ] bloquear update/delete;
-- [ ] adicionar índices, FKs, RLS e grants;
-- [ ] testar append-only e concorrência.
+- [x] criar `debt_early_settlements`;
+- [x] garantir unicidade por dívida;
+- [x] validar mês, valor e proprietário;
+- [x] bloquear update/delete;
+- [x] adicionar índices, FKs, RLS e grants;
+- [x] testar append-only e concorrência.
 
 Dependências: R3-T02, R3-T03.
 
