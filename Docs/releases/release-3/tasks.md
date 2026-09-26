@@ -70,12 +70,12 @@ Aceite: nenhuma regra de cronograma depende de HTTP, relógio global ou banco.
 
 ### R3-T03 — Evoluir item financeiro e persistir dívida
 
-- [ ] adicionar enum em migration isolada;
-- [ ] criar `debts` em migration posterior;
-- [ ] adicionar FKs compostas, índices e constraints;
-- [ ] validar kind, fórmula, limite estrutural e período mensal;
-- [ ] adicionar RLS e grants mínimos;
-- [ ] testar invariantes e ownership.
+- [x] adicionar enum em migration isolada;
+- [x] criar `debts` em migration posterior;
+- [x] adicionar FKs compostas, índices e constraints;
+- [x] validar kind, fórmula, limite estrutural e período mensal;
+- [x] adicionar RLS e grants mínimos;
+- [x] testar invariantes e ownership.
 
 Dependências: R3-T02.
 
