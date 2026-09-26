@@ -67,7 +67,7 @@ func main() {
 	cardRepository := cardrepository.NewPostgresRepository(databasePool)
 	cardService := cardapplication.NewService(cardRepository)
 	paymentMethodRepository := paymentmethodrepository.NewPostgresRepository(databasePool)
-	paymentMethodService := paymentmethodapplication.NewService(paymentMethodRepository, planService)
+	paymentMethodService := paymentmethodapplication.NewService(paymentMethodRepository)
 	invoiceMoveRepository := invoiceallocationrepository.NewPostgresRepository(databasePool)
 	invoiceMoveService := invoiceallocationapplication.NewService(invoiceMoveRepository, planService)
 	invoiceAdjustmentRepository := invoiceadjustmentrepository.NewPostgresRepository(databasePool)

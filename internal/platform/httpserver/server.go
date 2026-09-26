@@ -80,6 +80,14 @@ func New(cfg config.Config, logger *slog.Logger, dependencies Dependencies) *htt
 	mux.Handle("PATCH /v1/plans/current/items/{item_id}", authenticate(dependencies.Authenticator, http.HandlerFunc(updateFinancialItemHandler(dependencies.FinancialItems))))
 	mux.Handle("POST /v1/plans/current/items/{item_id}/changes", authenticate(dependencies.Authenticator, http.HandlerFunc(changeFinancialItemHandler(dependencies.FinancialItems))))
 	mux.Handle("POST /v1/plans/current/items/{item_id}/archive", authenticate(dependencies.Authenticator, http.HandlerFunc(archiveFinancialItemHandler(dependencies.FinancialItems))))
+	// Canonical user-owned routes. The /plans/current/items aliases remain for
+	// Release 1/2 client compatibility, but no longer define resource ownership.
+	mux.Handle("POST /v1/financial-items", authenticate(dependencies.Authenticator, http.HandlerFunc(createFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("GET /v1/financial-items", authenticate(dependencies.Authenticator, http.HandlerFunc(listFinancialItemsHandler(dependencies.FinancialItems))))
+	mux.Handle("GET /v1/financial-items/{item_id}", authenticate(dependencies.Authenticator, http.HandlerFunc(getFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("PATCH /v1/financial-items/{item_id}", authenticate(dependencies.Authenticator, http.HandlerFunc(updateFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("POST /v1/financial-items/{item_id}/changes", authenticate(dependencies.Authenticator, http.HandlerFunc(changeFinancialItemHandler(dependencies.FinancialItems))))
+	mux.Handle("POST /v1/financial-items/{item_id}/archive", authenticate(dependencies.Authenticator, http.HandlerFunc(archiveFinancialItemHandler(dependencies.FinancialItems))))
 	mux.Handle("GET /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(getSavingsHandler(dependencies.Savings))))
 	mux.Handle("PUT /v1/plans/current/savings", authenticate(dependencies.Authenticator, http.HandlerFunc(putSavingsHandler(dependencies.Savings))))
 	mux.Handle("GET /v1/plans/current/months/{month}/summary", authenticate(dependencies.Authenticator, http.HandlerFunc(monthlySummaryHandler(dependencies.MonthlySummary))))

@@ -20,7 +20,7 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 // LoadProjectionData uses a repeatable-read snapshot so a projection never
 // combines financial premises with card changes committed midway through the
 // read.
-func (repository *PostgresRepository) LoadProjectionData(ctx context.Context, ownerID, planID string) (cardinvoice.ProjectionData, error) {
+func (repository *PostgresRepository) LoadProjectionData(ctx context.Context, ownerID, currencyCode string) (cardinvoice.ProjectionData, error) {
 	tx, err := repository.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return cardinvoice.ProjectionData{}, fmt.Errorf("begin card invoice projection read: %w", err)
@@ -31,18 +31,18 @@ func (repository *PostgresRepository) LoadProjectionData(ctx context.Context, ow
 	if err != nil {
 		return cardinvoice.ProjectionData{}, err
 	}
-	items, itemIndexes, err := loadItems(ctx, tx, ownerID, planID)
+	items, itemIndexes, err := loadItems(ctx, tx, ownerID, currencyCode)
 	if err != nil {
 		return cardinvoice.ProjectionData{}, err
 	}
-	if err := loadPaymentPeriods(ctx, tx, ownerID, planID, items, itemIndexes); err != nil {
+	if err := loadPaymentPeriods(ctx, tx, ownerID, currencyCode, items, itemIndexes); err != nil {
 		return cardinvoice.ProjectionData{}, err
 	}
-	moves, err := loadMoves(ctx, tx, ownerID, planID)
+	moves, err := loadMoves(ctx, tx, ownerID, currencyCode)
 	if err != nil {
 		return cardinvoice.ProjectionData{}, err
 	}
-	adjustments, err := loadAdjustments(ctx, tx, ownerID, planID)
+	adjustments, err := loadAdjustments(ctx, tx, ownerID, currencyCode)
 	if err != nil {
 		return cardinvoice.ProjectionData{}, err
 	}
@@ -122,17 +122,17 @@ func loadCards(ctx context.Context, tx pgx.Tx, ownerID string) ([]cardinvoice.Ca
 	return cards, nil
 }
 
-func loadItems(ctx context.Context, tx pgx.Tx, ownerID, planID string) ([]cardinvoice.FinancialItem, map[string]int, error) {
+func loadItems(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string) ([]cardinvoice.FinancialItem, map[string]int, error) {
 	rows, err := tx.Query(ctx, `
 		select i.id, i.name, i.kind, p.id, p.start_month, p.end_month,
 			p.amount_cents, p.recurrence
 		from public.financial_items i
 		join public.financial_item_periods p
-			on p.financial_item_id = i.id and p.plan_id = i.plan_id and p.user_id = i.user_id
-		where i.user_id = $1 and i.plan_id = $2
+			on p.financial_item_id = i.id and p.user_id = i.user_id
+		where i.user_id = $1 and i.currency_code = $2
 			and i.kind in ('fixed_expense', 'projected_variable_expense')
 		order by i.created_at, i.id, p.start_month, p.id
-	`, ownerID, planID)
+	`, ownerID, currencyCode)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load invoice financial items: %w", err)
 	}
@@ -176,13 +176,16 @@ func loadItems(ctx context.Context, tx pgx.Tx, ownerID, planID string) ([]cardin
 	return items, indexes, nil
 }
 
-func loadPaymentPeriods(ctx context.Context, tx pgx.Tx, ownerID, planID string, items []cardinvoice.FinancialItem, indexes map[string]int) error {
+func loadPaymentPeriods(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string, items []cardinvoice.FinancialItem, indexes map[string]int) error {
 	rows, err := tx.Query(ctx, `
-		select id, financial_item_id, start_month, end_month, method, credit_card_id
-		from public.financial_item_payment_periods
-		where user_id = $1 and plan_id = $2
-		order by financial_item_id, start_month, id
-	`, ownerID, planID)
+		select pp.id, pp.financial_item_id, pp.start_month, pp.end_month,
+			pp.method, pp.credit_card_id
+		from public.financial_item_payment_periods pp
+		join public.financial_items i
+			on i.id = pp.financial_item_id and i.user_id = pp.user_id
+		where pp.user_id = $1 and i.currency_code = $2
+		order by pp.financial_item_id, pp.start_month, pp.id
+	`, ownerID, currencyCode)
 	if err != nil {
 		return fmt.Errorf("load invoice payment periods: %w", err)
 	}
@@ -223,14 +226,17 @@ func loadPaymentPeriods(ctx context.Context, tx pgx.Tx, ownerID, planID string, 
 	return nil
 }
 
-func loadMoves(ctx context.Context, tx pgx.Tx, ownerID, planID string) ([]cardinvoice.OccurrenceMove, error) {
+func loadMoves(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string) ([]cardinvoice.OccurrenceMove, error) {
 	rows, err := tx.Query(ctx, `
-		select id, financial_item_id, reference_month, to_credit_card_id,
-			to_payment_month, recorded_at
-		from public.card_invoice_audit_events
-		where user_id = $1 and plan_id = $2 and event_type = 'occurrence_moved'
-		order by recorded_at, id
-	`, ownerID, planID)
+		select ae.id, ae.financial_item_id, ae.reference_month,
+			ae.to_credit_card_id, ae.to_payment_month, ae.recorded_at
+		from public.card_invoice_audit_events ae
+		join public.financial_items i
+			on i.id = ae.financial_item_id and i.user_id = ae.user_id
+		where ae.user_id = $1 and i.currency_code = $2
+			and ae.event_type = 'occurrence_moved'
+		order by ae.recorded_at, ae.id
+	`, ownerID, currencyCode)
 	if err != nil {
 		return nil, fmt.Errorf("load invoice occurrence moves: %w", err)
 	}
@@ -259,14 +265,14 @@ func loadMoves(ctx context.Context, tx pgx.Tx, ownerID, planID string) ([]cardin
 	return moves, nil
 }
 
-func loadAdjustments(ctx context.Context, tx pgx.Tx, ownerID, planID string) ([]cardinvoice.Adjustment, error) {
+func loadAdjustments(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string) ([]cardinvoice.Adjustment, error) {
 	rows, err := tx.Query(ctx, `
 		select id, name, credit_card_id, payment_month, reference_month,
 			amount_cents, status
 		from public.card_invoice_adjustments
-		where user_id = $1 and plan_id = $2
+		where user_id = $1 and currency_code = $2
 		order by created_at, id
-	`, ownerID, planID)
+	`, ownerID, currencyCode)
 	if err != nil {
 		return nil, fmt.Errorf("load invoice adjustments: %w", err)
 	}

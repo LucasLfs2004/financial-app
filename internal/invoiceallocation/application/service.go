@@ -19,8 +19,8 @@ var (
 )
 
 type Repository interface {
-	Move(context.Context, string, string, string, planningdomain.YearMonth, string, planningdomain.YearMonth, *string) (domain.Move, error)
-	History(context.Context, string, string, string, planningdomain.YearMonth) ([]domain.Move, error)
+	Move(context.Context, string, string, planningdomain.YearMonth, string, planningdomain.YearMonth, *string) (domain.Move, error)
+	History(context.Context, string, string, planningdomain.YearMonth) ([]domain.Move, error)
 }
 type PlanReader interface {
 	Current(context.Context, string) (planning.Plan, error)
@@ -51,15 +51,11 @@ func (s *Service) Move(ctx context.Context, ownerID, itemID string, reference pl
 	if targetMonth.Before(plan.StartMonth) || targetMonth.After(maxMonth) {
 		return domain.Move{}, domain.ErrValidation
 	}
-	return s.repository.Move(ctx, ownerID, plan.ID, itemID, reference, targetCard, targetMonth, reason)
+	return s.repository.Move(ctx, ownerID, itemID, reference, targetCard, targetMonth, reason)
 }
 func (s *Service) History(ctx context.Context, ownerID, itemID string, reference planningdomain.YearMonth) ([]domain.Move, error) {
 	if strings.TrimSpace(ownerID) == "" || strings.TrimSpace(itemID) == "" || !reference.Valid() {
 		return nil, domain.ErrValidation
 	}
-	plan, err := s.plans.Current(ctx, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	return s.repository.History(ctx, ownerID, plan.ID, itemID, reference)
+	return s.repository.History(ctx, ownerID, itemID, reference)
 }

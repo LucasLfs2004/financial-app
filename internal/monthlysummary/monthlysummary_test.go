@@ -180,7 +180,7 @@ func (plans fakePlans) Current(context.Context, string) (planning.Plan, error) {
 
 type fakeItems struct{ items []financialitem.Item }
 
-func (items fakeItems) List(context.Context, string, string, financialitem.Filters) ([]financialitem.Item, error) {
+func (items fakeItems) List(context.Context, string, financialitem.Filters) ([]financialitem.Item, error) {
 	return items.items, nil
 }
 

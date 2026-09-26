@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Financial API
-  version: 2.0.0-draft
+  version: 2.1.0-draft
   description: |
     API de planejamento financeiro pessoal.
 
@@ -222,12 +222,15 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /v1/plans/current/items:
+  /v1/financial-items:
     post:
       operationId: createFinancialItem
       tags: [Financial items]
       summary: Cadastrar uma renda ou despesa projetada
-      description: O item e seu primeiro período são criados na mesma operação.
+      description: |
+        O item e seu primeiro período são criados na mesma operação. O registro
+        pertence ao usuário e sua vigência pode ultrapassar o horizonte do
+        planejamento atual; projeções usam apenas a interseção temporal.
       requestBody:
         required: true
         content:
@@ -250,12 +253,12 @@ paths:
                     context: Referente ao mês anterior
               fixedExpense:
                 value:
-                  name: Aluguel
+                  name: Seguro
                   kind: fixed_expense
                   period:
-                    start_month: 2026-01
-                    end_month: null
-                    amount_cents: 150000
+                    start_month: 2026-09
+                    end_month: 2027-09
+                    amount_cents: 18000
                     recurrence: monthly
                     cash_month_offset: 0
       responses:
@@ -280,13 +283,13 @@ paths:
     get:
       operationId: listFinancialItems
       tags: [Financial items]
-      summary: Listar as premissas financeiras do planejamento
+      summary: Listar os registros financeiros do usuário
       parameters:
         - $ref: "#/components/parameters/FinancialItemKindFilter"
         - $ref: "#/components/parameters/FinancialItemStatusFilter"
       responses:
         "200":
-          description: Itens do planejamento autenticado
+          description: Registros financeiros do usuário autenticado
           content:
             application/json:
               schema:
@@ -301,7 +304,7 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /v1/plans/current/items/{item_id}:
+  /v1/financial-items/{item_id}:
     parameters:
       - $ref: "#/components/parameters/ItemID"
     get:
@@ -353,7 +356,7 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /v1/plans/current/items/{item_id}/changes:
+  /v1/financial-items/{item_id}/changes:
     parameters:
       - $ref: "#/components/parameters/ItemID"
     post:
@@ -363,6 +366,7 @@ paths:
       description: |
         Encerra o período aplicável no mês anterior e cria um novo período. A
         mudança preserva o passado e pode ser retroativa com rastreabilidade.
+        A competência não é limitada pelo horizonte do planejamento atual.
       requestBody:
         required: true
         content:
@@ -394,7 +398,7 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /v1/plans/current/items/{item_id}/archive:
+  /v1/financial-items/{item_id}/archive:
     parameters:
       - $ref: "#/components/parameters/ItemID"
     post:
@@ -779,7 +783,7 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /v1/plans/current/items/{item_id}/payment-changes:
+  /v1/financial-items/{item_id}/payment-changes:
     parameters:
       - $ref: "#/components/parameters/ItemID"
     post:
@@ -827,7 +831,7 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /v1/plans/current/items/{item_id}/payment-history:
+  /v1/financial-items/{item_id}/payment-history:
     parameters:
       - $ref: "#/components/parameters/ItemID"
     get:
@@ -1060,7 +1064,7 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /v1/plans/current/items/{item_id}/occurrences/{reference_month}/invoice-moves:
+  /v1/financial-items/{item_id}/occurrences/{reference_month}/invoice-moves:
     parameters:
       - $ref: "#/components/parameters/ItemID"
       - $ref: "#/components/parameters/ReferenceMonth"
@@ -1539,7 +1543,7 @@ components:
       additionalProperties: false
       required:
         - id
-        - plan_id
+        - currency_code
         - name
         - kind
         - description
@@ -1551,8 +1555,8 @@ components:
       properties:
         id:
           $ref: "#/components/schemas/UUID"
-        plan_id:
-          $ref: "#/components/schemas/UUID"
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
         name:
           type: string
           minLength: 1
@@ -2129,7 +2133,8 @@ components:
       additionalProperties: false
       required:
         - id
-        - card_id
+        - currency_code
+        - credit_card_id
         - payment_month
         - reference_month
         - name
@@ -2142,7 +2147,9 @@ components:
       properties:
         id:
           $ref: "#/components/schemas/UUID"
-        card_id:
+        currency_code:
+          $ref: "#/components/schemas/CurrencyCode"
+        credit_card_id:
           $ref: "#/components/schemas/UUID"
         payment_month:
           $ref: "#/components/schemas/YearMonth"

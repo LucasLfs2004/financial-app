@@ -269,5 +269,5 @@ func financialItemResponse(item financialitem.Item) map[string]any {
 		}
 		periods[i] = map[string]any{"id": p.ID, "start_month": p.StartMonth.String(), "end_month": end, "amount_cents": p.AmountCents, "recurrence": p.Recurrence, "cash_month_offset": p.CashMonthOffset, "context": p.Context, "recorded_at": p.RecordedAt, "created_at": p.CreatedAt}
 	}
-	return map[string]any{"id": item.ID, "plan_id": item.PlanID, "name": item.Name, "kind": item.Kind, "description": item.Description, "status": item.Status, "archived_at": item.ArchivedAt, "periods": periods, "created_at": item.CreatedAt, "updated_at": item.UpdatedAt}
+	return map[string]any{"id": item.ID, "currency_code": item.CurrencyCode, "name": item.Name, "kind": item.Kind, "description": item.Description, "status": item.Status, "archived_at": item.ArchivedAt, "periods": periods, "created_at": item.CreatedAt, "updated_at": item.UpdatedAt}
 }

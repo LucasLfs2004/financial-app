@@ -17,14 +17,14 @@ const (
 )
 
 type Adjustment struct {
-	ID, PlanID, UserID, CardID, Name string
-	PaymentMonth                     planning.YearMonth
-	ReferenceMonth                   *planning.YearMonth
-	AmountCents                      int64
-	Context                          *string
-	Status                           Status
-	ArchivedAt                       *time.Time
-	CreatedAt, UpdatedAt             time.Time
+	ID, UserID, CurrencyCode, CardID, Name string
+	PaymentMonth                           planning.YearMonth
+	ReferenceMonth                         *planning.YearMonth
+	AmountCents                            int64
+	Context                                *string
+	Status                                 Status
+	ArchivedAt                             *time.Time
+	CreatedAt, UpdatedAt                   time.Time
 }
 
 func Validate(name string, amount int64, card string, payment planning.YearMonth, reference *planning.YearMonth) error {

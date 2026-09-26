@@ -46,7 +46,7 @@ func (service *Service) Project(ctx context.Context, ownerID, cardID string, pay
 	if err := validateOperationalMonth(plan, paymentMonth); err != nil {
 		return cardinvoice.Invoice{}, ErrOutsideOperationalHorizon
 	}
-	data, err := service.repository.LoadProjectionData(ctx, ownerID, plan.ID)
+	data, err := service.repository.LoadProjectionData(ctx, ownerID, plan.CurrencyCode)
 	if err != nil {
 		return cardinvoice.Invoice{}, err
 	}
@@ -71,7 +71,7 @@ func (service *Service) List(ctx context.Context, ownerID, cardID string, from, 
 	if err := validateOperationalMonth(plan, to); err != nil {
 		return nil, err
 	}
-	data, err := service.repository.LoadProjectionData(ctx, ownerID, plan.ID)
+	data, err := service.repository.LoadProjectionData(ctx, ownerID, plan.CurrencyCode)
 	if err != nil {
 		return nil, err
 	}

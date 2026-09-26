@@ -30,7 +30,7 @@ type PlanReader interface {
 }
 
 type ItemReader interface {
-	List(context.Context, string, string, financialitem.Filters) ([]financialitem.Item, error)
+	List(context.Context, string, financialitem.Filters) ([]financialitem.Item, error)
 }
 
 type SavingsReader interface {
@@ -113,7 +113,7 @@ func (service *Service) Get(ctx context.Context, ownerID string, month domain.Ye
 	if month.Before(plan.StartMonth) || month.After(plan.EndMonth) {
 		return Summary{}, ErrOutsideHorizon
 	}
-	items, err := service.items.List(ctx, ownerID, plan.ID, financialitem.Filters{})
+	items, err := service.items.List(ctx, ownerID, financialitem.Filters{CurrencyCode: &plan.CurrencyCode})
 	if err != nil {
 		return Summary{}, err
 	}
@@ -121,7 +121,7 @@ func (service *Service) Get(ctx context.Context, ownerID string, month domain.Ye
 	if err != nil {
 		return Summary{}, err
 	}
-	invoiceData, err := service.invoices.LoadProjectionData(ctx, ownerID, plan.ID)
+	invoiceData, err := service.invoices.LoadProjectionData(ctx, ownerID, plan.CurrencyCode)
 	if err != nil {
 		return Summary{}, err
 	}

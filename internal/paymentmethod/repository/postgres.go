@@ -20,14 +20,14 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (r *PostgresRepository) Create(ctx context.Context, ownerID, planID, itemID string, input application.Input) (domain.Period, error) {
+func (r *PostgresRepository) Create(ctx context.Context, ownerID, itemID string, input application.Input) (domain.Period, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Period{}, fmt.Errorf("begin payment method change: %w", err)
 	}
 	defer tx.Rollback(ctx)
 	var kind string
-	if err = tx.QueryRow(ctx, `select kind from public.financial_items where id=$1 and plan_id=$2 and user_id=$3 for share`, itemID, planID, ownerID).Scan(&kind); errors.Is(err, pgx.ErrNoRows) {
+	if err = tx.QueryRow(ctx, `select kind from public.financial_items where id=$1 and user_id=$2 for share`, itemID, ownerID).Scan(&kind); errors.Is(err, pgx.ErrNoRows) {
 		return domain.Period{}, application.ErrItemNotFound
 	} else if err != nil {
 		return domain.Period{}, fmt.Errorf("lock financial item: %w", err)
@@ -52,7 +52,7 @@ func (r *PostgresRepository) Create(ctx context.Context, ownerID, planID, itemID
 	// explicit period before inserting the new one.
 	var previousID string
 	var previousStart time.Time
-	err = tx.QueryRow(ctx, `select id,start_month from public.financial_item_payment_periods where financial_item_id=$1 and plan_id=$2 and user_id=$3 and start_month <= $4 and (end_month is null or end_month >= $4) for update`, itemID, planID, ownerID, input.EffectiveFrom.Time()).Scan(&previousID, &previousStart)
+	err = tx.QueryRow(ctx, `select id,start_month from public.financial_item_payment_periods where financial_item_id=$1 and user_id=$2 and start_month <= $3 and (end_month is null or end_month >= $3) for update`, itemID, ownerID, input.EffectiveFrom.Time()).Scan(&previousID, &previousStart)
 	if err == nil {
 		if previousStart.Year() == input.EffectiveFrom.Year() && previousStart.Month() == input.EffectiveFrom.Month() {
 			if _, err = tx.Exec(ctx, `delete from public.financial_item_payment_periods where id=$1`, previousID); err != nil {
@@ -71,7 +71,7 @@ func (r *PostgresRepository) Create(ctx context.Context, ownerID, planID, itemID
 		return domain.Period{}, fmt.Errorf("lock applicable payment method period: %w", err)
 	}
 	var id string
-	err = tx.QueryRow(ctx, `insert into public.financial_item_payment_periods (financial_item_id,plan_id,user_id,start_month,end_month,method,credit_card_id,context) values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`, itemID, planID, ownerID, input.EffectiveFrom.Time(), monthTime(input.EndMonth), input.Method, input.CreditCardID, input.Context).Scan(&id)
+	err = tx.QueryRow(ctx, `insert into public.financial_item_payment_periods (financial_item_id,user_id,start_month,end_month,method,credit_card_id,context) values ($1,$2,$3,$4,$5,$6,$7) returning id`, itemID, ownerID, input.EffectiveFrom.Time(), monthTime(input.EndMonth), input.Method, input.CreditCardID, input.Context).Scan(&id)
 	if err != nil {
 		if isOverlap(err) {
 			return domain.Period{}, domain.ErrOverlap
@@ -81,11 +81,11 @@ func (r *PostgresRepository) Create(ctx context.Context, ownerID, planID, itemID
 	if err = tx.Commit(ctx); err != nil {
 		return domain.Period{}, fmt.Errorf("commit payment method change: %w", err)
 	}
-	return r.find(ctx, ownerID, planID, id)
+	return r.find(ctx, ownerID, id)
 }
 
-func (r *PostgresRepository) List(ctx context.Context, ownerID, planID, itemID string) ([]domain.Period, error) {
-	rows, err := r.pool.Query(ctx, `select id,start_month,end_month,method,credit_card_id,context,recorded_at,created_at from public.financial_item_payment_periods where user_id=$1 and plan_id=$2 and financial_item_id=$3 order by start_month,id`, ownerID, planID, itemID)
+func (r *PostgresRepository) List(ctx context.Context, ownerID, itemID string) ([]domain.Period, error) {
+	rows, err := r.pool.Query(ctx, `select id,start_month,end_month,method,credit_card_id,context,recorded_at,created_at from public.financial_item_payment_periods where user_id=$1 and financial_item_id=$2 order by start_month,id`, ownerID, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("list payment methods: %w", err)
 	}
@@ -119,12 +119,12 @@ func (r *PostgresRepository) List(ctx context.Context, ownerID, planID, itemID s
 	return result, nil
 }
 
-func (r *PostgresRepository) find(ctx context.Context, ownerID, planID, id string) (domain.Period, error) {
+func (r *PostgresRepository) find(ctx context.Context, ownerID, id string) (domain.Period, error) {
 	var p domain.Period
 	var start time.Time
 	var end *time.Time
 	var method string
-	err := r.pool.QueryRow(ctx, `select id,start_month,end_month,method,credit_card_id,context,recorded_at,created_at from public.financial_item_payment_periods where id=$1 and user_id=$2 and plan_id=$3`, id, ownerID, planID).Scan(&p.ID, &start, &end, &method, &p.CreditCardID, &p.Context, &p.RecordedAt, &p.CreatedAt)
+	err := r.pool.QueryRow(ctx, `select id,start_month,end_month,method,credit_card_id,context,recorded_at,created_at from public.financial_item_payment_periods where id=$1 and user_id=$2`, id, ownerID).Scan(&p.ID, &start, &end, &method, &p.CreditCardID, &p.Context, &p.RecordedAt, &p.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Period{}, application.ErrNotFound
 	}
