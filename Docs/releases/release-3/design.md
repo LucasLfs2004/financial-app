@@ -254,6 +254,12 @@ projetor usa apenas meses com ocorrência.
 resolve método/cartão, aplica movimentação e transporta metadados. Ele não
 calcula numeração, término ou quitação.
 
+O adaptador Postgres executa esse carregamento dentro do mesmo snapshot
+`repeatable read` das demais premissas. Ele lê dívidas e períodos em lote,
+delega a expansão a `debt.ProjectDebt` e entrega ao projetor de faturas uma
+porta normalizada `DebtOccurrences`. Assim, `cardinvoice` resolve somente
+método, cartão, mês de pagamento e movimentações, sem duplicar regras da dívida.
+
 ### 5.7 Integrar ao resumo
 
 Em `reference`, entram ocorrências cuja competência é o mês. Em `cash`, entram

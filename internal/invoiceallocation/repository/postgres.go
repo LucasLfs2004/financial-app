@@ -34,7 +34,8 @@ func (r *PostgresRepository) Move(ctx context.Context, ownerID, itemID string, r
 	if err != nil {
 		return domain.Move{}, err
 	}
-	if kind != "fixed_expense" && kind != "projected_variable_expense" {
+	itemKind, parseErr := planningdomain.ParseFinancialItemKind(kind)
+	if parseErr != nil || !itemKind.IsExpense() {
 		return domain.Move{}, application.ErrNotCardLinked
 	}
 	err = tx.QueryRow(ctx, `select to_credit_card_id,to_payment_month from public.card_invoice_audit_events where user_id=$1 and financial_item_id=$2 and reference_month=$3 and event_type='occurrence_moved' order by recorded_at desc,id desc limit 1 for update`, ownerID, itemID, reference.Time()).Scan(&fromCard, &fromMonth)

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	planning "github.com/lucas/financial-api/internal/planning/domain"
 )
 
@@ -71,6 +72,78 @@ func TestSelectInvoiceComponentsRejectsOverlappingFinancialPeriods(t *testing.T)
 	})
 	if !errors.Is(err, ErrDuplicateOccurrence) {
 		t.Fatalf("expected duplicate occurrence, got %v", err)
+	}
+}
+
+func TestSelectInvoiceComponentsUsesProjectedDebtOccurrencesAndMetadata(t *testing.T) {
+	jan := testMonth(t, "2026-01")
+	feb := testMonth(t, "2026-02")
+	mar := testMonth(t, "2026-03")
+	janInterval, _ := planning.NewMonthInterval(jan, jan)
+	futureInterval, _ := planning.NewMonthInterval(feb, testMonth(t, "2026-04"))
+	cardAPayment, _ := NewPaymentMethodPeriod("payment-a", janInterval, PaymentMethodCreditCard, "card-a")
+	cardBPayment, _ := NewPaymentMethodPeriod("payment-b", futureInterval, PaymentMethodCreditCard, "card-b")
+	debtItem := FinancialItem{
+		ID: "debt", Name: "Parcelamento", Kind: planning.FinancialItemKindDebtInstallment,
+		PaymentPeriods: []PaymentMethodPeriod{cardAPayment, cardBPayment},
+	}
+	debtOccurrences := []DebtOccurrence{
+		{DebtID: "debt", SourceID: "period", Name: "Parcelamento", ReferenceMonth: jan, InstallmentNumber: 5, InstallmentsTotal: 12, Amount: planning.NewMoney(60000), Kind: debtdomain.OccurrenceKindScheduled},
+		{DebtID: "debt", SourceID: "settlement", Name: "Parcelamento", ReferenceMonth: feb, InstallmentNumber: 6, InstallmentsTotal: 12, Amount: planning.NewMoney(150000), Kind: debtdomain.OccurrenceKindEarlySettlement},
+	}
+	cards := []Card{
+		testCard(t, "card-a", "Principal", "2026-01", "2026-12", 6, 1),
+		testCard(t, "card-b", "Reserva", "2026-01", "2026-12", 10, 1),
+	}
+
+	regular, err := SelectInvoiceComponents(SelectionInput{
+		PlanStart: jan, PlanEnd: testMonth(t, "2026-12"), CardID: "card-a", PaymentMonth: feb,
+		CurrencyCode: "BRL", Cards: cards, Items: []FinancialItem{debtItem}, DebtOccurrences: debtOccurrences,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(regular.Components) != 1 || regular.Components[0].DebtID == nil || *regular.Components[0].DebtID != "debt" ||
+		regular.Components[0].InstallmentNumber == nil || *regular.Components[0].InstallmentNumber != 5 ||
+		regular.Components[0].DebtOccurrenceKind == nil || *regular.Components[0].DebtOccurrenceKind != debtdomain.OccurrenceKindScheduled {
+		t.Fatalf("regular=%+v", regular)
+	}
+
+	settlement, err := SelectInvoiceComponents(SelectionInput{
+		PlanStart: jan, PlanEnd: testMonth(t, "2026-12"), CardID: "card-b", PaymentMonth: mar,
+		CurrencyCode: "BRL", Cards: cards, Items: []FinancialItem{debtItem}, DebtOccurrences: debtOccurrences,
+	})
+	if err != nil || len(settlement.Components) != 1 || settlement.Total.Cents() != 150000 ||
+		settlement.Components[0].DebtOccurrenceKind == nil || *settlement.Components[0].DebtOccurrenceKind != debtdomain.OccurrenceKindEarlySettlement {
+		t.Fatalf("settlement=%+v error=%v", settlement, err)
+	}
+
+	afterSettlement, err := SelectInvoiceComponents(SelectionInput{
+		PlanStart: jan, PlanEnd: testMonth(t, "2026-12"), CardID: "card-b", PaymentMonth: testMonth(t, "2026-04"),
+		CurrencyCode: "BRL", Cards: cards, Items: []FinancialItem{debtItem}, DebtOccurrences: debtOccurrences,
+	})
+	if err != nil || len(afterSettlement.Components) != 0 {
+		t.Fatalf("after settlement=%+v error=%v", afterSettlement, err)
+	}
+}
+
+func TestSelectInvoiceComponentsRejectsDuplicateDebtOccurrence(t *testing.T) {
+	month := testMonth(t, "2026-01")
+	interval, _ := planning.NewMonthInterval(month, month)
+	payment, _ := NewPaymentMethodPeriod("payment", interval, PaymentMethodCreditCard, "card")
+	item := FinancialItem{ID: "debt", Name: "Dívida", Kind: planning.FinancialItemKindDebtInstallment, PaymentPeriods: []PaymentMethodPeriod{payment}}
+	occurrence := DebtOccurrence{
+		DebtID: "debt", SourceID: "period", Name: "Dívida", ReferenceMonth: month,
+		InstallmentNumber: 1, InstallmentsTotal: 2, Amount: planning.NewMoney(100),
+		Kind: debtdomain.OccurrenceKindScheduled,
+	}
+	_, err := SelectInvoiceComponents(SelectionInput{
+		PlanStart: month, PlanEnd: month, CardID: "card", PaymentMonth: month,
+		CurrencyCode: "BRL", Cards: []Card{testCard(t, "card", "Principal", "2026-01", "2026-01", 6, 0)},
+		Items: []FinancialItem{item}, DebtOccurrences: []DebtOccurrence{occurrence, occurrence},
+	})
+	if !errors.Is(err, ErrDuplicateOccurrence) {
+		t.Fatalf("expected duplicate debt occurrence, got %v", err)
 	}
 }
 

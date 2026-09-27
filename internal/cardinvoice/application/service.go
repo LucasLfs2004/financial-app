@@ -92,7 +92,8 @@ func selectInvoice(plan planning.Plan, data cardinvoice.ProjectionData, cardID s
 	return cardinvoice.SelectInvoiceComponents(cardinvoice.SelectionInput{
 		PlanStart: plan.StartMonth, PlanEnd: plan.EndMonth, CardID: cardID,
 		PaymentMonth: paymentMonth, CurrencyCode: plan.CurrencyCode,
-		Cards: data.Cards, Items: data.Items, Adjustments: data.Adjustments, Moves: data.Moves,
+		Cards: data.Cards, Items: data.Items, DebtOccurrences: data.DebtOccurrences,
+		Adjustments: data.Adjustments, Moves: data.Moves,
 	})
 }
 

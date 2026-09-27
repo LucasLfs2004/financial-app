@@ -232,7 +232,8 @@ func selectSummarySources(input Input) ([]Source, error) {
 		components, selectionErr := cardinvoice.SelectPaymentMonthComponents(cardinvoice.PaymentMonthComponentsInput{
 			PlanStart: input.Plan.StartMonth, PlanEnd: input.Plan.EndMonth, PaymentMonth: input.Month,
 			Cards: input.InvoiceData.Cards, Items: input.InvoiceData.Items,
-			Adjustments: input.InvoiceData.Adjustments, Moves: input.InvoiceData.Moves,
+			DebtOccurrences: input.InvoiceData.DebtOccurrences,
+			Adjustments:     input.InvoiceData.Adjustments, Moves: input.InvoiceData.Moves,
 		})
 		if selectionErr != nil {
 			return nil, fmt.Errorf("%w: select invoice components: %v", ErrInconsistent, selectionErr)
@@ -249,7 +250,8 @@ func selectSummarySources(input Input) ([]Source, error) {
 		components, selectionErr := cardinvoice.SelectReferenceMonthComponents(cardinvoice.ReferenceMonthComponentsInput{
 			PlanStart: input.Plan.StartMonth, PlanEnd: input.Plan.EndMonth, ReferenceMonth: input.Month,
 			Cards: input.InvoiceData.Cards, Items: input.InvoiceData.Items,
-			Adjustments: input.InvoiceData.Adjustments, Moves: input.InvoiceData.Moves,
+			DebtOccurrences: input.InvoiceData.DebtOccurrences,
+			Adjustments:     input.InvoiceData.Adjustments, Moves: input.InvoiceData.Moves,
 		})
 		if selectionErr != nil {
 			return nil, fmt.Errorf("%w: select invoice components: %v", ErrInconsistent, selectionErr)

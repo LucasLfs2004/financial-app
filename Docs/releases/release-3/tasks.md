@@ -30,8 +30,8 @@ commits já publicados.
 - [x] confirmar reuso de `Money`, `YearMonth` e intervalos;
 - [x] definir porta de ocorrências consumível por fatura e resumo;
 - [x] manter regras de dívida fora do módulo genérico `financialitem`;
-- [ ] incorporar dívidas ao carregamento `repeatable read` sem N+1;
-- [ ] registrar no design qualquer mudança de fronteira.
+- [x] incorporar dívidas ao carregamento `repeatable read` sem N+1;
+- [x] registrar no design qualquer mudança de fronteira.
 
 ## Marco A — Contrato e domínio
 
@@ -165,13 +165,13 @@ Dependências: R3-T07, R3-T09.
 
 ### R3-T11 — Integrar parcelas às faturas
 
-- [ ] carregar dívidas sem N+1;
-- [ ] converter ocorrências em componentes;
-- [ ] preservar identidade item/competência;
-- [ ] aplicar cartão, offset e movimentação R2;
-- [ ] transportar metadados de parcela;
-- [ ] suportar quitação em cartão;
-- [ ] testar duplicidade, transbordo e troca de cartão.
+- [x] carregar dívidas sem N+1;
+- [x] converter ocorrências em componentes;
+- [x] preservar identidade item/competência;
+- [x] aplicar cartão, offset e movimentação R2;
+- [x] transportar metadados de parcela;
+- [x] suportar quitação em cartão;
+- [x] testar duplicidade, transbordo e troca de cartão.
 
 Dependências: R3-T07, R3-T08, R3-T09.
 
