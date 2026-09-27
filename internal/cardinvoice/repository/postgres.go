@@ -307,9 +307,23 @@ func loadDebtOccurrences(ctx context.Context, tx pgx.Tx, ownerID, currencyCode s
 			return nil, fmt.Errorf("project invoice debt %s: %w", debtID, projectErr)
 		}
 		for _, occurrence := range projection.Occurrences {
+			var occurrencePeriod *debtdomain.InstallmentPeriod
+			for index := range debt.Periods {
+				if debt.Periods[index].Interval.Contains(occurrence.ReferenceMonth) {
+					occurrencePeriod = &debt.Periods[index]
+					break
+				}
+			}
+			if occurrencePeriod == nil {
+				return nil, fmt.Errorf("project invoice debt %s: occurrence period is missing", debtID)
+			}
+			directCashMonth, cashErr := occurrence.ReferenceMonth.AddMonths(occurrencePeriod.CashMonthOffset)
+			if cashErr != nil {
+				return nil, fmt.Errorf("project invoice debt %s direct cash month: %w", debtID, cashErr)
+			}
 			result = append(result, cardinvoice.DebtOccurrence{
 				DebtID: debt.ID, SourceID: occurrence.SourceID, Name: debt.Name,
-				ReferenceMonth:    occurrence.ReferenceMonth,
+				ReferenceMonth: occurrence.ReferenceMonth, DirectCashMonth: directCashMonth,
 				InstallmentNumber: occurrence.InstallmentNumber,
 				InstallmentsTotal: occurrence.InstallmentsTotal,
 				Amount:            occurrence.Amount, Kind: occurrence.Kind,

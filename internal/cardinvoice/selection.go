@@ -51,6 +51,7 @@ type DebtOccurrence struct {
 	SourceID          string
 	Name              string
 	ReferenceMonth    planning.YearMonth
+	DirectCashMonth   planning.YearMonth
 	InstallmentNumber int
 	InstallmentsTotal int
 	Amount            planning.Money
@@ -290,7 +291,7 @@ func selectCardOccurrences(planStart, planEnd planning.YearMonth, items []Financ
 	}
 	for _, debtOccurrence := range debtOccurrences {
 		if strings.TrimSpace(debtOccurrence.DebtID) == "" || strings.TrimSpace(debtOccurrence.SourceID) == "" ||
-			strings.TrimSpace(debtOccurrence.Name) == "" || !debtOccurrence.ReferenceMonth.Valid() ||
+			strings.TrimSpace(debtOccurrence.Name) == "" || !debtOccurrence.ReferenceMonth.Valid() || !debtOccurrence.DirectCashMonth.Valid() ||
 			debtOccurrence.InstallmentNumber < 1 || debtOccurrence.InstallmentsTotal < debtOccurrence.InstallmentNumber ||
 			debtOccurrence.Amount.Cents() <= 0 || !debtOccurrence.Kind.Valid() {
 			return nil, ErrInvalidProjectionInput

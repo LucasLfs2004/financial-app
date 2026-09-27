@@ -177,14 +177,14 @@ Dependências: R3-T07, R3-T08, R3-T09.
 
 ### R3-T12 — Integrar dívidas ao resumo mensal
 
-- [ ] incluir parcelas em `reference`;
-- [ ] incluir pagamento direto em `cash`;
-- [ ] receber cartão pelo projetor de faturas;
-- [ ] incluir quitação substitutiva;
-- [ ] adicionar bucket e metadados;
-- [ ] reconciliar total e sources;
-- [ ] provar que liberação não é renda;
-- [ ] manter suítes R1/R2 verdes.
+- [x] incluir parcelas em `reference`;
+- [x] incluir pagamento direto em `cash`;
+- [x] receber cartão pelo projetor de faturas;
+- [x] incluir quitação substitutiva;
+- [x] adicionar bucket e metadados;
+- [x] reconciliar total e sources;
+- [x] provar que liberação não é renda;
+- [x] manter suítes R1/R2 verdes.
 
 Dependências: R3-T10, R3-T11.
 

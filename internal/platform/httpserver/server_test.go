@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lucas/financial-api/internal/cardinvoice"
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/monthlysummary"
 	"github.com/lucas/financial-api/internal/planning"
@@ -404,7 +406,23 @@ func TestActivatePlanMapsMissingPremisesToConflict(t *testing.T) {
 
 func TestMonthlySummaryDefaultsToCashAndUsesAuthenticatedUser(t *testing.T) {
 	month, _ := domain.ParseYearMonth("2026-07")
-	service := &fakeMonthlySummary{result: monthlysummary.Summary{Month: month, Basis: domain.SummaryBasisCash, ResultKind: domain.SummaryResultKindPlannedFree, CurrencyCode: "BRL", PlanStatus: domain.PlanStatusDraft, Completeness: domain.CompletenessProjected, Sources: []monthlysummary.Source{}}}
+	debtID := "debt"
+	installmentNumber := 5
+	installmentsTotal := 12
+	occurrenceKind := debtdomain.OccurrenceKindScheduled
+	method := cardinvoice.PaymentMethodDirect
+	service := &fakeMonthlySummary{result: monthlysummary.Summary{
+		Month: month, Basis: domain.SummaryBasisCash, ResultKind: domain.SummaryResultKindPlannedFree,
+		CurrencyCode: "BRL", PlanStatus: domain.PlanStatusDraft, Completeness: domain.CompletenessProjected,
+		Breakdown: monthlysummary.Breakdown{DebtInstallmentsCents: 60000},
+		Sources: []monthlysummary.Source{{
+			SourceID: "period", ItemID: &debtID, Name: "Dívida", Kind: string(domain.FinancialItemKindDebtInstallment),
+			Effect: domain.SummarySourceEffectCommitment, ReferenceMonth: &month, CashMonth: month,
+			AmountCents: 60000, PaymentMethod: &method, DebtID: &debtID,
+			InstallmentNumber: &installmentNumber, InstallmentsTotal: &installmentsTotal,
+			DebtOccurrenceKind: &occurrenceKind,
+		}},
+	}}
 	server := newTestServerWithMonthlySummary(authenticatedTestClient(), service)
 	request := httptest.NewRequest(http.MethodGet, "/v1/plans/current/months/2026-07/summary", nil)
 	request.Header.Set("Authorization", "Bearer valid-token")
@@ -412,7 +430,9 @@ func TestMonthlySummaryDefaultsToCashAndUsesAuthenticatedUser(t *testing.T) {
 
 	server.Handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusOK || service.owner != "authenticated-user" || service.month.String() != "2026-07" || service.basis != domain.SummaryBasisCash || !strings.Contains(response.Body.String(), `"plan_status":"draft"`) || !strings.Contains(response.Body.String(), `"result_kind":"planned_free"`) {
+	if response.Code != http.StatusOK || service.owner != "authenticated-user" || service.month.String() != "2026-07" || service.basis != domain.SummaryBasisCash ||
+		!strings.Contains(response.Body.String(), `"plan_status":"draft"`) || !strings.Contains(response.Body.String(), `"result_kind":"planned_free"`) ||
+		!strings.Contains(response.Body.String(), `"debt_installments_cents":60000`) || !strings.Contains(response.Body.String(), `"installment_number":5`) {
 		t.Fatalf("status=%d owner=%q month=%s basis=%s body=%s", response.Code, service.owner, service.month, service.basis, response.Body.String())
 	}
 }

@@ -88,8 +88,8 @@ func TestSelectInvoiceComponentsUsesProjectedDebtOccurrencesAndMetadata(t *testi
 		PaymentPeriods: []PaymentMethodPeriod{cardAPayment, cardBPayment},
 	}
 	debtOccurrences := []DebtOccurrence{
-		{DebtID: "debt", SourceID: "period", Name: "Parcelamento", ReferenceMonth: jan, InstallmentNumber: 5, InstallmentsTotal: 12, Amount: planning.NewMoney(60000), Kind: debtdomain.OccurrenceKindScheduled},
-		{DebtID: "debt", SourceID: "settlement", Name: "Parcelamento", ReferenceMonth: feb, InstallmentNumber: 6, InstallmentsTotal: 12, Amount: planning.NewMoney(150000), Kind: debtdomain.OccurrenceKindEarlySettlement},
+		{DebtID: "debt", SourceID: "period", Name: "Parcelamento", ReferenceMonth: jan, DirectCashMonth: jan, InstallmentNumber: 5, InstallmentsTotal: 12, Amount: planning.NewMoney(60000), Kind: debtdomain.OccurrenceKindScheduled},
+		{DebtID: "debt", SourceID: "settlement", Name: "Parcelamento", ReferenceMonth: feb, DirectCashMonth: feb, InstallmentNumber: 6, InstallmentsTotal: 12, Amount: planning.NewMoney(150000), Kind: debtdomain.OccurrenceKindEarlySettlement},
 	}
 	cards := []Card{
 		testCard(t, "card-a", "Principal", "2026-01", "2026-12", 6, 1),
@@ -133,7 +133,7 @@ func TestSelectInvoiceComponentsRejectsDuplicateDebtOccurrence(t *testing.T) {
 	payment, _ := NewPaymentMethodPeriod("payment", interval, PaymentMethodCreditCard, "card")
 	item := FinancialItem{ID: "debt", Name: "Dívida", Kind: planning.FinancialItemKindDebtInstallment, PaymentPeriods: []PaymentMethodPeriod{payment}}
 	occurrence := DebtOccurrence{
-		DebtID: "debt", SourceID: "period", Name: "Dívida", ReferenceMonth: month,
+		DebtID: "debt", SourceID: "period", Name: "Dívida", ReferenceMonth: month, DirectCashMonth: month,
 		InstallmentNumber: 1, InstallmentsTotal: 2, Amount: planning.NewMoney(100),
 		Kind: debtdomain.OccurrenceKindScheduled,
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/lucas/financial-api/internal/cardinvoice"
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/planning/domain"
@@ -66,6 +67,7 @@ type Breakdown struct {
 	OneTimeIncomeCents             int64
 	FixedExpensesCents             int64
 	ProjectedVariableExpensesCents int64
+	DebtInstallmentsCents          int64
 	CardInvoiceAdjustmentsCents    int64
 }
 
@@ -84,6 +86,10 @@ type Source struct {
 	InvoicePaymentMonth *domain.YearMonth
 	InvoiceAllocation   *cardinvoice.AllocationOrigin
 	ReferenceKnown      *bool
+	DebtID              *string
+	InstallmentNumber   *int
+	InstallmentsTotal   *int
+	DebtOccurrenceKind  *debtdomain.OccurrenceKind
 }
 
 type Summary struct {
@@ -146,6 +152,7 @@ func CalculateMonthlySummary(input Input) (Summary, error) {
 	oneTimeIncome := domain.ZeroMoney()
 	fixedExpenses := domain.ZeroMoney()
 	variableExpenses := domain.ZeroMoney()
+	debtInstallments := domain.ZeroMoney()
 	cardAdjustments := domain.ZeroMoney()
 	plannedSavings := domain.ZeroMoney()
 	for _, source := range sources {
@@ -159,6 +166,8 @@ func CalculateMonthlySummary(input Input) (Summary, error) {
 			fixedExpenses, err = fixedExpenses.Add(amount)
 		case string(domain.FinancialItemKindProjectedVariableExpense):
 			variableExpenses, err = variableExpenses.Add(amount)
+		case string(domain.FinancialItemKindDebtInstallment):
+			debtInstallments, err = debtInstallments.Add(amount)
 		case CardInvoiceAdjustmentKind:
 			cardAdjustments, err = cardAdjustments.Add(amount)
 		case PlannedSavingsKind:
@@ -173,11 +182,14 @@ func CalculateMonthlySummary(input Input) (Summary, error) {
 	result.Breakdown = Breakdown{
 		RecurringIncomeCents: recurringIncome.Cents(), OneTimeIncomeCents: oneTimeIncome.Cents(),
 		FixedExpensesCents: fixedExpenses.Cents(), ProjectedVariableExpensesCents: variableExpenses.Cents(),
-		CardInvoiceAdjustmentsCents: cardAdjustments.Cents(),
+		DebtInstallmentsCents: debtInstallments.Cents(), CardInvoiceAdjustmentsCents: cardAdjustments.Cents(),
 	}
 	result.PlannedSavingsCents = plannedSavings.Cents()
 	income, err := recurringIncome.Add(oneTimeIncome)
 	commitments, commitmentsErr := fixedExpenses.Add(variableExpenses)
+	if commitmentsErr == nil {
+		commitments, commitmentsErr = commitments.Add(debtInstallments)
+	}
 	if commitmentsErr == nil {
 		commitments, commitmentsErr = commitments.Add(cardAdjustments)
 	}
@@ -213,6 +225,11 @@ func selectSummarySources(input Input) ([]Source, error) {
 	for _, item := range input.InvoiceData.Items {
 		projectionItems[item.ID] = item
 	}
+	directDebtSources, err := selectDirectDebtSources(input, projectionItems)
+	if err != nil {
+		return nil, err
+	}
+	base = append(base, directDebtSources...)
 	if input.Basis == domain.SummaryBasisCash {
 		filtered := make([]Source, 0, len(base))
 		for _, source := range base {
@@ -267,6 +284,14 @@ func selectSummarySources(input Input) ([]Source, error) {
 				continue
 			}
 			if component.ItemID != nil && component.ReferenceMonth != nil {
+				if item, exists := projectionItems[*component.ItemID]; exists && item.Kind == domain.FinancialItemKindDebtInstallment {
+					source, conversionErr := componentSource(component, projectionItems)
+					if conversionErr != nil {
+						return nil, conversionErr
+					}
+					base = append(base, source)
+					continue
+				}
 				cardOccurrences[*component.ItemID+":"+component.ReferenceMonth.String()] = component
 			}
 		}
@@ -302,8 +327,51 @@ func componentSource(component cardinvoice.Component, items map[string]cardinvoi
 		Effect: domain.SummarySourceEffectCommitment, ReferenceMonth: component.ReferenceMonth,
 		CashMonth: component.PaymentMonth, AmountCents: component.Amount.Cents(), SourceType: string(component.SourceType),
 	}
+	addDebtMetadata(&source, component)
 	addCardMetadata(&source, component)
 	return source, nil
+}
+
+func selectDirectDebtSources(input Input, items map[string]cardinvoice.FinancialItem) ([]Source, error) {
+	result := make([]Source, 0)
+	for _, occurrence := range input.InvoiceData.DebtOccurrences {
+		if occurrence.ReferenceMonth.Before(input.Plan.StartMonth) || occurrence.ReferenceMonth.After(input.Plan.EndMonth) {
+			continue
+		}
+		item, exists := items[occurrence.DebtID]
+		if !exists || item.Kind != domain.FinancialItemKindDebtInstallment {
+			return nil, fmt.Errorf("%w: debt occurrence references unknown item", ErrInconsistent)
+		}
+		payment, err := cardinvoice.SelectPaymentMethod(occurrence.ReferenceMonth, item.PaymentPeriods)
+		if err != nil {
+			return nil, fmt.Errorf("%w: select debt payment method: %v", ErrInconsistent, err)
+		}
+		if payment.Method == cardinvoice.PaymentMethodCreditCard {
+			continue
+		}
+		if input.Basis == domain.SummaryBasisReference && occurrence.ReferenceMonth != input.Month {
+			continue
+		}
+		if input.Basis == domain.SummaryBasisCash && occurrence.DirectCashMonth != input.Month {
+			continue
+		}
+		itemID := occurrence.DebtID
+		referenceMonth := occurrence.ReferenceMonth
+		debtID := occurrence.DebtID
+		installmentNumber := occurrence.InstallmentNumber
+		installmentsTotal := occurrence.InstallmentsTotal
+		occurrenceKind := occurrence.Kind
+		method := cardinvoice.PaymentMethodDirect
+		result = append(result, Source{
+			SourceID: occurrence.SourceID, ItemID: &itemID, Name: occurrence.Name,
+			Kind: string(domain.FinancialItemKindDebtInstallment), Effect: domain.SummarySourceEffectCommitment,
+			ReferenceMonth: &referenceMonth, CashMonth: occurrence.DirectCashMonth,
+			AmountCents: occurrence.Amount.Cents(), SourceType: string(cardinvoice.ComponentTypeFinancialItemOccurrence),
+			PaymentMethod: &method, DebtID: &debtID, InstallmentNumber: &installmentNumber,
+			InstallmentsTotal: &installmentsTotal, DebtOccurrenceKind: &occurrenceKind,
+		})
+	}
+	return result, nil
 }
 
 func addCardMetadata(source *Source, component cardinvoice.Component) {
@@ -319,6 +387,13 @@ func addCardMetadata(source *Source, component cardinvoice.Component) {
 	source.ReferenceKnown = &referenceKnown
 }
 
+func addDebtMetadata(source *Source, component cardinvoice.Component) {
+	source.DebtID = component.DebtID
+	source.InstallmentNumber = component.InstallmentNumber
+	source.InstallmentsTotal = component.InstallmentsTotal
+	source.DebtOccurrenceKind = component.DebtOccurrenceKind
+}
+
 func SelectOccurrences(month domain.YearMonth, basis domain.SummaryBasis, items []financialitem.Item, configuration savings.Configuration) ([]Source, error) {
 	if !month.Valid() || !basis.Valid() {
 		return nil, ErrValidation
@@ -327,6 +402,9 @@ func SelectOccurrences(month domain.YearMonth, basis domain.SummaryBasis, items 
 	seenPeriods := make(map[string]struct{})
 	selectedItems := make(map[string]struct{})
 	for _, item := range items {
+		if item.Kind == domain.FinancialItemKindDebtInstallment {
+			continue
+		}
 		for _, period := range item.Periods {
 			if item.ID == "" || period.ID == "" || period.AmountCents < 0 || !item.Kind.Valid() || !period.Recurrence.Valid() || period.CashMonthOffset < domain.MinimumCashMonthOffset || period.CashMonthOffset > domain.MaximumCashMonthOffset {
 				return nil, ErrInconsistent
@@ -448,6 +526,9 @@ func validateConsistency(summary Summary) error {
 		return ErrInconsistent
 	}
 	breakdownCommitments, err := domain.NewMoney(summary.Breakdown.FixedExpensesCents).Add(domain.NewMoney(summary.Breakdown.ProjectedVariableExpensesCents))
+	if err == nil {
+		breakdownCommitments, err = breakdownCommitments.Add(domain.NewMoney(summary.Breakdown.DebtInstallmentsCents))
+	}
 	if err == nil {
 		breakdownCommitments, err = breakdownCommitments.Add(domain.NewMoney(summary.Breakdown.CardInvoiceAdjustmentsCents))
 	}
