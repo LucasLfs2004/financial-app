@@ -16,6 +16,7 @@ type repositoryStub struct {
 	created CreateRecord
 	debts   []debtdomain.Debt
 	payment PaymentContext
+	settled SettlementInput
 	err     error
 }
 
@@ -52,6 +53,18 @@ func (repository *repositoryStub) Archive(context.Context, string, string) (debt
 		return debtdomain.Debt{}, repository.err
 	}
 	return repository.debts[0], nil
+}
+func (repository *repositoryStub) Settle(_ context.Context, _, _ string, input SettlementInput) (debtdomain.Debt, error) {
+	repository.settled = input
+	if repository.err != nil {
+		return debtdomain.Debt{}, repository.err
+	}
+	debt := repository.debts[0]
+	debt.Settlement = &debtdomain.EarlySettlement{
+		ID: "settlement", ReferenceMonth: input.ReferenceMonth,
+		Amount: planningdomain.NewMoney(input.AmountCents), Reason: input.Reason,
+	}
+	return debt, nil
 }
 func (repository *repositoryStub) PaymentContext(context.Context, string, string) (PaymentContext, error) {
 	return repository.payment, repository.err
@@ -193,6 +206,44 @@ func TestScheduleOmitsOccurrencesAfterSettlement(t *testing.T) {
 	if len(schedule.Occurrences) != 2 || schedule.Occurrences[1].Occurrence.Kind != debtdomain.OccurrenceKindEarlySettlement ||
 		schedule.Occurrences[1].Occurrence.Amount.Cents() != 150 {
 		t.Fatalf("schedule=%+v", schedule)
+	}
+}
+
+func TestSettleReprojectsEndReleaseAndSchedule(t *testing.T) {
+	debt := debtFixture("owner", "BRL", "debt", "Debt", month(t, "2026-01"), month(t, "2026-04"), 4, 1, 100)
+	repository := &repositoryStub{debts: []debtdomain.Debt{debt}}
+	service := NewService(repository, profileStub{profile.Profile{Timezone: "UTC"}})
+	service.now = func() time.Time { return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC) }
+	view, err := service.Settle(context.Background(), "owner", "debt", SettlementInput{
+		ReferenceMonth: month(t, "2026-02"), AmountCents: 250,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repository.settled.AmountCents != 250 || view.Projection.EffectiveEnd.String() != "2026-02" ||
+		view.Projection.ReleaseFrom.String() != "2026-03" || view.Projection.ReleasedMonthly.Cents() != 100 ||
+		len(view.Projection.Occurrences) != 2 || view.Projection.Occurrences[1].Kind != debtdomain.OccurrenceKindEarlySettlement {
+		t.Fatalf("view=%+v input=%+v", view, repository.settled)
+	}
+}
+
+func TestSettleRejectsFinalMonthAndExistingSettlement(t *testing.T) {
+	debt := debtFixture("owner", "BRL", "debt", "Debt", month(t, "2026-01"), month(t, "2026-02"), 2, 1, 100)
+	service := NewService(&repositoryStub{debts: []debtdomain.Debt{debt}}, profileStub{profile.Profile{Timezone: "UTC"}})
+	service.now = func() time.Time { return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC) }
+	_, err := service.Settle(context.Background(), "owner", "debt", SettlementInput{
+		ReferenceMonth: month(t, "2026-02"), AmountCents: 100,
+	})
+	if !errors.Is(err, ErrSettlementOutsideRange) {
+		t.Fatalf("expected outside range, got %v", err)
+	}
+	debt.Settlement = &debtdomain.EarlySettlement{ID: "settlement", ReferenceMonth: month(t, "2026-01"), Amount: planningdomain.NewMoney(150)}
+	service = NewService(&repositoryStub{debts: []debtdomain.Debt{debt}}, profileStub{profile.Profile{Timezone: "UTC"}})
+	_, err = service.Settle(context.Background(), "owner", "debt", SettlementInput{
+		ReferenceMonth: month(t, "2026-01"), AmountCents: 150,
+	})
+	if !errors.Is(err, ErrSettlementExists) {
+		t.Fatalf("expected existing settlement, got %v", err)
 	}
 }
 

@@ -20,6 +20,8 @@ type Service interface {
 	Change(context.Context, string, string, debtapplication.ChangeInput) (debtapplication.View, error)
 	Archive(context.Context, string, string, debtapplication.ArchiveInput) (debtapplication.View, error)
 	Schedule(context.Context, string, string, planningdomain.YearMonth, planningdomain.YearMonth) (debtapplication.Schedule, error)
+	Settle(context.Context, string, string, debtapplication.SettlementInput) (debtapplication.View, error)
+	Settlement(context.Context, string, string) (debtdomain.EarlySettlement, error)
 }
 
 type Middleware func(http.Handler) http.Handler
@@ -32,6 +34,8 @@ func RegisterRoutes(mux *http.ServeMux, authenticate Middleware, service Service
 	mux.Handle("POST /v1/debts/{debt_id}/changes", authenticate(http.HandlerFunc(changeHandler(service))))
 	mux.Handle("POST /v1/debts/{debt_id}/archive", authenticate(http.HandlerFunc(archiveHandler(service))))
 	mux.Handle("GET /v1/debts/{debt_id}/schedule", authenticate(http.HandlerFunc(scheduleHandler(service))))
+	mux.Handle("POST /v1/debts/{debt_id}/early-settlement", authenticate(http.HandlerFunc(createSettlementHandler(service))))
+	mux.Handle("GET /v1/debts/{debt_id}/early-settlement", authenticate(http.HandlerFunc(findSettlementHandler(service))))
 }
 
 type optionalInt64 struct {
@@ -80,6 +84,12 @@ type changeRequest struct {
 	EffectiveFrom          string  `json:"effective_from"`
 	InstallmentAmountCents int64   `json:"installment_amount_cents"`
 	Context                *string `json:"context"`
+}
+
+type settlementRequest struct {
+	ReferenceMonth string  `json:"reference_month"`
+	AmountCents    int64   `json:"amount_cents"`
+	Reason         *string `json:"reason"`
 }
 
 func createHandler(service Service) http.HandlerFunc {
@@ -310,6 +320,60 @@ func scheduleHandler(service Service) http.HandlerFunc {
 	}
 }
 
+func createSettlementHandler(service Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		ownerID, ok := ownerFromRequest(request)
+		if !ok {
+			unauthorized(w)
+			return
+		}
+		var payload settlementRequest
+		if httpapi.DecodeJSON(request, &payload) != nil {
+			validationError(w)
+			return
+		}
+		referenceMonth, err := planningdomain.ParseYearMonth(payload.ReferenceMonth)
+		if err != nil {
+			validationError(w)
+			return
+		}
+		view, err := service.Settle(request.Context(), ownerID, request.PathValue("debt_id"), debtapplication.SettlementInput{
+			ReferenceMonth: referenceMonth, AmountCents: payload.AmountCents, Reason: payload.Reason,
+		})
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"data": settlementResponse(view.Debt.ID, *view.Debt.Settlement)})
+	}
+}
+
+func findSettlementHandler(service Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		ownerID, ok := ownerFromRequest(request)
+		if !ok {
+			unauthorized(w)
+			return
+		}
+		settlement, err := service.Settlement(request.Context(), ownerID, request.PathValue("debt_id"))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, map[string]any{"data": settlementResponse(request.PathValue("debt_id"), settlement)})
+	}
+}
+
+func settlementResponse(debtID string, settlement debtdomain.EarlySettlement) map[string]any {
+	return map[string]any{
+		"id": settlement.ID, "debt_id": debtID,
+		"reference_month": settlement.ReferenceMonth.String(),
+		"amount_cents":    settlement.Amount.Cents(), "reason": settlement.Reason,
+		"recorded_by": settlement.RecordedBy, "recorded_at": settlement.RecordedAt,
+		"created_at": settlement.CreatedAt,
+	}
+}
+
 func debtResponse(view debtapplication.View) map[string]any {
 	debt := view.Debt
 	projection := view.Projection
@@ -369,6 +433,12 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		httpapi.WriteError(w, http.StatusNotFound, "not_found", "Resource not found")
 	case errors.Is(err, debtapplication.ErrPaymentCardArchived):
 		httpapi.WriteError(w, http.StatusConflict, "card_archived", "The credit card is archived")
+	case errors.Is(err, debtapplication.ErrSettlementExists):
+		httpapi.WriteError(w, http.StatusConflict, "debt_already_settled", "The debt already has an early settlement")
+	case errors.Is(err, debtapplication.ErrDebtCompleted):
+		httpapi.WriteError(w, http.StatusConflict, "debt_completed", "The debt schedule is already completed")
+	case errors.Is(err, debtapplication.ErrSettlementOutsideRange):
+		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_settlement_month", "The settlement month must be before the natural debt end")
 	case errors.Is(err, debtapplication.ErrChangeOutsideSchedule), errors.Is(err, debtapplication.ErrChangeAfterSettlement):
 		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_debt_schedule", "The debt change is outside the mutable schedule")
 	case errors.Is(err, debtdomain.ErrDebtScheduleTooLong):

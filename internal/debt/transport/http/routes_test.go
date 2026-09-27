@@ -17,6 +17,7 @@ import (
 type serviceStub struct {
 	created debtapplication.CreateInput
 	changed debtapplication.ChangeInput
+	settled debtapplication.SettlementInput
 }
 
 func (service *serviceStub) Create(_ context.Context, _ string, input debtapplication.CreateInput) (debtapplication.View, error) {
@@ -41,6 +42,20 @@ func (*serviceStub) Archive(context.Context, string, string, debtapplication.Arc
 }
 func (*serviceStub) Schedule(_ context.Context, _, _ string, from, to planningdomain.YearMonth) (debtapplication.Schedule, error) {
 	return debtapplication.Schedule{Debt: responseView(from), From: from, To: to, Occurrences: []debtapplication.ScheduleOccurrence{}}, nil
+}
+func (service *serviceStub) Settle(_ context.Context, _, _ string, input debtapplication.SettlementInput) (debtapplication.View, error) {
+	service.settled = input
+	view := responseView(tMonth("2026-09"))
+	view.Debt.Settlement = &debtdomain.EarlySettlement{
+		ID: "settlement", ReferenceMonth: input.ReferenceMonth,
+		Amount: planningdomain.NewMoney(input.AmountCents), Reason: input.Reason,
+	}
+	return view, nil
+}
+func (*serviceStub) Settlement(context.Context, string, string) (debtdomain.EarlySettlement, error) {
+	return debtdomain.EarlySettlement{
+		ID: "settlement", ReferenceMonth: tMonth("2026-10"), Amount: planningdomain.NewMoney(150000),
+	}, nil
 }
 
 func TestCreateDebtRoute(t *testing.T) {
@@ -118,6 +133,28 @@ func TestDebtScheduleRouteRequiresAndReturnsInclusiveRange(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	mux.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestDebtEarlySettlementRoutes(t *testing.T) {
+	service := &serviceStub{}
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, service)
+	request := httptest.NewRequest(http.MethodPost, "/v1/debts/debt/early-settlement", strings.NewReader(`{"reference_month":"2026-10","amount_cents":150000,"reason":"Acordo"}`))
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated || service.settled.ReferenceMonth.String() != "2026-10" ||
+		service.settled.AmountCents != 150000 || !strings.Contains(recorder.Body.String(), `"debt_id":"debt"`) {
+		t.Fatalf("status=%d input=%+v body=%s", recorder.Code, service.settled, recorder.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/v1/debts/debt/early-settlement", nil)
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder = httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"reference_month":"2026-10"`) {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 }

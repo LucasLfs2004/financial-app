@@ -140,13 +140,13 @@ Dependências: R3-T03, R3-T05 e módulo R2 de métodos.
 
 ### R3-T09 — Implementar quitação antecipada
 
-- [ ] expor criação e consulta;
-- [ ] validar estado, mês e valor;
-- [ ] usar lock e unicidade;
-- [ ] preservar cronograma original;
-- [ ] substituir o mês e remover projeções posteriores;
-- [ ] recalcular término e liberação;
-- [ ] testar pagamento direto e conflitos.
+- [x] expor criação e consulta;
+- [x] validar estado, mês e valor;
+- [x] usar lock e unicidade;
+- [x] preservar cronograma original;
+- [x] substituir o mês e remover projeções posteriores;
+- [x] recalcular término e liberação;
+- [x] testar pagamento direto e conflitos.
 
 Dependências: R3-T04, R3-T07, R3-T08.
 

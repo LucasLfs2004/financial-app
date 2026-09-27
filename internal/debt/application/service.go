@@ -31,6 +31,9 @@ var (
 	ErrChangeOutsideSchedule  = errors.New("debt change is outside the schedule")
 	ErrChangeAfterSettlement  = errors.New("debt change is after early settlement")
 	ErrProjectionInconsistent = errors.New("debt projection is inconsistent")
+	ErrSettlementExists       = errors.New("debt early settlement already exists")
+	ErrSettlementOutsideRange = errors.New("debt early settlement is outside the schedule")
+	ErrDebtCompleted          = errors.New("debt schedule is already completed")
 )
 
 type Repository interface {
@@ -40,6 +43,7 @@ type Repository interface {
 	Update(context.Context, string, string, UpdateInput) (debtdomain.Debt, error)
 	Change(context.Context, string, string, ChangeInput) (debtdomain.Debt, error)
 	Archive(context.Context, string, string) (debtdomain.Debt, error)
+	Settle(context.Context, string, string, SettlementInput) (debtdomain.Debt, error)
 	PaymentContext(context.Context, string, string) (PaymentContext, error)
 }
 
@@ -104,6 +108,12 @@ type ChangeInput struct {
 	EffectiveFrom          planningdomain.YearMonth
 	InstallmentAmountCents int64
 	Context                *string
+}
+
+type SettlementInput struct {
+	ReferenceMonth planningdomain.YearMonth
+	AmountCents    int64
+	Reason         *string
 }
 
 type View struct {
@@ -273,6 +283,53 @@ func (service *Service) Archive(ctx context.Context, ownerID, debtID string, inp
 		return View{}, err
 	}
 	return projectView(debt, asOf)
+}
+
+func (service *Service) Settle(ctx context.Context, ownerID, debtID string, input SettlementInput) (View, error) {
+	if strings.TrimSpace(ownerID) == "" || strings.TrimSpace(debtID) == "" ||
+		!input.ReferenceMonth.Valid() || input.AmountCents <= 0 ||
+		!validOptionalText(input.Reason, maximumReasonLength) {
+		return View{}, ErrValidation
+	}
+	current, err := service.repository.Find(ctx, ownerID, debtID)
+	if err != nil {
+		return View{}, err
+	}
+	if current.Status == planningdomain.FinancialItemStatusArchived {
+		return View{}, ErrArchived
+	}
+	if current.Settlement != nil {
+		return View{}, ErrSettlementExists
+	}
+	if input.ReferenceMonth.Before(current.ScheduledStart) || !input.ReferenceMonth.Before(current.ScheduledEnd) {
+		return View{}, ErrSettlementOutsideRange
+	}
+	asOf, err := service.resolveAsOf(ctx, ownerID, nil)
+	if err != nil {
+		return View{}, err
+	}
+	if asOf.After(current.ScheduledEnd) {
+		return View{}, ErrDebtCompleted
+	}
+	debt, err := service.repository.Settle(ctx, ownerID, debtID, input)
+	if err != nil {
+		return View{}, err
+	}
+	return projectView(debt, asOf)
+}
+
+func (service *Service) Settlement(ctx context.Context, ownerID, debtID string) (debtdomain.EarlySettlement, error) {
+	if strings.TrimSpace(ownerID) == "" || strings.TrimSpace(debtID) == "" {
+		return debtdomain.EarlySettlement{}, ErrValidation
+	}
+	debt, err := service.repository.Find(ctx, ownerID, debtID)
+	if err != nil {
+		return debtdomain.EarlySettlement{}, err
+	}
+	if debt.Settlement == nil {
+		return debtdomain.EarlySettlement{}, ErrNotFound
+	}
+	return *debt.Settlement, nil
 }
 
 func (service *Service) Schedule(ctx context.Context, ownerID, debtID string, from, to planningdomain.YearMonth) (Schedule, error) {

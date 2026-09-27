@@ -267,6 +267,64 @@ func (repository *PostgresRepository) Archive(ctx context.Context, ownerID, debt
 	return repository.Find(ctx, ownerID, debtID)
 }
 
+func (repository *PostgresRepository) Settle(ctx context.Context, ownerID, debtID string, input debtapplication.SettlementInput) (debtdomain.Debt, error) {
+	tx, err := repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return debtdomain.Debt{}, fmt.Errorf("begin debt early settlement: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var status string
+	var scheduledStart, scheduledEnd time.Time
+	var hasSettlement bool
+	err = tx.QueryRow(ctx, `
+		select item.status, debt.scheduled_start_month, debt.scheduled_end_month,
+			exists (
+				select 1 from public.debt_early_settlements settlement
+				where settlement.financial_item_id = debt.financial_item_id
+			)
+		from public.debts debt
+		join public.financial_items item
+			on item.id = debt.financial_item_id and item.user_id = debt.user_id
+		where debt.financial_item_id = $1 and debt.user_id = $2
+		for update of debt, item
+	`, debtID, ownerID).Scan(&status, &scheduledStart, &scheduledEnd, &hasSettlement)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return debtdomain.Debt{}, debtapplication.ErrNotFound
+	}
+	if err != nil {
+		return debtdomain.Debt{}, fmt.Errorf("lock debt for early settlement: %w", err)
+	}
+	if status == string(planningdomain.FinancialItemStatusArchived) {
+		return debtdomain.Debt{}, debtapplication.ErrArchived
+	}
+	if hasSettlement {
+		return debtdomain.Debt{}, debtapplication.ErrSettlementExists
+	}
+	referenceTime := input.ReferenceMonth.Time()
+	if referenceTime.Before(scheduledStart) || !referenceTime.Before(scheduledEnd) {
+		return debtdomain.Debt{}, debtapplication.ErrSettlementOutsideRange
+	}
+
+	_, err = tx.Exec(ctx, `
+		insert into public.debt_early_settlements (
+			financial_item_id, user_id, reference_month, amount_cents,
+			reason, recorded_by
+		) values ($1, $2, $3, $4, $5, $2)
+	`, debtID, ownerID, referenceTime, input.AmountCents, input.Reason)
+	if err != nil {
+		var postgresError *pgconn.PgError
+		if errors.As(err, &postgresError) && postgresError.Code == "23505" {
+			return debtdomain.Debt{}, debtapplication.ErrSettlementExists
+		}
+		return debtdomain.Debt{}, mapError("create debt early settlement", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return debtdomain.Debt{}, mapError("commit debt early settlement", err)
+	}
+	return repository.Find(ctx, ownerID, debtID)
+}
+
 func (repository *PostgresRepository) PaymentContext(ctx context.Context, ownerID, debtID string) (debtapplication.PaymentContext, error) {
 	rows, err := repository.pool.Query(ctx, `
 		select id, start_month, end_month, method, credit_card_id
