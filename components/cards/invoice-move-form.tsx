@@ -1,0 +1,10 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { Button, Input, Spinner } from "@lucaslfs2004/luke-ui";
+import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { browserApiFetch } from "@/lib/api/browser-api";
+import type { CreditCard } from "@/lib/api/types";
+
+export function InvoiceMoveForm({ itemId, referenceMonth, cards }: { itemId: string; referenceMonth: string; cards: CreditCard[] }) { const router = useRouter(); const [loading, setLoading] = useState(false); const [open, setOpen] = useState(false); const [error, setError] = useState(""); async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setLoading(true); setError(""); const values = new FormData(event.currentTarget); try { await browserApiFetch(`/financial-items/${itemId}/occurrences/${referenceMonth}/invoice-moves`, { method: "POST", body: JSON.stringify({ target_credit_card_id: String(values.get("target_credit_card_id")), target_payment_month: String(values.get("target_payment_month")), reason: String(values.get("reason") || "").trim() || null }) }); setOpen(false); router.refresh(); } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível mover a ocorrência."); } finally { setLoading(false); } } if (!open) return <Button variant="ghost" size="sm" onClick={() => setOpen(true)}><ArrowRight size={14} /> Mover fatura</Button>; return <form className="inline-move-form" onSubmit={submit}><select name="target_credit_card_id" required defaultValue=""><option value="" disabled>Cartão destino</option>{cards.filter((card) => card.status === "active").map((card) => <option value={card.id} key={card.id}>{card.institution.name} · {card.name}</option>)}</select><Input name="target_payment_month" type="month" label="Mês" required /><Input name="reason" label="Motivo" placeholder="Opcional" /><Button type="submit" size="sm" disabled={loading}>{loading ? <Spinner size="sm" /> : <ArrowRight size={14} />} Confirmar</Button>{error && <small className="form-error">{error}</small>}</form>; }

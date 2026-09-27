@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+.env*
+!.env.example
+.pnpm-store
+*.log
+.DS_Store
