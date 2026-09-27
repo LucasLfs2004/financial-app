@@ -1,4 +1,4 @@
-const CACHE_NAME = "projecao-static-v2";
+const CACHE_NAME = "projecao-static-v3";
 const STATIC_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -24,10 +24,21 @@ self.addEventListener("fetch", (event) => {
 
   if (STATIC_ASSETS.includes(url.pathname) || url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached ?? fetch(event.request).then((response) => {
-        if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+      caches.match(event.request).then(async (cached) => {
+        if (cached) return cached;
+
+        const response = await fetch(event.request);
+        if (response.ok) {
+          // Clone before the browser starts consuming the response body.
+          const cacheCopy = response.clone();
+          event.waitUntil(
+            caches.open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, cacheCopy))
+              .catch(() => undefined),
+          );
+        }
         return response;
-      })),
+      }),
     );
   }
 });

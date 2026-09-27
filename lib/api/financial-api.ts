@@ -37,7 +37,10 @@ export async function financialApiFetch<T>(path: string, init?: RequestInit): Pr
   });
 
   if (!response.ok) {
-    throw new FinancialApiError(response.status, `Financial API returned ${response.status}`);
+    const payload = await response.json().catch(() => null) as { error?: string | { message?: string }; message?: string } | null;
+    const detail = typeof payload?.error === "string" ? payload.error : payload?.error?.message;
+    const message = detail || payload?.message || `Financial API returned ${response.status}`;
+    throw new FinancialApiError(response.status, message);
   }
 
   return response.json() as Promise<T>;

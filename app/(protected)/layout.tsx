@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { AppNavigation } from "@/components/app-navigation";
 
 export default async function ProtectedLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const supabase = await createClient();
@@ -7,5 +8,8 @@ export default async function ProtectedLayout({ children }: Readonly<{ children:
 
   if (error || !data.user) redirect("/sign-in");
 
-  return children;
+  const email = data.user.email ?? "";
+  const name = String(data.user.user_metadata?.name ?? "").trim().split(" ")[0] || email.split("@")[0] || "Usuário";
+
+  return <div className="app-shell"><AppNavigation name={name} email={email} /><div className="app-main">{children}</div></div>;
 }
