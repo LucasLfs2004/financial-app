@@ -203,6 +203,9 @@ func TestProjectReleasesSortsAndAggregatesSafely(t *testing.T) {
 	if len(result.Releases) != 2 || result.Releases[0].DebtID != "a" || result.Releases[1].DebtID != "z" {
 		t.Fatalf("releases=%+v", result.Releases)
 	}
+	if result.Releases[0].CurrencyCode != early.CurrencyCode {
+		t.Fatalf("release currency=%q", result.Releases[0].CurrencyCode)
+	}
 	if len(result.MonthlyTotals) != 2 || result.MonthlyTotals[0].Month.String() != "2026-12" ||
 		result.MonthlyTotals[0].Amount.Cents() != 40000 || result.MonthlyTotals[1].Month.String() != "2027-01" ||
 		result.MonthlyTotals[1].Amount.Cents() != 60000 {
@@ -278,7 +281,7 @@ func buildDebt(t *testing.T, fixture debtFixture) (Debt, error) {
 		status = planning.FinancialItemStatusArchived
 	}
 	return NewDebt(NewDebtInput{
-		ID: fixture.id, Name: "Dívida", TotalInstallments: fixture.total,
+		ID: fixture.id, CurrencyCode: "BRL", Name: "Dívida", TotalInstallments: fixture.total,
 		FirstProjectedInstallment: fixture.first, ScheduledStart: month(t, fixture.start),
 		Periods: periods, Settlement: settlement, Status: status,
 	})

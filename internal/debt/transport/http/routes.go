@@ -22,6 +22,7 @@ type Service interface {
 	Schedule(context.Context, string, string, planningdomain.YearMonth, planningdomain.YearMonth) (debtapplication.Schedule, error)
 	Settle(context.Context, string, string, debtapplication.SettlementInput) (debtapplication.View, error)
 	Settlement(context.Context, string, string) (debtdomain.EarlySettlement, error)
+	Releases(context.Context, string, planningdomain.YearMonth, planningdomain.YearMonth) (debtdomain.ReleaseProjection, error)
 }
 
 type Middleware func(http.Handler) http.Handler
@@ -36,6 +37,7 @@ func RegisterRoutes(mux *http.ServeMux, authenticate Middleware, service Service
 	mux.Handle("GET /v1/debts/{debt_id}/schedule", authenticate(http.HandlerFunc(scheduleHandler(service))))
 	mux.Handle("POST /v1/debts/{debt_id}/early-settlement", authenticate(http.HandlerFunc(createSettlementHandler(service))))
 	mux.Handle("GET /v1/debts/{debt_id}/early-settlement", authenticate(http.HandlerFunc(findSettlementHandler(service))))
+	mux.Handle("GET /v1/debt-releases", authenticate(http.HandlerFunc(releasesHandler(service))))
 }
 
 type optionalInt64 struct {
@@ -371,6 +373,49 @@ func settlementResponse(debtID string, settlement debtdomain.EarlySettlement) ma
 		"amount_cents":    settlement.Amount.Cents(), "reason": settlement.Reason,
 		"recorded_by": settlement.RecordedBy, "recorded_at": settlement.RecordedAt,
 		"created_at": settlement.CreatedAt,
+	}
+}
+
+func releasesHandler(service Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		ownerID, ok := ownerFromRequest(request)
+		if !ok {
+			unauthorized(w)
+			return
+		}
+		from, fromErr := planningdomain.ParseYearMonth(request.URL.Query().Get("from"))
+		to, toErr := planningdomain.ParseYearMonth(request.URL.Query().Get("to"))
+		if fromErr != nil || toErr != nil {
+			validationError(w)
+			return
+		}
+		projection, err := service.Releases(request.Context(), ownerID, from, to)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		releases := make([]map[string]any, len(projection.Releases))
+		for index, release := range projection.Releases {
+			releases[index] = map[string]any{
+				"debt_id": release.DebtID, "name": release.Name,
+				"currency_code":          release.CurrencyCode,
+				"scheduled_end_month":    release.ScheduledEnd.String(),
+				"effective_end_month":    release.EffectiveEnd.String(),
+				"release_from_month":     release.ReleaseFrom.String(),
+				"released_monthly_cents": release.ReleasedMonthly.Cents(),
+				"reason":                 release.Reason,
+			}
+		}
+		monthlyTotals := make([]map[string]any, len(projection.MonthlyTotals))
+		for index, total := range projection.MonthlyTotals {
+			monthlyTotals[index] = map[string]any{
+				"month": total.Month.String(), "released_monthly_cents": total.Amount.Cents(),
+			}
+		}
+		httpapi.WriteJSON(w, http.StatusOK, map[string]any{
+			"data":  map[string]any{"releases": releases, "monthly_totals": monthlyTotals},
+			"range": map[string]string{"from": from.String(), "to": to.String()},
+		})
 	}
 }
 

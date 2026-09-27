@@ -143,6 +143,17 @@ type Schedule struct {
 	Occurrences []ScheduleOccurrence
 }
 
+func (service *Service) Releases(ctx context.Context, ownerID string, from, to planningdomain.YearMonth) (debtdomain.ReleaseProjection, error) {
+	if strings.TrimSpace(ownerID) == "" || !from.Valid() || !to.Valid() {
+		return debtdomain.ReleaseProjection{}, ErrValidation
+	}
+	debts, err := service.repository.List(ctx, ownerID, nil)
+	if err != nil {
+		return debtdomain.ReleaseProjection{}, err
+	}
+	return debtdomain.ProjectReleases(debtdomain.ReleaseProjectionInput{Debts: debts, From: from, To: to})
+}
+
 func (service *Service) Create(ctx context.Context, ownerID string, input CreateInput) (View, error) {
 	if strings.TrimSpace(ownerID) == "" {
 		return View{}, ErrValidation

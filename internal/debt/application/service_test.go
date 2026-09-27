@@ -247,6 +247,20 @@ func TestSettleRejectsFinalMonthAndExistingSettlement(t *testing.T) {
 	}
 }
 
+func TestReleasesReturnsDebtAndMonthlyAggregates(t *testing.T) {
+	first := debtFixture("owner", "BRL", "a", "A", month(t, "2026-01"), month(t, "2026-02"), 2, 1, 100)
+	second := debtFixture("owner", "BRL", "b", "B", month(t, "2026-02"), month(t, "2026-02"), 1, 1, 250)
+	service := NewService(&repositoryStub{debts: []debtdomain.Debt{second, first}}, profileStub{})
+	result, err := service.Releases(context.Background(), "owner", month(t, "2026-03"), month(t, "2026-03"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Releases) != 2 || result.Releases[0].DebtID != "a" || result.Releases[1].DebtID != "b" ||
+		len(result.MonthlyTotals) != 1 || result.MonthlyTotals[0].Amount.Cents() != 350 {
+		t.Fatalf("result=%+v", result)
+	}
+}
+
 func debtFixture(ownerID, currency, id, name string, start, end planningdomain.YearMonth, total, first int, amount int64) debtdomain.Debt {
 	interval, _ := planningdomain.NewMonthInterval(start, end)
 	debt, _ := debtdomain.NewDebt(debtdomain.NewDebtInput{

@@ -152,12 +152,12 @@ Dependências: R3-T04, R3-T07, R3-T08.
 
 ### R3-T10 — Expor valores liberados
 
-- [ ] listar liberações por intervalo;
-- [ ] distinguir conclusão e quitação;
-- [ ] retornar por dívida e agregar por mês;
-- [ ] usar soma segura;
-- [ ] provar que liberação não vira source;
-- [ ] testar múltiplas dívidas no mesmo mês.
+- [x] listar liberações por intervalo;
+- [x] distinguir conclusão e quitação;
+- [x] retornar por dívida e agregar por mês;
+- [x] usar soma segura;
+- [x] provar que liberação não vira source;
+- [x] testar múltiplas dívidas no mesmo mês.
 
 Dependências: R3-T07, R3-T09.
 

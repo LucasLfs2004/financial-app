@@ -37,6 +37,7 @@ type Projection struct {
 type Release struct {
 	DebtID          string
 	Name            string
+	CurrencyCode    string
 	ScheduledEnd    planning.YearMonth
 	EffectiveEnd    planning.YearMonth
 	ReleaseFrom     planning.YearMonth
@@ -181,6 +182,7 @@ func ProjectReleases(input ReleaseProjectionInput) (ReleaseProjection, error) {
 		result.Releases = append(result.Releases, Release{
 			DebtID:          debt.ID,
 			Name:            debt.Name,
+			CurrencyCode:    debt.CurrencyCode,
 			ScheduledEnd:    projection.ScheduledEnd,
 			EffectiveEnd:    projection.EffectiveEnd,
 			ReleaseFrom:     projection.ReleaseFrom,

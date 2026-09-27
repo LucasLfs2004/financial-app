@@ -57,6 +57,17 @@ func (*serviceStub) Settlement(context.Context, string, string) (debtdomain.Earl
 		ID: "settlement", ReferenceMonth: tMonth("2026-10"), Amount: planningdomain.NewMoney(150000),
 	}, nil
 }
+func (*serviceStub) Releases(_ context.Context, _ string, from, _ planningdomain.YearMonth) (debtdomain.ReleaseProjection, error) {
+	return debtdomain.ReleaseProjection{
+		Releases: []debtdomain.Release{{
+			DebtID: "debt", Name: "Transplante", CurrencyCode: "BRL",
+			ScheduledEnd: tMonth("2027-04"), EffectiveEnd: tMonth("2026-10"),
+			ReleaseFrom: tMonth("2026-11"), ReleasedMonthly: planningdomain.NewMoney(60000),
+			Reason: debtdomain.ReleaseReasonEarlySettlement,
+		}},
+		MonthlyTotals: []debtdomain.MonthlyReleaseTotal{{Month: from, Amount: planningdomain.NewMoney(60000)}},
+	}, nil
+}
 
 func TestCreateDebtRoute(t *testing.T) {
 	service := &serviceStub{}
@@ -155,6 +166,21 @@ func TestDebtEarlySettlementRoutes(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	mux.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"reference_month":"2026-10"`) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestDebtReleasesRouteReturnsDetailsAndTotals(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, &serviceStub{})
+	request := httptest.NewRequest(http.MethodGet, "/v1/debt-releases?from=2026-11&to=2027-01", nil)
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK ||
+		!strings.Contains(recorder.Body.String(), `"reason":"early_settlement"`) ||
+		!strings.Contains(recorder.Body.String(), `"currency_code":"BRL"`) ||
+		!strings.Contains(recorder.Body.String(), `"monthly_totals"`) {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
