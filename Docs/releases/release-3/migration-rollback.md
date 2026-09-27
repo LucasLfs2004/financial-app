@@ -31,7 +31,7 @@ uma nova versão. Não reutilizar nem mover uma tag publicada.
 
 ## Smoke em cloud
 
-Ainda depende de ambiente Supabase Cloud provisionado. Após deploy, criar
+Após aplicar as migrations R3 no Supabase Cloud e publicar a API, criar
 usuário de teste, dívida direta e dívida em cartão; conferir cronograma,
 resumo, fatura, quitação, RLS e snapshot v4. Registrar a tag e o artefato
 efetivamente promovidos antes de considerar a release publicada.

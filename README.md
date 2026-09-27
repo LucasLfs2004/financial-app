@@ -13,9 +13,12 @@ API de planejamento financeiro pessoal em Go e Supabase.
 - Release 3: dívidas projetadas, parcelas, quitação antecipada, integração com
   cartão e resumo mensal, além de snapshot v4. Validação local concluída.
 
-O smoke test em Supabase Cloud permanece pendente até o provisionamento do
-ambiente. A validação local da Release 3 está em
+O schema está provisionado no Supabase Cloud. A publicação da API usa Render
+Free em Oregon e acompanha a branch `main`; consulte
+[`Docs/deployment-render.md`](Docs/deployment-render.md). A validação local da
+Release 3 está em
 [`Docs/releases/release-3/quality-report.md`](Docs/releases/release-3/quality-report.md).
+O deploy e o smoke test cloud da Release 3 ainda precisam ser executados.
 
 ## Estrutura
 
@@ -85,3 +88,10 @@ A validação manual da Release 3 usa:
 - [Release 3 — design](Docs/releases/release-3/design.md);
 - [Release 3 — tasks](Docs/releases/release-3/tasks.md);
 - [fluxo Git e releases](Docs/git-release-flow.md).
+
+## Produção
+
+- [deploy no Render e separação de ambientes](Docs/deployment-render.md);
+- `make db-reset-local` recria somente o banco local descartável;
+- `make db-push-cloud` revisa e publica migrations no projeto cloud vinculado;
+- secrets de produção existem somente no Supabase e no Render.

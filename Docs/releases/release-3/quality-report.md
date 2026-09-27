@@ -17,6 +17,7 @@ Validação local: 26–27/09/2026.
 | `go fmt ./...` | aprovado |
 | `go vet ./...` | aprovado |
 | `go build ./...` | aprovado |
+| `docker build -t financial-api:r3-local .` após integrar `develop` | imagem criada |
 | `go test ./...` com Supabase local | 204 testes aprovados em 41 pacotes |
 | `go test -race ./...` com Supabase local | 204 testes aprovados em 41 pacotes |
 | `supabase db reset --local --yes` | aprovado desde banco vazio |
@@ -35,7 +36,8 @@ movimentação, quitação e snapshot v4. A suíte R1/R2/2.1 continuou verde.
 
 ## Riscos e pendências externas
 
-- O smoke no Supabase Cloud depende de ambiente provisionado.
+- O smoke no Supabase Cloud depende da aplicação das migrations R3 e do deploy
+  da API desta branch no ambiente provisionado.
 - A integração das branches R3 em `develop`, a revisão por PR, a promoção para
   `main`, a tag de produção e o deploy dependem do fluxo do provedor e do
   mantenedor. Esta validação local não equivale a publicação.
