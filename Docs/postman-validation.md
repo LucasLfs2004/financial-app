@@ -4,8 +4,9 @@ As collections estão em:
 
 - [`Financial API - Release 1.postman_collection.json`](../postman/Financial%20API%20-%20Release%201.postman_collection.json);
 - [`Financial API - Release 2.postman_collection.json`](../postman/Financial%20API%20-%20Release%202.postman_collection.json).
+- [`Financial API - Release 3.postman_collection.json`](../postman/Financial%20API%20-%20Release%203.postman_collection.json).
 
-Ambas usam o ambiente
+As collections usam o ambiente
 [`Financial API - Local.postman_environment.json`](../postman/Financial%20API%20-%20Local.postman_environment.json).
 
 ## Preparar o ambiente
@@ -19,6 +20,8 @@ Ambas usam o ambiente
 
 2. Copie a chave `anon`/publishable exibida por `supabase status` para a variável `supabasePublishableKey` do ambiente do Postman.
 
+   Para testar com uma conta fixa, preencha também `userEmail` e `userPassword` no ambiente local.
+
 3. Inicie a API:
 
    ```bash
@@ -29,6 +32,11 @@ Ambas usam o ambiente
 
 A collection cria usuários novos automaticamente. Portanto, não é necessário
 preencher token, usuário ou IDs manualmente.
+
+Para usar uma conta fixa, execute primeiro a pasta **00 - Autenticação** e depois
+use o token preenchido no ambiente. Nesse fluxo, pule a requisição **Cadastrar
+usuário principal** da pasta **01 - Preparação**, pois ela existe apenas para o
+cenário automatizado com usuário descartável.
 
 ## Trilha da Release 1
 
@@ -74,6 +82,19 @@ npm exec --yes newman -- run \
 
 Na validação de encerramento foram aprovadas 24 requisições e 24 assertions,
 sem falhas.
+
+## Trilha da Release 3
+
+Execute as pastas **01 a 04** da collection R3 em ordem. A pasta **00** é
+opcional e permite entrar com uma conta fixa; para um cenário novo, a pasta 01
+cria usuário, plano, renda, poupança e cartão. A pasta 02 verifica o cronograma
+de oito parcelas iniciando na quinta e a liberação. A pasta 03 altera o valor,
+vincula cartão, move uma parcela e quita antecipadamente. A pasta 04 ativa o
+plano e confere o snapshot v4. `debtId` é salvo no environment.
+
+O cenário automatizado equivalente está em `TestRelease3AcceptanceScenario`.
+No fechamento local, a collection R3 passou no Newman com 18 requisições e 25
+assertions, sem falhas.
 
 ## Resultado esperado
 

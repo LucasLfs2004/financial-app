@@ -7,6 +7,21 @@
   },
   "item": [
     {
+      "name": "00 - Autenticação",
+      "item": [
+        {
+          "name": "Entrar usuário fixo",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "apikey", "value": "{{supabasePublishableKey}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}" },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('login principal', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.environment.set('accessToken', body.access_token);", "pm.environment.set('userId', body.user.id);"] } }]
+        }
+      ]
+    },
+    {
       "name": "01 - Preparação",
       "item": [
         {

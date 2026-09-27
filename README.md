@@ -8,11 +8,14 @@ API de planejamento financeiro pessoal em Go e Supabase.
 - Release 1: planejamento, premissas, resumo mensal e snapshot original;
 - Release 2: concluída localmente, com instituições, cartões, formas de
   pagamento temporais, faturas projetadas, ajustes, movimentações auditáveis,
-  resumo integrado e snapshot v2.
+  resumo integrado e snapshot v2;
+- Release 2.1: registros financeiros contínuos e snapshot v3;
+- Release 3: dívidas projetadas, parcelas, quitação antecipada, integração com
+  cartão e resumo mensal, além de snapshot v4. Validação local concluída.
 
 O smoke test em Supabase Cloud permanece pendente até o provisionamento do
-ambiente. A validação local completa está em
-[`Docs/releases/release-2/quality-report.md`](Docs/releases/release-2/quality-report.md).
+ambiente. A validação local da Release 3 está em
+[`Docs/releases/release-3/quality-report.md`](Docs/releases/release-3/quality-report.md).
 
 ## Estrutura
 
@@ -66,9 +69,9 @@ supabase test db supabase/tests --local
 supabase db lint --local --level warning
 ```
 
-A validação manual da Release 2 usa:
+A validação manual da Release 3 usa:
 
-- [`Financial API - Release 2.postman_collection.json`](postman/Financial%20API%20-%20Release%202.postman_collection.json);
+- [`Financial API - Release 3.postman_collection.json`](postman/Financial%20API%20-%20Release%203.postman_collection.json);
 - [`Financial API - Local.postman_environment.json`](postman/Financial%20API%20-%20Local.postman_environment.json);
 - [`Docs/postman-validation.md`](Docs/postman-validation.md).
 
@@ -78,4 +81,7 @@ A validação manual da Release 2 usa:
 - [Release 2 — especificação](Docs/releases/release-2/spec.md);
 - [Release 2 — design](Docs/releases/release-2/design.md);
 - [Release 2 — tasks](Docs/releases/release-2/tasks.md);
+- [Release 3 — spec](Docs/releases/release-3/spec.md);
+- [Release 3 — design](Docs/releases/release-3/design.md);
+- [Release 3 — tasks](Docs/releases/release-3/tasks.md);
 - [fluxo Git e releases](Docs/git-release-flow.md).

@@ -1,0 +1,632 @@
+{
+  "info": {
+    "_postman_id": "financial-api-release-3",
+    "name": "Financial API - Release 3",
+    "description": "Aceite local da Release 3. Execute as pastas 01 a 04 em ordem; a pasta 00 permite login com conta fixa.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Autenticação",
+      "item": [
+        {
+          "name": "Entrar usuário fixo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabasePublishableKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('accessToken', body.access_token);",
+                  "pm.environment.set('userId', body.user.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Preparação",
+      "item": [
+        {
+          "name": "Cadastrar usuário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabasePublishableKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"financial-api-r3-{{$timestamp}}@example.com\",\n  \"password\": \"Release3-test-123!\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/signup"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('accessToken', body.access_token);",
+                  "pm.environment.set('userId', body.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar plano",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aceite Release 3\",\n  \"start_month\": \"2026-09\",\n  \"end_month\": \"2027-06\",\n  \"currency_code\": \"BRL\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/plans"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('planId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar renda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Renda\",\n  \"kind\": \"recurring_income\",\n  \"period\": {\n    \"start_month\": \"2026-09\",\n    \"end_month\": \"2027-06\",\n    \"amount_cents\": 500000,\n    \"recurrence\": \"monthly\",\n    \"cash_month_offset\": 0\n  }\n}"
+            },
+            "url": "{{baseUrl}}/v1/financial-items"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Configurar poupança",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"effective_from\": \"2026-09\",\n  \"end_month\": \"2027-06\",\n  \"amount_cents\": 0\n}"
+            },
+            "url": "{{baseUrl}}/v1/plans/current/savings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar instituição",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Banco R3\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/financial-institutions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('institutionId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar cartão",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institution_id\": \"{{institutionId}}\",\n  \"name\": \"Cartão R3\",\n  \"configuration\": {\n    \"effective_from\": \"2026-09\",\n    \"end_month\": \"2027-06\",\n    \"nominal_due_day\": 6,\n    \"payment_month_offset\": 1\n  }\n}"
+            },
+            "url": "{{baseUrl}}/v1/credit-cards"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('cardId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Dívida e projeção",
+      "item": [
+        {
+          "name": "Criar dívida a partir da parcela 5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Transplante\",\n  \"original_total_cents\": 720000,\n  \"total_installments\": 12,\n  \"first_projected_installment\": 5,\n  \"scheduled_start_month\": \"2026-09\",\n  \"installment_amount_cents\": 60000\n}"
+            },
+            "url": "{{baseUrl}}/v1/debts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('debtId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conferir oito parcelas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/debts/{{debtId}}/schedule?from=2026-09&to=2027-04"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('8 parcelas, da 5 à 12', () => { const o=pm.response.json().data.occurrences; pm.expect(o.length).to.equal(8); pm.expect(o[0].installment_number).to.equal(5); pm.expect(o[7].installment_number).to.equal(12); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conferir valor liberado",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/debt-releases?from=2027-05&to=2027-05"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('liberação em maio', () => pm.expect(pm.response.json().data.releases[0].release_from_month).to.equal('2027-05'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conferir resumo de competência",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/plans/current/months/2026-09/summary?basis=reference"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('parcela sem renda fictícia', () => { const s=pm.response.json().data; pm.expect(s.commitments_cents).to.equal(60000); pm.expect(s.income_cents).to.equal(500000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Mudança, cartão e quitação",
+      "item": [
+        {
+          "name": "Alterar valor futuro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"effective_from\": \"2026-11\",\n  \"installment_amount_cents\": 65000\n}"
+            },
+            "url": "{{baseUrl}}/v1/debts/{{debtId}}/changes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vincular cartão",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"effective_from\": \"2026-11\",\n  \"end_month\": \"2027-04\",\n  \"method\": \"credit_card\",\n  \"credit_card_id\": \"{{cardId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/plans/current/items/{{debtId}}/payment-changes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conferir fatura dezembro",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/credit-cards/{{cardId}}/invoices/2026-12"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('parcela de novembro', () => pm.expect(pm.response.json().data.projected_total_cents).to.equal(65000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mover parcela de novembro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_credit_card_id\": \"{{cardId}}\",\n  \"target_payment_month\": \"2027-02\",\n  \"reason\": \"Exceção de aceite\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/plans/current/items/{{debtId}}/occurrences/2026-11/invoice-moves"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quitar em janeiro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference_month\": \"2027-01\",\n  \"amount_cents\": 150000\n}"
+            },
+            "url": "{{baseUrl}}/v1/debts/{{debtId}}/early-settlement"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conferir cronograma quitado",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/debts/{{debtId}}/schedule?from=2026-09&to=2027-04"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('quitação substitui e encerra', () => { const o=pm.response.json().data.occurrences; pm.expect(o.length).to.equal(5); pm.expect(o[4].debt_occurrence_kind).to.equal('early_settlement'); pm.expect(o[4].amount_cents).to.equal(150000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conferir fatura de transbordo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/credit-cards/{{cardId}}/invoices/2027-02"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('movida e quitação sem duplicar', () => { const c=pm.response.json().data.components; pm.expect(c.filter(x => x.reference_month === '2026-11').length).to.equal(1); pm.expect(c.filter(x => x.reference_month === '2027-01').length).to.equal(1); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Snapshot",
+      "item": [
+        {
+          "name": "Ativar e verificar v4",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/plans/current/activate"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('snapshot v4 com dívida', () => { const s=pm.response.json().data.original; pm.expect(s.schema_version).to.equal(4); pm.expect(s.plan.release_3.debts.length).to.equal(1); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

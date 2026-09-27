@@ -20,10 +20,12 @@ commits já publicados.
 ## Pré-condição da release
 
 - [x] revisar e congelar a spec funcional da Release 3;
-- [ ] confirmar Release 2 promovida para `develop`;
-- [ ] executar a suíte R2 no commit-base;
-- [ ] validar migrations desde banco vazio;
-- [ ] criar branches R3 somente desse baseline.
+- [ ] confirmar Release 2 promovida para `develop` (a árvore R3 segue em
+  branches empilhadas; integração final pendente);
+- [x] executar a suíte R2 no commit-base R3;
+- [x] validar migrations desde banco vazio;
+- [ ] criar branches R3 somente desse baseline (exceção histórica das branches
+  R3 já publicadas, sem reescrita).
 
 ## Preparação arquitetural incremental
 
@@ -190,12 +192,12 @@ Dependências: R3-T10, R3-T11.
 
 ### R3-T13 — Evoluir snapshot para schema v4
 
-- [ ] definir documento determinístico;
-- [ ] incluir dívidas, períodos, quitações e recursos R2 alcançáveis;
-- [ ] usar v4 apenas em novas ativações;
-- [ ] manter leitura v1/v2/v3;
-- [ ] testar imutabilidade, ordem e idempotência;
-- [ ] documentar evolução.
+- [x] definir documento determinístico;
+- [x] incluir dívidas, períodos, quitações e recursos R2 alcançáveis;
+- [x] usar v4 apenas em novas ativações;
+- [x] manter leitura v1/v2/v3;
+- [x] testar imutabilidade, ordem e idempotência;
+- [x] documentar evolução.
 
 Dependências: R3-T05 a R3-T11.
 
@@ -203,39 +205,39 @@ Dependências: R3-T05 a R3-T11.
 
 ### R3-T14 — Validar isolamento ponta a ponta
 
-- [ ] criar dois usuários com dívidas distintas;
-- [ ] tentar operações cruzadas;
-- [ ] tentar quitar dívida alheia;
-- [ ] tentar usar cartão alheio;
-- [ ] validar API Go, Data API e RLS;
-- [ ] revisar logs.
+- [x] criar dois usuários com dívidas distintas;
+- [x] tentar operações cruzadas;
+- [x] tentar quitar dívida alheia;
+- [x] tentar usar cartão alheio;
+- [x] validar API Go, Data API e RLS;
+- [x] revisar logs.
 
 Dependências: R3-T05 a R3-T13.
 
 ### R3-T15 — Executar cenário de aceite
 
-- [ ] cadastrar 12 parcelas iniciando em `5/12`;
-- [ ] validar oito ocorrências e virada de ano;
-- [ ] validar liberação sem source positiva;
-- [ ] alterar valor preservando passado;
-- [ ] vincular cartão offset 1;
-- [ ] validar competência, fatura e caixa;
-- [ ] mover uma parcela;
-- [ ] quitar antecipadamente;
-- [ ] validar transbordo e ausência de duplicidade;
-- [ ] validar snapshot v4.
+- [x] cadastrar 12 parcelas iniciando em `5/12`;
+- [x] validar oito ocorrências e virada de ano;
+- [x] validar liberação sem source positiva;
+- [x] alterar valor preservando passado;
+- [x] vincular cartão offset 1;
+- [x] validar competência, fatura e caixa;
+- [x] mover uma parcela;
+- [x] quitar antecipadamente;
+- [x] validar transbordo e ausência de duplicidade;
+- [x] validar snapshot v4.
 
 Dependências: R3-T12, R3-T13, R3-T14.
 
 ### R3-T16 — Qualidade final e documentação
 
-- [ ] executar format, vet, testes e race detector;
-- [ ] resetar banco e executar pgTAP/lint;
-- [ ] validar OpenAPI e compatibilidade R1/R2;
-- [ ] atualizar README e mapa;
-- [ ] criar collection Postman e trilha R3;
-- [ ] registrar quality report e riscos;
-- [ ] documentar migration, rollback e smoke cloud.
+- [x] executar format, vet, testes e race detector;
+- [x] resetar banco e executar pgTAP/lint;
+- [x] validar OpenAPI e compatibilidade R1/R2;
+- [x] atualizar README e mapa;
+- [x] criar collection Postman e trilha R3;
+- [x] registrar quality report e riscos;
+- [x] documentar migration, rollback e smoke cloud.
 
 Dependências: todas.
 
