@@ -85,7 +85,7 @@ func TestRelease21RecordsOutlivePlanHorizon(t *testing.T) {
 		t.Fatalf("december=%+v error=%v", december, err)
 	}
 	activation, err := plans.Activate(ctx, ownerID)
-	if err != nil || activation.Original.SchemaVersion != 3 {
+	if err != nil || activation.Original.SchemaVersion != 4 {
 		t.Fatalf("activation=%+v error=%v", activation, err)
 	}
 	var snapshot struct {

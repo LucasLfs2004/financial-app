@@ -72,4 +72,7 @@ func TestFinancialItemKindClassification(t *testing.T) {
 	if !FinancialItemKindFixedExpense.IsExpense() || FinancialItemKindFixedExpense.IsIncome() {
 		t.Fatal("fixed expense classification is invalid")
 	}
+	if !FinancialItemKindDebtInstallment.IsExpense() || FinancialItemKindDebtInstallment.IsIncome() {
+		t.Fatal("debt installment classification is invalid")
+	}
 }

@@ -157,7 +157,7 @@ func (repository *PostgresRepository) Activate(ctx context.Context, ownerID stri
 		return Activation{}, fmt.Errorf("build snapshot: %w", err)
 	}
 	var snapshot Snapshot
-	err = tx.QueryRow(ctx, `insert into public.plan_snapshots(plan_id,user_id,kind,schema_version,document) values($1,$2,'original',3,$3::jsonb) returning id,plan_id,kind,schema_version,created_at,document::text`, plan.ID, ownerID, documentText).Scan(&snapshot.ID, &snapshot.PlanID, &snapshot.Kind, &snapshot.SchemaVersion, &snapshot.CapturedAt, &documentText)
+	err = tx.QueryRow(ctx, `insert into public.plan_snapshots(plan_id,user_id,kind,schema_version,document) values($1,$2,'original',4,$3::jsonb) returning id,plan_id,kind,schema_version,created_at,document::text`, plan.ID, ownerID, documentText).Scan(&snapshot.ID, &snapshot.PlanID, &snapshot.Kind, &snapshot.SchemaVersion, &snapshot.CapturedAt, &documentText)
 	if err != nil {
 		return Activation{}, fmt.Errorf("create original snapshot: %w", err)
 	}
@@ -222,7 +222,29 @@ select jsonb_build_object(
     'credit_cards',coalesce((select jsonb_agg(jsonb_build_object('id',cc.id,'institution_id',cc.institution_id,'name',cc.name,'status',cc.status,'periods',coalesce((select jsonb_agg(jsonb_build_object('id',cp.id,'start_month',to_char(cp.start_month,'YYYY-MM'),'end_month',case when cp.end_month is null then null else to_char(cp.end_month,'YYYY-MM') end,'nominal_due_day',cp.nominal_due_day,'payment_month_offset',cp.payment_month_offset) order by cp.start_month,cp.id) from public.credit_card_periods cp where cp.credit_card_id=cc.id and cp.user_id=$2),'[]'::jsonb)) order by cc.id) from public.credit_cards cc where cc.user_id=$2 and (exists(select 1 from public.financial_item_payment_periods pp join public.financial_items pi on pi.id=pp.financial_item_id and pi.user_id=pp.user_id where pp.credit_card_id=cc.id and pp.user_id=$2 and pi.currency_code=p.currency_code) or exists(select 1 from public.card_invoice_adjustments ia where ia.credit_card_id=cc.id and ia.user_id=$2 and ia.currency_code=p.currency_code) or exists(select 1 from public.card_invoice_audit_events ae join public.financial_items mi on mi.id=ae.financial_item_id and mi.user_id=ae.user_id where ae.user_id=$2 and mi.currency_code=p.currency_code and (ae.from_credit_card_id=cc.id or ae.to_credit_card_id=cc.id)))),'[]'::jsonb),
     'payment_methods',coalesce((select jsonb_agg(to_jsonb(pp) order by pp.start_month,pp.id) from public.financial_item_payment_periods pp join public.financial_items pi on pi.id=pp.financial_item_id and pi.user_id=pp.user_id where pp.user_id=$2 and pi.currency_code=p.currency_code and exists(select 1 from public.financial_item_periods visible where visible.financial_item_id=pi.id and visible.user_id=pi.user_id and visible.start_month<=p.end_month and (visible.end_month is null or visible.end_month>=p.start_month))),'[]'::jsonb),
     'invoice_adjustments',coalesce((select jsonb_agg(to_jsonb(ia) order by ia.payment_month,ia.id) from public.card_invoice_adjustments ia where ia.user_id=$2 and ia.currency_code=p.currency_code and ((ia.reference_month between p.start_month and p.end_month) or (ia.payment_month between p.start_month and (p.end_month + interval '12 months')::date))),'[]'::jsonb),
-    'invoice_moves',coalesce((select jsonb_agg(to_jsonb(ae) order by ae.recorded_at,ae.id) from public.card_invoice_audit_events ae join public.financial_items mi on mi.id=ae.financial_item_id and mi.user_id=ae.user_id where ae.user_id=$2 and mi.currency_code=p.currency_code and ae.reference_month between p.start_month and p.end_month),'[]'::jsonb))
+    'invoice_moves',coalesce((select jsonb_agg(to_jsonb(ae) order by ae.recorded_at,ae.id) from public.card_invoice_audit_events ae join public.financial_items mi on mi.id=ae.financial_item_id and mi.user_id=ae.user_id where ae.user_id=$2 and mi.currency_code=p.currency_code and ae.reference_month between p.start_month and p.end_month),'[]'::jsonb)),
+  'release_3',jsonb_build_object(
+    'debts',coalesce((select jsonb_agg(jsonb_build_object(
+      'financial_item_id',d.financial_item_id,
+      'original_total_cents',d.original_total_cents,
+      'total_installments',d.total_installments,
+      'first_projected_installment',d.first_projected_installment,
+      'scheduled_start_month',to_char(d.scheduled_start_month,'YYYY-MM'),
+      'scheduled_end_month',to_char(d.scheduled_end_month,'YYYY-MM'),
+      'created_at',d.created_at,'updated_at',d.updated_at,
+      'periods',coalesce((select jsonb_agg(to_jsonb(dp) order by dp.start_month,dp.id)
+        from public.financial_item_periods dp
+        where dp.financial_item_id=d.financial_item_id and dp.user_id=$2),'[]'::jsonb),
+      'payment_methods',coalesce((select jsonb_agg(to_jsonb(pm) order by pm.start_month,pm.id)
+        from public.financial_item_payment_periods pm
+        where pm.financial_item_id=d.financial_item_id and pm.user_id=$2),'[]'::jsonb),
+      'early_settlement',(select to_jsonb(es) from public.debt_early_settlements es
+        where es.financial_item_id=d.financial_item_id and es.user_id=$2)
+    ) order by d.scheduled_start_month,d.financial_item_id)
+      from public.debts d
+      join public.financial_items di on di.id=d.financial_item_id and di.user_id=d.user_id
+      where d.user_id=$2 and di.currency_code=p.currency_code
+        and d.scheduled_start_month<=p.end_month and d.scheduled_end_month>=p.start_month),'[]'::jsonb))
 )::text from public.plans p where p.id=$1 and p.user_id=$2`
 
 func scanPlan(row pgx.Row) (Plan, error) {

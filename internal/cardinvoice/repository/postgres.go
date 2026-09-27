@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lucas/financial-api/internal/cardinvoice"
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	planningdomain "github.com/lucas/financial-api/internal/planning/domain"
 )
 
@@ -38,6 +39,10 @@ func (repository *PostgresRepository) LoadProjectionData(ctx context.Context, ow
 	if err := loadPaymentPeriods(ctx, tx, ownerID, currencyCode, items, itemIndexes); err != nil {
 		return cardinvoice.ProjectionData{}, err
 	}
+	debtOccurrences, err := loadDebtOccurrences(ctx, tx, ownerID, currencyCode)
+	if err != nil {
+		return cardinvoice.ProjectionData{}, err
+	}
 	moves, err := loadMoves(ctx, tx, ownerID, currencyCode)
 	if err != nil {
 		return cardinvoice.ProjectionData{}, err
@@ -49,7 +54,10 @@ func (repository *PostgresRepository) LoadProjectionData(ctx context.Context, ow
 	if err := tx.Commit(ctx); err != nil {
 		return cardinvoice.ProjectionData{}, fmt.Errorf("commit card invoice projection read: %w", err)
 	}
-	return cardinvoice.ProjectionData{Cards: cards, Items: items, Moves: moves, Adjustments: adjustments}, nil
+	return cardinvoice.ProjectionData{
+		Cards: cards, Items: items, DebtOccurrences: debtOccurrences,
+		Moves: moves, Adjustments: adjustments,
+	}, nil
 }
 
 func loadCards(ctx context.Context, tx pgx.Tx, ownerID string) ([]cardinvoice.Card, error) {
@@ -130,7 +138,7 @@ func loadItems(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string) ([]
 		join public.financial_item_periods p
 			on p.financial_item_id = i.id and p.user_id = i.user_id
 		where i.user_id = $1 and i.currency_code = $2
-			and i.kind in ('fixed_expense', 'projected_variable_expense')
+			and i.kind in ('fixed_expense', 'projected_variable_expense', 'debt_installment')
 		order by i.created_at, i.id, p.start_month, p.id
 	`, ownerID, currencyCode)
 	if err != nil {
@@ -174,6 +182,155 @@ func loadItems(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string) ([]
 		return nil, nil, fmt.Errorf("load invoice financial items: %w", err)
 	}
 	return items, indexes, nil
+}
+
+type debtProjectionBuilder struct {
+	ID                        string
+	Name                      string
+	TotalInstallments         int
+	FirstProjectedInstallment int
+	ScheduledStart            planningdomain.YearMonth
+	StoredEnd                 planningdomain.YearMonth
+	Periods                   []debtdomain.InstallmentPeriod
+	Settlement                *debtdomain.EarlySettlement
+}
+
+// loadDebtOccurrences reads every debt and its temporal periods in one query
+// inside the surrounding repeatable-read transaction, then delegates all
+// numbering and settlement cutoffs to the pure debt projector.
+func loadDebtOccurrences(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string) ([]cardinvoice.DebtOccurrence, error) {
+	rows, err := tx.Query(ctx, `
+		select debt.financial_item_id, item.name,
+			debt.total_installments, debt.first_projected_installment,
+			debt.scheduled_start_month, debt.scheduled_end_month,
+			period.id, period.start_month, period.end_month,
+			period.amount_cents, period.cash_month_offset,
+			settlement.id, settlement.reference_month, settlement.amount_cents
+		from public.debts debt
+		join public.financial_items item
+			on item.id = debt.financial_item_id and item.user_id = debt.user_id
+		join public.financial_item_periods period
+			on period.financial_item_id = debt.financial_item_id
+			and period.user_id = debt.user_id
+		left join public.debt_early_settlements settlement
+			on settlement.financial_item_id = debt.financial_item_id
+			and settlement.user_id = debt.user_id
+		where debt.user_id = $1 and item.currency_code = $2
+			and item.status = 'active'
+		order by item.created_at, debt.financial_item_id,
+			period.start_month, period.id
+	`, ownerID, currencyCode)
+	if err != nil {
+		return nil, fmt.Errorf("load invoice debt occurrences: %w", err)
+	}
+	defer rows.Close()
+
+	builders := make(map[string]*debtProjectionBuilder)
+	order := make([]string, 0)
+	for rows.Next() {
+		var debtID, name, periodID string
+		var total, first, cashOffset int
+		var scheduledStart, scheduledEnd, periodStart, periodEnd time.Time
+		var amount int64
+		var settlementID *string
+		var settlementMonth *time.Time
+		var settlementAmount *int64
+		if err := rows.Scan(
+			&debtID, &name, &total, &first, &scheduledStart, &scheduledEnd,
+			&periodID, &periodStart, &periodEnd, &amount, &cashOffset,
+			&settlementID, &settlementMonth, &settlementAmount,
+		); err != nil {
+			return nil, fmt.Errorf("scan invoice debt occurrence premise: %w", err)
+		}
+		builder, exists := builders[debtID]
+		if !exists {
+			start, parseErr := yearMonth(scheduledStart)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse debt %s start: %w", debtID, parseErr)
+			}
+			end, parseErr := yearMonth(scheduledEnd)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse debt %s end: %w", debtID, parseErr)
+			}
+			builder = &debtProjectionBuilder{
+				ID: debtID, Name: name, TotalInstallments: total,
+				FirstProjectedInstallment: first, ScheduledStart: start,
+				StoredEnd: end, Periods: []debtdomain.InstallmentPeriod{},
+			}
+			if settlementID != nil && settlementMonth != nil && settlementAmount != nil {
+				month, monthErr := yearMonth(*settlementMonth)
+				if monthErr != nil {
+					return nil, fmt.Errorf("parse debt %s settlement: %w", debtID, monthErr)
+				}
+				builder.Settlement = &debtdomain.EarlySettlement{
+					ID: *settlementID, ReferenceMonth: month,
+					Amount: planningdomain.NewMoney(*settlementAmount),
+				}
+			}
+			builders[debtID] = builder
+			order = append(order, debtID)
+		}
+		interval, intervalErr := monthInterval(periodStart, &periodEnd)
+		if intervalErr != nil {
+			return nil, fmt.Errorf("parse debt period %s: %w", periodID, intervalErr)
+		}
+		builder.Periods = append(builder.Periods, debtdomain.InstallmentPeriod{
+			ID: periodID, Interval: interval, Amount: planningdomain.NewMoney(amount),
+			CashMonthOffset: cashOffset,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("load invoice debt occurrences: %w", err)
+	}
+
+	result := make([]cardinvoice.DebtOccurrence, 0)
+	for _, debtID := range order {
+		builder := builders[debtID]
+		debt, buildErr := debtdomain.NewDebt(debtdomain.NewDebtInput{
+			ID: builder.ID, UserID: ownerID, CurrencyCode: currencyCode,
+			Name: builder.Name, TotalInstallments: builder.TotalInstallments,
+			FirstProjectedInstallment: builder.FirstProjectedInstallment,
+			ScheduledStart:            builder.ScheduledStart, Periods: builder.Periods,
+			Settlement: builder.Settlement, Status: planningdomain.FinancialItemStatusActive,
+		})
+		if buildErr != nil {
+			return nil, fmt.Errorf("build invoice debt %s: %w", debtID, buildErr)
+		}
+		if debt.ScheduledEnd != builder.StoredEnd {
+			return nil, fmt.Errorf("build invoice debt %s: stored end is inconsistent", debtID)
+		}
+		projection, projectErr := debtdomain.ProjectDebt(debtdomain.ProjectionInput{
+			Debt: debt, From: debt.ScheduledStart, To: debt.ScheduledEnd,
+			AsOf: debt.ScheduledStart,
+		})
+		if projectErr != nil {
+			return nil, fmt.Errorf("project invoice debt %s: %w", debtID, projectErr)
+		}
+		for _, occurrence := range projection.Occurrences {
+			var occurrencePeriod *debtdomain.InstallmentPeriod
+			for index := range debt.Periods {
+				if debt.Periods[index].Interval.Contains(occurrence.ReferenceMonth) {
+					occurrencePeriod = &debt.Periods[index]
+					break
+				}
+			}
+			if occurrencePeriod == nil {
+				return nil, fmt.Errorf("project invoice debt %s: occurrence period is missing", debtID)
+			}
+			directCashMonth, cashErr := occurrence.ReferenceMonth.AddMonths(occurrencePeriod.CashMonthOffset)
+			if cashErr != nil {
+				return nil, fmt.Errorf("project invoice debt %s direct cash month: %w", debtID, cashErr)
+			}
+			result = append(result, cardinvoice.DebtOccurrence{
+				DebtID: debt.ID, SourceID: occurrence.SourceID, Name: debt.Name,
+				ReferenceMonth: occurrence.ReferenceMonth, DirectCashMonth: directCashMonth,
+				InstallmentNumber: occurrence.InstallmentNumber,
+				InstallmentsTotal: occurrence.InstallmentsTotal,
+				Amount:            occurrence.Amount, Kind: occurrence.Kind,
+			})
+		}
+	}
+	return result, nil
 }
 
 func loadPaymentPeriods(ctx context.Context, tx pgx.Tx, ownerID, currencyCode string, items []cardinvoice.FinancialItem, indexes map[string]int) error {

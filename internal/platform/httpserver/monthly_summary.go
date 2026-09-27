@@ -86,6 +86,18 @@ func monthlySummaryResponse(summary monthlysummary.Summary) map[string]any {
 		if source.ReferenceKnown != nil {
 			response["reference_known"] = *source.ReferenceKnown
 		}
+		if source.DebtID != nil {
+			response["debt_id"] = *source.DebtID
+		}
+		if source.InstallmentNumber != nil {
+			response["installment_number"] = *source.InstallmentNumber
+		}
+		if source.InstallmentsTotal != nil {
+			response["installments_total"] = *source.InstallmentsTotal
+		}
+		if source.DebtOccurrenceKind != nil {
+			response["debt_occurrence_kind"] = *source.DebtOccurrenceKind
+		}
 		sources[index] = response
 	}
 	return map[string]any{
@@ -98,6 +110,7 @@ func monthlySummaryResponse(summary monthlysummary.Summary) map[string]any {
 			"one_time_income_cents":             summary.Breakdown.OneTimeIncomeCents,
 			"fixed_expenses_cents":              summary.Breakdown.FixedExpensesCents,
 			"projected_variable_expenses_cents": summary.Breakdown.ProjectedVariableExpensesCents,
+			"debt_installments_cents":           summary.Breakdown.DebtInstallmentsCents,
 			"card_invoice_adjustments_cents":    summary.Breakdown.CardInvoiceAdjustmentsCents,
 		},
 		"sources": sources,

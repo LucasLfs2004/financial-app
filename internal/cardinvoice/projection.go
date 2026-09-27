@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	planning "github.com/lucas/financial-api/internal/planning/domain"
 )
 
@@ -17,6 +18,10 @@ type Occurrence struct {
 	DefaultCardID       string
 	DefaultPaymentMonth planning.YearMonth
 	Amount              planning.Money
+	DebtID              *string
+	InstallmentNumber   *int
+	InstallmentsTotal   *int
+	DebtOccurrenceKind  *debtdomain.OccurrenceKind
 }
 
 type OccurrenceIdentity struct {
@@ -67,17 +72,21 @@ type ProjectionInput struct {
 }
 
 type Component struct {
-	SourceID       string
-	SourceType     ComponentType
-	ItemID         *string
-	AdjustmentID   *string
-	Name           string
-	ReferenceMonth *planning.YearMonth
-	ReferenceKnown bool
-	PaymentMonth   planning.YearMonth
-	CardID         string
-	Amount         planning.Money
-	Allocation     AllocationOrigin
+	SourceID           string
+	SourceType         ComponentType
+	ItemID             *string
+	AdjustmentID       *string
+	Name               string
+	ReferenceMonth     *planning.YearMonth
+	ReferenceKnown     bool
+	PaymentMonth       planning.YearMonth
+	CardID             string
+	Amount             planning.Money
+	Allocation         AllocationOrigin
+	DebtID             *string
+	InstallmentNumber  *int
+	InstallmentsTotal  *int
+	DebtOccurrenceKind *debtdomain.OccurrenceKind
 }
 
 type Invoice struct {
@@ -153,6 +162,8 @@ func projectComponents(occurrences []Occurrence, adjustments []Adjustment, moves
 			ItemID: &itemID, Name: occurrence.Name, ReferenceMonth: &referenceMonth,
 			ReferenceKnown: true, PaymentMonth: paymentMonth, CardID: cardID,
 			Amount: occurrence.Amount, Allocation: allocation,
+			DebtID: occurrence.DebtID, InstallmentNumber: occurrence.InstallmentNumber,
+			InstallmentsTotal: occurrence.InstallmentsTotal, DebtOccurrenceKind: occurrence.DebtOccurrenceKind,
 		})
 	}
 	seenAdjustments := make(map[string]struct{}, len(adjustments))
@@ -188,6 +199,20 @@ func validateOccurrence(occurrence Occurrence) (string, error) {
 	}
 	if occurrence.Amount.IsNegative() {
 		return "", ErrNegativeAmount
+	}
+	debtMetadataCount := 0
+	for _, present := range []bool{occurrence.DebtID != nil, occurrence.InstallmentNumber != nil, occurrence.InstallmentsTotal != nil, occurrence.DebtOccurrenceKind != nil} {
+		if present {
+			debtMetadataCount++
+		}
+	}
+	if debtMetadataCount != 0 && debtMetadataCount != 4 {
+		return "", ErrInvalidProjectionInput
+	}
+	if debtMetadataCount == 4 && (strings.TrimSpace(*occurrence.DebtID) == "" || *occurrence.DebtID != occurrence.ItemID ||
+		*occurrence.InstallmentNumber < 1 || *occurrence.InstallmentsTotal < *occurrence.InstallmentNumber ||
+		!occurrence.DebtOccurrenceKind.Valid()) {
+		return "", ErrInvalidProjectionInput
 	}
 	identity, err := NewOccurrenceIdentity(occurrence.ItemID, occurrence.ReferenceMonth)
 	if err != nil {

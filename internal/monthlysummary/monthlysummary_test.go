@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lucas/financial-api/internal/cardinvoice"
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	"github.com/lucas/financial-api/internal/financialitem"
 	"github.com/lucas/financial-api/internal/planning"
 	"github.com/lucas/financial-api/internal/planning/domain"
@@ -134,6 +135,75 @@ func TestCalculateMonthlySummaryUsesMovedInvoiceOnlyInDestinationCashMonth(t *te
 	augustSummary, err := CalculateMonthlySummary(Input{Month: august, Basis: domain.SummaryBasisCash, Plan: summaryPlan(t), Items: []financialitem.Item{item}, InvoiceData: invoiceData})
 	if err != nil || augustSummary.CommitmentsCents != 70000 || len(augustSummary.Sources) != 1 || augustSummary.Sources[0].InvoiceAllocation == nil || *augustSummary.Sources[0].InvoiceAllocation != cardinvoice.AllocationMovedByUser {
 		t.Fatalf("august=%+v error=%v", augustSummary, err)
+	}
+}
+
+func TestCalculateMonthlySummaryIntegratesDebtByReferenceAndCashWithoutReleaseSource(t *testing.T) {
+	jan := summaryMonth(t, "2026-01")
+	feb := summaryMonth(t, "2026-02")
+	mar := summaryMonth(t, "2026-03")
+	debtPeriod := financialitem.Period{
+		ID: "debt-period", StartMonth: jan, EndMonth: &mar,
+		AmountCents: 10000, Recurrence: domain.RecurrenceMonthly, CashMonthOffset: 0,
+	}
+	debtItem := financialitem.Item{
+		ID: "debt", Name: "Parcelamento", Kind: domain.FinancialItemKindDebtInstallment,
+		Periods: []financialitem.Period{debtPeriod},
+	}
+	planInterval, _ := domain.NewMonthInterval(jan, summaryMonth(t, "2026-12"))
+	febInterval, _ := domain.NewMonthInterval(feb, feb)
+	configuration, _ := cardinvoice.NewCardConfiguration(10, 1)
+	configurationPeriod, _ := cardinvoice.NewCardConfigurationPeriod("card-period", planInterval, configuration)
+	paymentPeriod, _ := cardinvoice.NewPaymentMethodPeriod("payment", febInterval, cardinvoice.PaymentMethodCreditCard, "card")
+	invoiceData := cardinvoice.ProjectionData{
+		Cards: []cardinvoice.Card{{ID: "card", Name: "Principal", Configurations: []cardinvoice.CardConfigurationPeriod{configurationPeriod}}},
+		Items: []cardinvoice.FinancialItem{{
+			ID: "debt", Name: "Parcelamento", Kind: domain.FinancialItemKindDebtInstallment,
+			PaymentPeriods: []cardinvoice.PaymentMethodPeriod{paymentPeriod},
+		}},
+		DebtOccurrences: []cardinvoice.DebtOccurrence{
+			{DebtID: "debt", SourceID: "debt-period", Name: "Parcelamento", ReferenceMonth: jan, DirectCashMonth: jan, InstallmentNumber: 1, InstallmentsTotal: 3, Amount: domain.NewMoney(10000), Kind: debtdomain.OccurrenceKindScheduled},
+			{DebtID: "debt", SourceID: "settlement", Name: "Parcelamento", ReferenceMonth: feb, DirectCashMonth: feb, InstallmentNumber: 2, InstallmentsTotal: 3, Amount: domain.NewMoney(25000), Kind: debtdomain.OccurrenceKindEarlySettlement},
+		},
+	}
+
+	reference, err := CalculateMonthlySummary(Input{
+		Month: feb, Basis: domain.SummaryBasisReference, Plan: summaryPlan(t),
+		Items: []financialitem.Item{debtItem}, InvoiceData: invoiceData,
+	})
+	if err != nil || reference.CommitmentsCents != 25000 || reference.Breakdown.DebtInstallmentsCents != 25000 ||
+		len(reference.Sources) != 1 || reference.Sources[0].DebtOccurrenceKind == nil ||
+		*reference.Sources[0].DebtOccurrenceKind != debtdomain.OccurrenceKindEarlySettlement ||
+		reference.Sources[0].PaymentMethod == nil || *reference.Sources[0].PaymentMethod != cardinvoice.PaymentMethodCreditCard {
+		t.Fatalf("reference=%+v error=%v", reference, err)
+	}
+
+	directCash, err := CalculateMonthlySummary(Input{
+		Month: jan, Basis: domain.SummaryBasisCash, Plan: summaryPlan(t),
+		Items: []financialitem.Item{debtItem}, InvoiceData: invoiceData,
+	})
+	if err != nil || directCash.CommitmentsCents != 10000 || directCash.Breakdown.DebtInstallmentsCents != 10000 ||
+		len(directCash.Sources) != 1 || directCash.Sources[0].PaymentMethod == nil ||
+		*directCash.Sources[0].PaymentMethod != cardinvoice.PaymentMethodDirect {
+		t.Fatalf("direct cash=%+v error=%v", directCash, err)
+	}
+
+	cardCash, err := CalculateMonthlySummary(Input{
+		Month: mar, Basis: domain.SummaryBasisCash, Plan: summaryPlan(t),
+		Items: []financialitem.Item{debtItem}, InvoiceData: invoiceData,
+	})
+	if err != nil || cardCash.CommitmentsCents != 25000 || cardCash.Breakdown.DebtInstallmentsCents != 25000 ||
+		len(cardCash.Sources) != 1 || cardCash.Sources[0].InvoicePaymentMonth == nil ||
+		*cardCash.Sources[0].InvoicePaymentMonth != mar {
+		t.Fatalf("card cash=%+v error=%v", cardCash, err)
+	}
+
+	afterRelease, err := CalculateMonthlySummary(Input{
+		Month: summaryMonth(t, "2026-04"), Basis: domain.SummaryBasisReference,
+		Plan: summaryPlan(t), Items: []financialitem.Item{debtItem}, InvoiceData: invoiceData,
+	})
+	if err != nil || afterRelease.CommitmentsCents != 0 || len(afterRelease.Sources) != 0 {
+		t.Fatalf("after release=%+v error=%v", afterRelease, err)
 	}
 }
 

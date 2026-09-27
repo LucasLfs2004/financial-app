@@ -103,7 +103,7 @@ func TestSnapshotV2IsReachableOrderedImmutableAndV1RemainsReadable(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Original.SchemaVersion != 3 {
+	if first.Original.SchemaVersion != 4 {
 		t.Fatalf("schema version=%d", first.Original.SchemaVersion)
 	}
 	var document snapshotV2Document
@@ -157,6 +157,23 @@ func TestSnapshotV2IsReachableOrderedImmutableAndV1RemainsReadable(t *testing.T)
 	legacy, err := repository.FindOriginal(ctx, v1OwnerID)
 	if err != nil || legacy.SchemaVersion != 1 || !json.Valid(legacy.Plan) {
 		t.Fatalf("legacy snapshot=%+v error=%v", legacy, err)
+	}
+	for _, version := range []int{2, 3} {
+		legacyOwnerID := randomTestUUID(t)
+		if _, err := pool.Exec(ctx, `insert into auth.users(id,instance_id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values($1,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',$2,'',now(),'{"provider":"email","providers":["email"]}','{}',now(),now())`, legacyOwnerID, "snapshot-legacy-"+legacyOwnerID+"@example.com"); err != nil {
+			t.Fatal(err)
+		}
+		var legacyPlanID string
+		if err := pool.QueryRow(ctx, `insert into public.plans(user_id,name,status,start_month,end_month,currency_code,activated_at) values($1,'Legado','active','2026-01-01','2026-12-01','BRL',now()) returning id`, legacyOwnerID).Scan(&legacyPlanID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `insert into public.plan_snapshots(plan_id,user_id,kind,schema_version,document) values($1,$2,'original',$3,'{"name":"legado"}'::jsonb)`, legacyPlanID, legacyOwnerID, version); err != nil {
+			t.Fatal(err)
+		}
+		read, err := repository.FindOriginal(ctx, legacyOwnerID)
+		if err != nil || read.SchemaVersion != version || !json.Valid(read.Plan) {
+			t.Fatalf("legacy v%d snapshot=%+v error=%v", version, read, err)
+		}
 	}
 }
 

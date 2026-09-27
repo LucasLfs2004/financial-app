@@ -143,6 +143,9 @@ func componentResponse(component cardinvoice.Component) map[string]any {
 		"name": component.Name, "reference_month": referenceMonth,
 		"reference_known": component.ReferenceKnown, "payment_month": component.PaymentMonth.String(),
 		"amount_cents": component.Amount.Cents(), "allocation": component.Allocation,
+		"debt_id": component.DebtID, "installment_number": component.InstallmentNumber,
+		"installments_total":   component.InstallmentsTotal,
+		"debt_occurrence_kind": component.DebtOccurrenceKind,
 	}
 }
 

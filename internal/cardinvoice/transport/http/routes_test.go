@@ -10,6 +10,7 @@ import (
 
 	"github.com/lucas/financial-api/internal/cardinvoice"
 	invoiceapplication "github.com/lucas/financial-api/internal/cardinvoice/application"
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
 	planningdomain "github.com/lucas/financial-api/internal/planning/domain"
 	"github.com/lucas/financial-api/internal/platform/auth"
 	"github.com/lucas/financial-api/internal/platform/httpapi"
@@ -36,6 +37,10 @@ func TestDetailReturnsInvoiceComposition(t *testing.T) {
 	reference := mustMonth(t, "2026-11")
 	dueDate := time.Date(2026, time.December, 6, 0, 0, 0, 0, time.UTC)
 	itemID := "item"
+	debtID := "item"
+	installmentNumber := 5
+	installmentsTotal := 12
+	occurrenceKind := debtdomain.OccurrenceKindScheduled
 	service := &serviceStub{invoice: cardinvoice.Invoice{
 		CardID: "card", CardName: "Principal", Institution: testInstitution(), PaymentMonth: month,
 		CurrencyCode: "BRL", NominalDueDate: cardinvoice.NominalDueDate{Day: 6, Date: &dueDate, Resolution: cardinvoice.DueDateResolutionExact},
@@ -43,6 +48,8 @@ func TestDetailReturnsInvoiceComposition(t *testing.T) {
 			SourceID: "period", SourceType: cardinvoice.ComponentTypeFinancialItemOccurrence,
 			ItemID: &itemID, Name: "Gasolina", ReferenceMonth: &reference, ReferenceKnown: true,
 			PaymentMonth: month, CardID: "card", Amount: planningdomain.NewMoney(70000), Allocation: cardinvoice.AllocationCalculatedFromReference,
+			DebtID: &debtID, InstallmentNumber: &installmentNumber,
+			InstallmentsTotal: &installmentsTotal, DebtOccurrenceKind: &occurrenceKind,
 		}},
 	}}
 	mux := http.NewServeMux()
@@ -57,7 +64,10 @@ func TestDetailReturnsInvoiceComposition(t *testing.T) {
 		t.Fatal(err)
 	}
 	data := body["data"].(map[string]any)
-	if data["projected_total_cents"] != float64(70000) || data["nominal_due_date"] != "2026-12-06" || len(data["components"].([]any)) != 1 {
+	components := data["components"].([]any)
+	component := components[0].(map[string]any)
+	if data["projected_total_cents"] != float64(70000) || data["nominal_due_date"] != "2026-12-06" || len(components) != 1 ||
+		component["debt_id"] != "item" || component["installment_number"] != float64(5) || component["debt_occurrence_kind"] != "scheduled" {
 		t.Fatalf("body=%v", body)
 	}
 }

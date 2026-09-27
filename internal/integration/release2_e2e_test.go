@@ -20,6 +20,8 @@ import (
 	invoicerepository "github.com/lucas/financial-api/internal/cardinvoice/repository"
 	cardapplication "github.com/lucas/financial-api/internal/creditcard/application"
 	cardrepository "github.com/lucas/financial-api/internal/creditcard/repository"
+	debtapplication "github.com/lucas/financial-api/internal/debt/application"
+	debtrepository "github.com/lucas/financial-api/internal/debt/repository"
 	institutionapplication "github.com/lucas/financial-api/internal/financialinstitution/application"
 	institutionrepository "github.com/lucas/financial-api/internal/financialinstitution/repository"
 	"github.com/lucas/financial-api/internal/financialitem"
@@ -204,7 +206,7 @@ func TestRelease2AcceptanceScenario(t *testing.T) {
 	if err := json.Unmarshal(activation, &activated); err != nil {
 		t.Fatal(err)
 	}
-	if activated.Original.SchemaVersion != 3 || len(activated.Original.Plan.Release2.Cards) != 2 || len(activated.Original.Plan.Release2.Adjustments) != 1 || len(activated.Original.Plan.Release2.Moves) != 1 {
+	if activated.Original.SchemaVersion != 4 || len(activated.Original.Plan.Release2.Cards) != 2 || len(activated.Original.Plan.Release2.Adjustments) != 1 || len(activated.Original.Plan.Release2.Moves) != 1 {
 		t.Fatalf("activation snapshot=%+v", activated.Original)
 	}
 }
@@ -304,12 +306,13 @@ func newRelease2TestServer(t *testing.T, pool *pgxpool.Pool, supabaseURL, publis
 	moves := moveapplication.NewService(moverepository.NewPostgresRepository(pool), plans)
 	adjustments := adjustmentapplication.NewService(adjustmentrepository.NewPostgresRepository(pool), plans)
 	invoices := invoiceapplication.NewService(invoiceRepository, plans)
+	debts := debtapplication.NewService(debtrepository.NewPostgresRepository(pool), profile.NewRepository(pool))
 	summaries := monthlysummary.NewService(plans, itemRepository, savingRepository, invoiceRepository)
 	server := httpserver.New(config.Config{HTTP: config.HTTPConfig{}}, logger, httpserver.Dependencies{
 		Database: pool, Authenticator: auth.NewClient(config.SupabaseConfig{URL: supabaseURL, PublishableKey: publishableKey, AuthTimeout: 5 * time.Second}),
 		Profiles: profile.NewRepository(pool), Plans: plans, FinancialItems: items, Savings: savingService, MonthlySummary: summaries,
 		Institutions: institutions, CreditCards: cards, PaymentMethods: paymentMethods, InvoiceMoves: moves,
-		InvoiceAdjustments: adjustments, CardInvoices: invoices,
+		InvoiceAdjustments: adjustments, CardInvoices: invoices, Debts: debts,
 	})
 	api := httptest.NewServer(server.Handler)
 	t.Cleanup(api.Close)

@@ -1,0 +1,204 @@
+package http
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	debtapplication "github.com/lucas/financial-api/internal/debt/application"
+	debtdomain "github.com/lucas/financial-api/internal/debt/domain"
+	planningdomain "github.com/lucas/financial-api/internal/planning/domain"
+	"github.com/lucas/financial-api/internal/platform/auth"
+	"github.com/lucas/financial-api/internal/platform/httpapi"
+)
+
+type serviceStub struct {
+	created debtapplication.CreateInput
+	changed debtapplication.ChangeInput
+	settled debtapplication.SettlementInput
+}
+
+func (service *serviceStub) Create(_ context.Context, _ string, input debtapplication.CreateInput) (debtapplication.View, error) {
+	service.created = input
+	return responseView(tMonth("2026-09")), nil
+}
+func (*serviceStub) List(context.Context, string, debtapplication.Filters) ([]debtapplication.View, error) {
+	return []debtapplication.View{}, nil
+}
+func (*serviceStub) Find(context.Context, string, string, *planningdomain.YearMonth) (debtapplication.View, error) {
+	return debtapplication.View{}, debtapplication.ErrNotFound
+}
+func (*serviceStub) Update(context.Context, string, string, debtapplication.UpdateInput) (debtapplication.View, error) {
+	return responseView(tMonth("2026-09")), nil
+}
+func (service *serviceStub) Change(_ context.Context, _, _ string, input debtapplication.ChangeInput) (debtapplication.View, error) {
+	service.changed = input
+	return responseView(tMonth("2026-09")), nil
+}
+func (*serviceStub) Archive(context.Context, string, string, debtapplication.ArchiveInput) (debtapplication.View, error) {
+	return responseView(tMonth("2026-09")), nil
+}
+func (*serviceStub) Schedule(_ context.Context, _, _ string, from, to planningdomain.YearMonth) (debtapplication.Schedule, error) {
+	return debtapplication.Schedule{Debt: responseView(from), From: from, To: to, Occurrences: []debtapplication.ScheduleOccurrence{}}, nil
+}
+func (service *serviceStub) Settle(_ context.Context, _, _ string, input debtapplication.SettlementInput) (debtapplication.View, error) {
+	service.settled = input
+	view := responseView(tMonth("2026-09"))
+	view.Debt.Settlement = &debtdomain.EarlySettlement{
+		ID: "settlement", ReferenceMonth: input.ReferenceMonth,
+		Amount: planningdomain.NewMoney(input.AmountCents), Reason: input.Reason,
+	}
+	return view, nil
+}
+func (*serviceStub) Settlement(context.Context, string, string) (debtdomain.EarlySettlement, error) {
+	return debtdomain.EarlySettlement{
+		ID: "settlement", ReferenceMonth: tMonth("2026-10"), Amount: planningdomain.NewMoney(150000),
+	}, nil
+}
+func (*serviceStub) Releases(_ context.Context, _ string, from, _ planningdomain.YearMonth) (debtdomain.ReleaseProjection, error) {
+	return debtdomain.ReleaseProjection{
+		Releases: []debtdomain.Release{{
+			DebtID: "debt", Name: "Transplante", CurrencyCode: "BRL",
+			ScheduledEnd: tMonth("2027-04"), EffectiveEnd: tMonth("2026-10"),
+			ReleaseFrom: tMonth("2026-11"), ReleasedMonthly: planningdomain.NewMoney(60000),
+			Reason: debtdomain.ReleaseReasonEarlySettlement,
+		}},
+		MonthlyTotals: []debtdomain.MonthlyReleaseTotal{{Month: from, Amount: planningdomain.NewMoney(60000)}},
+	}, nil
+}
+
+func TestCreateDebtRoute(t *testing.T) {
+	service := &serviceStub{}
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, service)
+	body := `{"name":"Transplante","original_total_cents":720000,"total_installments":12,"first_projected_installment":5,"scheduled_start_month":"2026-09","installment_amount_cents":60000}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/debts", strings.NewReader(body))
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if service.created.OriginalTotalCents == nil || *service.created.OriginalTotalCents != 720000 {
+		t.Fatalf("created=%+v", service.created)
+	}
+}
+
+func TestCreateDebtRouteRequiresOriginalTotalField(t *testing.T) {
+	service := &serviceStub{}
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, service)
+	body := `{"name":"Dívida","total_installments":1,"first_projected_installment":1,"scheduled_start_month":"2026-09","installment_amount_cents":100}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/debts", strings.NewReader(body))
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestListDebtRouteRejectsInvalidProjectionStatus(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, &serviceStub{})
+	request := httptest.NewRequest(http.MethodGet, "/v1/debts?projection_status=unknown", nil)
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestChangeDebtAmountRoute(t *testing.T) {
+	service := &serviceStub{}
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, service)
+	body := `{"effective_from":"2027-01","installment_amount_cents":65000,"context":"Reajuste"}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/debts/debt/changes", strings.NewReader(body))
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated || service.changed.EffectiveFrom.String() != "2027-01" ||
+		service.changed.InstallmentAmountCents != 65000 {
+		t.Fatalf("status=%d input=%+v body=%s", recorder.Code, service.changed, recorder.Body.String())
+	}
+}
+
+func TestDebtScheduleRouteRequiresAndReturnsInclusiveRange(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, &serviceStub{})
+	request := httptest.NewRequest(http.MethodGet, "/v1/debts/debt/schedule?from=2026-09&to=2027-04", nil)
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"from":"2026-09"`) ||
+		!strings.Contains(recorder.Body.String(), `"to":"2027-04"`) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/v1/debts/debt/schedule?from=2026-09", nil)
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder = httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestDebtEarlySettlementRoutes(t *testing.T) {
+	service := &serviceStub{}
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, service)
+	request := httptest.NewRequest(http.MethodPost, "/v1/debts/debt/early-settlement", strings.NewReader(`{"reference_month":"2026-10","amount_cents":150000,"reason":"Acordo"}`))
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated || service.settled.ReferenceMonth.String() != "2026-10" ||
+		service.settled.AmountCents != 150000 || !strings.Contains(recorder.Body.String(), `"debt_id":"debt"`) {
+		t.Fatalf("status=%d input=%+v body=%s", recorder.Code, service.settled, recorder.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/v1/debts/debt/early-settlement", nil)
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder = httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"reference_month":"2026-10"`) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestDebtReleasesRouteReturnsDetailsAndTotals(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, func(next http.Handler) http.Handler { return next }, &serviceStub{})
+	request := httptest.NewRequest(http.MethodGet, "/v1/debt-releases?from=2026-11&to=2027-01", nil)
+	request = request.WithContext(httpapi.WithPrincipal(request.Context(), auth.Principal{UserID: "owner"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK ||
+		!strings.Contains(recorder.Body.String(), `"reason":"early_settlement"`) ||
+		!strings.Contains(recorder.Body.String(), `"currency_code":"BRL"`) ||
+		!strings.Contains(recorder.Body.String(), `"monthly_totals"`) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func responseView(asOf planningdomain.YearMonth) debtapplication.View {
+	end := tMonth("2027-04")
+	interval, _ := planningdomain.NewMonthInterval(tMonth("2026-09"), end)
+	debt, _ := debtdomain.NewDebt(debtdomain.NewDebtInput{
+		ID: "debt", CurrencyCode: "BRL", Name: "Transplante",
+		TotalInstallments: 12, FirstProjectedInstallment: 5, ScheduledStart: tMonth("2026-09"),
+		Periods: []debtdomain.InstallmentPeriod{{ID: "period", Interval: interval, Amount: planningdomain.NewMoney(60000)}},
+		Status:  planningdomain.FinancialItemStatusActive,
+	})
+	projection, _ := debtdomain.ProjectDebt(debtdomain.ProjectionInput{Debt: debt, From: debt.ScheduledStart, To: debt.ScheduledEnd, AsOf: asOf})
+	return debtapplication.View{Debt: debt, Projection: projection, AsOf: asOf}
+}
+
+func tMonth(value string) planningdomain.YearMonth {
+	month, _ := planningdomain.ParseYearMonth(value)
+	return month
+}
