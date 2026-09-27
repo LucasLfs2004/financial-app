@@ -129,12 +129,12 @@ Dependências: R3-T02, R3-T05, R3-T06.
 
 ### R3-T08 — Integrar métodos de pagamento
 
-- [ ] ampliar domínio e banco para aceitar dívida;
-- [ ] manter fallback direto;
-- [ ] permitir cartão por vigência;
-- [ ] continuar rejeitando rendas;
-- [ ] testar troca de cartão e retorno ao direto;
-- [ ] manter testes R2 verdes.
+- [x] ampliar domínio e banco para aceitar dívida;
+- [x] manter fallback direto;
+- [x] permitir cartão por vigência;
+- [x] continuar rejeitando rendas;
+- [x] testar troca de cartão e retorno ao direto;
+- [x] manter testes R2 verdes.
 
 Dependências: R3-T03, R3-T05 e módulo R2 de métodos.
 

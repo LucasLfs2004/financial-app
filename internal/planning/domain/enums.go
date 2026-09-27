@@ -58,7 +58,9 @@ func (k FinancialItemKind) IsIncome() bool {
 }
 
 func (k FinancialItemKind) IsExpense() bool {
-	return k == FinancialItemKindFixedExpense || k == FinancialItemKindProjectedVariableExpense
+	return k == FinancialItemKindFixedExpense ||
+		k == FinancialItemKindProjectedVariableExpense ||
+		k == FinancialItemKindDebtInstallment
 }
 
 type FinancialItemStatus string

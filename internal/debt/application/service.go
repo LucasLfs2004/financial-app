@@ -23,13 +23,14 @@ const (
 )
 
 var (
-	ErrValidation               = errors.New("invalid debt input")
-	ErrNotFound                 = errors.New("debt not found")
-	ErrArchived                 = errors.New("debt is archived")
-	ErrPaymentMethodUnsupported = errors.New("debt payment method is not available yet")
-	ErrChangeOutsideSchedule    = errors.New("debt change is outside the schedule")
-	ErrChangeAfterSettlement    = errors.New("debt change is after early settlement")
-	ErrProjectionInconsistent   = errors.New("debt projection is inconsistent")
+	ErrValidation             = errors.New("invalid debt input")
+	ErrNotFound               = errors.New("debt not found")
+	ErrArchived               = errors.New("debt is archived")
+	ErrPaymentCardNotFound    = errors.New("debt payment credit card not found")
+	ErrPaymentCardArchived    = errors.New("debt payment credit card is archived")
+	ErrChangeOutsideSchedule  = errors.New("debt change is outside the schedule")
+	ErrChangeAfterSettlement  = errors.New("debt change is after early settlement")
+	ErrProjectionInconsistent = errors.New("debt projection is inconsistent")
 )
 
 type Repository interface {
@@ -81,6 +82,8 @@ type CreateRecord struct {
 	InstallmentAmountCents    int64
 	CashMonthOffset           int
 	Context                   *string
+	PaymentMethod             cardinvoice.PaymentMethod
+	CreditCardID              *string
 }
 
 type Filters struct {
@@ -342,11 +345,18 @@ func validateCreate(input CreateInput) (CreateRecord, error) {
 		input.InstallmentAmountCents <= 0 || input.CashMonthOffset < 0 || input.CashMonthOffset > 12 {
 		return CreateRecord{}, ErrValidation
 	}
-	if input.PaymentMethod != "" && input.PaymentMethod != "direct" {
-		return CreateRecord{}, ErrPaymentMethodUnsupported
+	paymentMethod := cardinvoice.PaymentMethodDirect
+	if input.PaymentMethod != "" {
+		parsed, err := cardinvoice.ParsePaymentMethod(input.PaymentMethod)
+		if err != nil {
+			return CreateRecord{}, ErrValidation
+		}
+		paymentMethod = parsed
 	}
-	if input.CreditCardID != nil {
-		return CreateRecord{}, ErrPaymentMethodUnsupported
+	if (paymentMethod == cardinvoice.PaymentMethodCreditCard &&
+		(input.CreditCardID == nil || strings.TrimSpace(*input.CreditCardID) == "")) ||
+		(paymentMethod == cardinvoice.PaymentMethodDirect && input.CreditCardID != nil) {
+		return CreateRecord{}, ErrValidation
 	}
 	var originalTotal *planningdomain.Money
 	if input.OriginalTotalCents != nil {
@@ -384,7 +394,7 @@ func validateCreate(input CreateInput) (CreateRecord, error) {
 		TotalInstallments: input.TotalInstallments, FirstProjectedInstallment: input.FirstProjectedInstallment,
 		ScheduledStart: input.ScheduledStart, ScheduledEnd: scheduledEnd,
 		InstallmentAmountCents: input.InstallmentAmountCents, CashMonthOffset: input.CashMonthOffset,
-		Context: input.Context,
+		Context: input.Context, PaymentMethod: paymentMethod, CreditCardID: input.CreditCardID,
 	}, nil
 }
 

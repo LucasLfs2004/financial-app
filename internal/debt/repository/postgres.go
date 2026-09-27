@@ -61,6 +61,33 @@ func (repository *PostgresRepository) Create(ctx context.Context, ownerID, curre
 		return debtdomain.Debt{}, mapError("create debt metadata", err)
 	}
 
+	if input.PaymentMethod == cardinvoice.PaymentMethodCreditCard {
+		var cardStatus string
+		err = tx.QueryRow(ctx, `
+			select status from public.credit_cards
+			where id = $1 and user_id = $2
+			for share
+		`, nullable(input.CreditCardID), ownerID).Scan(&cardStatus)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return debtdomain.Debt{}, debtapplication.ErrPaymentCardNotFound
+		}
+		if err != nil {
+			return debtdomain.Debt{}, fmt.Errorf("check initial debt payment card: %w", err)
+		}
+		if cardStatus == "archived" {
+			return debtdomain.Debt{}, debtapplication.ErrPaymentCardArchived
+		}
+		_, err = tx.Exec(ctx, `
+			insert into public.financial_item_payment_periods (
+				financial_item_id, user_id, start_month, end_month,
+				method, credit_card_id
+			) values ($1, $2, $3, $4, 'credit_card', $5)
+		`, debtID, ownerID, input.ScheduledStart.Time(), input.ScheduledEnd.Time(), nullable(input.CreditCardID))
+		if err != nil {
+			return debtdomain.Debt{}, mapError("create initial debt payment method", err)
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return debtdomain.Debt{}, mapError("commit debt creation", err)
 	}

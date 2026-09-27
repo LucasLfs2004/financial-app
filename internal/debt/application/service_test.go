@@ -85,15 +85,30 @@ func TestCreateValidatesAndDelegatesCompleteSchedule(t *testing.T) {
 	}
 }
 
-func TestCreateRejectsUnsupportedCardUntilPaymentIntegration(t *testing.T) {
+func TestCreateAcceptsInitialCreditCardPayment(t *testing.T) {
+	repository := &repositoryStub{}
+	service := NewService(repository, profileStub{profile.Profile{CurrencyCode: "BRL", Timezone: "UTC"}})
+	cardID := "card"
+	_, err := service.Create(context.Background(), "owner", CreateInput{
+		Name: "Dívida", TotalInstallments: 2, FirstProjectedInstallment: 1,
+		ScheduledStart: month(t, "2026-01"), InstallmentAmountCents: 100,
+		PaymentMethod: "credit_card", CreditCardID: &cardID,
+	})
+	if err != nil || repository.created.PaymentMethod != cardinvoice.PaymentMethodCreditCard ||
+		repository.created.CreditCardID == nil || *repository.created.CreditCardID != cardID {
+		t.Fatalf("created=%+v error=%v", repository.created, err)
+	}
+}
+
+func TestCreateValidatesPaymentMethodCardPair(t *testing.T) {
 	service := NewService(&repositoryStub{}, profileStub{profile.Profile{CurrencyCode: "BRL", Timezone: "UTC"}})
 	_, err := service.Create(context.Background(), "owner", CreateInput{
 		Name: "Dívida", TotalInstallments: 2, FirstProjectedInstallment: 1,
 		ScheduledStart: month(t, "2026-01"), InstallmentAmountCents: 100,
 		PaymentMethod: "credit_card",
 	})
-	if !errors.Is(err, ErrPaymentMethodUnsupported) {
-		t.Fatalf("expected unsupported payment method, got %v", err)
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("expected validation error, got %v", err)
 	}
 }
 

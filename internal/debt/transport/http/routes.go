@@ -365,8 +365,10 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		httpapi.WriteError(w, http.StatusNotFound, "not_found", "Resource not found")
 	case errors.Is(err, debtapplication.ErrArchived):
 		httpapi.WriteError(w, http.StatusConflict, "debt_archived", "The debt is archived")
-	case errors.Is(err, debtapplication.ErrPaymentMethodUnsupported):
-		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_payment_method", "The payment method is incompatible with this resource")
+	case errors.Is(err, debtapplication.ErrPaymentCardNotFound):
+		httpapi.WriteError(w, http.StatusNotFound, "not_found", "Resource not found")
+	case errors.Is(err, debtapplication.ErrPaymentCardArchived):
+		httpapi.WriteError(w, http.StatusConflict, "card_archived", "The credit card is archived")
 	case errors.Is(err, debtapplication.ErrChangeOutsideSchedule), errors.Is(err, debtapplication.ErrChangeAfterSettlement):
 		httpapi.WriteError(w, http.StatusUnprocessableEntity, "invalid_debt_schedule", "The debt change is outside the mutable schedule")
 	case errors.Is(err, debtdomain.ErrDebtScheduleTooLong):
