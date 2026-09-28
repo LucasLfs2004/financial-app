@@ -18,6 +18,7 @@ function toCents(value: FormDataEntryValue | null) {
 export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("direct");
   const editing = Boolean(debt);
@@ -26,25 +27,31 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setSuccess("");
     setLoading(true);
-    const values = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const values = new FormData(form);
     const payload = editing
       ? { name: String(values.get("name")).trim(), description: String(values.get("description") ?? "").trim() || null }
       : {
           name: String(values.get("name")).trim(),
           description: String(values.get("description") ?? "").trim() || null,
-          original_total_cents: toCents(values.get("original_total")),
+          original_total_cents: values.get("original_total") ? toCents(values.get("original_total")) : null,
           total_installments: Number(values.get("total_installments")),
           first_projected_installment: Number(values.get("first_projected_installment")),
           scheduled_start_month: String(values.get("scheduled_start_month")),
           installment_amount_cents: toCents(values.get("installment_amount")),
           cash_month_offset: Number(values.get("cash_month_offset") || 0),
+          context: String(values.get("context") ?? "").trim() || null,
           payment_method: String(values.get("payment_method")),
           credit_card_id: values.get("payment_method") === "credit_card" ? String(values.get("credit_card_id")) : null,
         };
 
     try {
+      if (!editing && Number(values.get("first_projected_installment")) > Number(values.get("total_installments"))) throw new Error("A primeira parcela projetada precisa estar dentro do total de parcelas.");
       await browserApiFetch(editing ? `/debts/${debt?.id}` : "/debts", { method: editing ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      setSuccess(editing ? "Dívida atualizada." : "Dívida cadastrada. O cronograma já está disponível na lista.");
+      if (!editing) form.reset();
       onCancel?.();
       router.refresh();
     } catch (caughtError) {
@@ -60,13 +67,15 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
         <div className="section-heading"><div><span className="section-kicker">{editing ? "EDITAR DÍVIDA" : "NOVA DÍVIDA"}</span><CardTitle>{editing ? "Atualizar dívida" : "Adicione uma dívida"}</CardTitle></div><Landmark size={20} /></div>
         <p className="section-description">O cronograma será calculado automaticamente a partir da primeira parcela projetada.</p>
         {error && <Alert color="error" title="Não foi possível salvar">{error}</Alert>}
+        {success && <Alert color="success">{success}</Alert>}
         <form className="resource-form" onSubmit={submit}>
           <Input name="name" label="Nome da dívida" defaultValue={debt?.name ?? ""} placeholder="Ex.: Financiamento do carro" required maxLength={120} />
           <Input name="description" label="Descrição" defaultValue={debt?.description ?? ""} placeholder="Opcional" maxLength={1000} />
           {!editing && <>
-            <div className="form-grid-two"><Input name="original_total" type="number" min="0" step="0.01" label="Valor original (R$)" placeholder="0,00" required /><Input name="installment_amount" type="number" min="0.01" step="0.01" label="Valor da parcela (R$)" placeholder="0,00" required /></div>
+            <div className="form-grid-two"><Input name="original_total" type="number" min="0" step="0.01" label="Valor original (R$) · opcional" placeholder="0,00" /><Input name="installment_amount" type="number" min="0.01" step="0.01" label="Valor da parcela (R$)" placeholder="0,00" required /></div>
             <div className="form-grid-two"><Input name="total_installments" type="number" min="1" label="Total de parcelas" placeholder="12" required /><Input name="first_projected_installment" type="number" min="1" label="Parcela atual" placeholder="1" required /></div>
             <div className="form-grid-two"><Input name="scheduled_start_month" type="month" label="Início projetado" defaultValue={new Date().toISOString().slice(0, 7)} required /><Input name="cash_month_offset" type="number" min="0" max="12" label="Atraso de caixa (meses)" defaultValue="0" required /></div>
+            <Input name="context" label="Contexto da parcela" placeholder="Opcional" maxLength={500} />
             <label className="native-field"><span>Forma de pagamento</span><select name="payment_method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="direct">Pagamento direto</option><option value="credit_card" disabled={activeCards.length === 0}>Cartão de crédito</option></select></label>
             {paymentMethod === "credit_card" && <label className="native-field"><span>Cartão de crédito</span><select name="credit_card_id" defaultValue="" required><option value="" disabled>Selecione um cartão</option>{activeCards.map((card) => <option value={card.id} key={card.id}>{card.name} · {card.institution.name}</option>)}</select></label>}
             {activeCards.length === 0 && <p className="resource-hint">Quer pagar no cartão? <Link className="small-link" href="/cards#new-card">Cadastre um cartão primeiro</Link></p>}

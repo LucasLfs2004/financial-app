@@ -1,0 +1,3 @@
+export function currentMonth() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; }
+export function addMonths(month: string, count: number) { const [year, part] = month.split("-").map(Number); const date = new Date(Date.UTC(year, part - 1 + count, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`; }
+export function formatMonth(month: string) { const [year, part] = month.split("-").map(Number); return new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, part - 1, 2))); }

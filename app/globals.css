@@ -455,6 +455,46 @@ img, video, iframe { max-width: 100%; }
 .next-actions-panel > a > svg { color: var(--foreground-tertiary); }
 #new-debt, #new-card, #new-item { scroll-margin-top: 24px; }
 
+/* Release 3: dívida projetada e cronograma. */
+.debt-card-release { margin: -12px 0 17px; color: var(--foreground-tertiary); font-size: 11px; }
+.debt-detail-link { display: inline-flex; align-items: center; gap: 4px; padding: 8px; color: var(--primary); font-size: 11px; font-weight: 700; text-decoration: none; }
+.debt-detail-link:hover, .debt-release-list a:hover { text-decoration: underline; }
+.debt-releases-section { margin-bottom: 24px; padding: 22px; border: 1px solid var(--border); border-radius: 20px; background: linear-gradient(120deg, rgb(22 53 67 / 75%), rgb(10 26 42 / 90%)); }
+.debt-releases-section > p, .debt-projection-note { color: var(--foreground-secondary); font-size: 12px; line-height: 1.6; }
+.debt-release-list { display: grid; gap: 9px; margin-top: 15px; }
+.debt-release-months { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 15px; }
+.debt-release-months > div { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 12px; }
+.debt-release-months span { color: var(--foreground-tertiary); font-size: 11px; }
+.debt-release-months strong { color: var(--primary); font-size: 13px; }
+.debt-release-list a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 12px; color: var(--foreground); text-decoration: none; }
+.debt-release-list a span { display: grid; gap: 3px; }
+.debt-release-list small { color: var(--foreground-tertiary); }
+.debt-release-list a > strong { white-space: nowrap; color: var(--primary); }
+.debt-detail-stats { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.debt-detail-stats > div { display: grid; gap: 7px; padding: 19px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface, #102338); }
+.debt-detail-stats span, .debt-detail-stats small { color: var(--foreground-tertiary); font-size: 11px; }
+.debt-detail-stats strong { font-size: clamp(16px, 2vw, 23px); }
+.debt-detail-grid { display: grid; gap: 22px; margin-top: 26px; }
+.debt-schedule-list, .debt-action-stack { display: grid; gap: 10px; }
+.debt-schedule-row { display: flex; align-items: center; gap: 12px; padding: 15px; border: 1px solid var(--border); border-radius: 14px; background: rgb(15 32 49 / 85%); }
+.debt-schedule-index { min-width: 48px; color: var(--primary); font-weight: 700; }
+.debt-schedule-row > div { display: grid; flex: 1; gap: 4px; }
+.debt-schedule-row small { color: var(--foreground-tertiary); }
+.debt-schedule-row > strong { white-space: nowrap; }
+.debt-schedule-row > svg { color: var(--primary); }
+.debt-action-panel { padding: 20px; border: 1px solid var(--border); border-radius: 18px; background: rgb(15 32 49 / 85%); }
+.debt-action-panel h3 { margin: 0; font-size: 17px; }
+.debt-action-panel p { margin: 7px 0 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.6; }
+.debt-action-panel .resource-form { gap: 12px; }
+.debt-payment-history { display: grid; gap: 5px; margin-top: 11px; color: var(--foreground-tertiary); font-size: 11px; }
+@media (min-width: 800px) { .debt-detail-grid { grid-template-columns: minmax(0, 1.25fr) minmax(330px, .9fr); align-items: start; } }
+@media (max-width: 650px) { .debt-detail-stats, .debt-release-months { grid-template-columns: repeat(2, minmax(0, 1fr)); } .debt-release-list a { align-items: flex-start; } .debt-release-list a > strong { font-size: 12px; } .debt-schedule-row { flex-wrap: wrap; } .debt-schedule-row > strong { margin-left: auto; } }
+.summary-debt-line { display: flex; justify-content: space-between; gap: 12px; margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); font-size: 12px; }
+.summary-debt-line strong { color: var(--foreground); white-space: nowrap; }
+.summary-debt-sources { display: grid; gap: 7px; margin-top: 10px; }
+.summary-debt-sources a { display: flex; justify-content: space-between; gap: 10px; color: var(--primary); font-size: 11px; text-decoration: none; }
+.summary-debt-sources a:hover { text-decoration: underline; }
+
 /* Independent financial records and plan visualizations. */
 .entries-form { max-width: 770px; margin-bottom: 42px; }
 .financial-items-section { margin-top: 4px; }

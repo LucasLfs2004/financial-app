@@ -59,6 +59,10 @@ export type MonthlySummarySource = {
   reference_month: string | null;
   cash_month: string;
   amount_cents: number;
+  debt_id?: string | null;
+  installment_number?: number | null;
+  installments_total?: number | null;
+  debt_occurrence_kind?: "scheduled" | "early_settlement" | null;
 };
 
 export type MonthlySummary = {
@@ -104,6 +108,7 @@ export type CreditCard = {
 };
 export type CardInvoiceComponent = {
   source_id: string; source_type: string; item_id: string | null; adjustment_id: string | null; name: string; reference_month: string | null; reference_known: boolean; payment_month: string; amount_cents: number; allocation: string;
+  debt_id?: string | null; installment_number?: number | null; installments_total?: number | null; debt_occurrence_kind?: "scheduled" | "early_settlement" | null;
 };
 export type CardInvoiceSummary = {
   card_id: string; card_name: string; institution: FinancialInstitution; payment_month: string; nominal_due_day: number; nominal_due_date: string | null; nominal_due_date_resolution: string; currency_code: string; projected_total_cents: number; component_count: number;
@@ -113,6 +118,7 @@ export type CardInvoiceAdjustment = {
   id: string; currency_code: string; credit_card_id: string; payment_month: string; reference_month: string | null; name: string; amount_cents: number; context: string | null; status: "active" | "archived"; archived_at: string | null; created_at: string; updated_at: string;
 };
 
+export type DebtEarlySettlement = { id: string; debt_id: string; reference_month: string; amount_cents: number; reason: string | null; recorded_by: string; recorded_at: string; created_at: string };
 export type Debt = {
   id: string;
   currency_code: string;
@@ -130,10 +136,21 @@ export type Debt = {
   projection_status: DebtProjectionStatus;
   remaining_installments: number;
   status: "active" | "archived";
-  settlement: unknown | null;
+  settlement: DebtEarlySettlement | null;
   created_at: string;
   updated_at: string;
 };
+
+export type DebtOccurrence = {
+  debt_id: string; source_id: string; reference_month: string; installment_number: number; installments_total: number;
+  amount_cents: number; debt_occurrence_kind: "scheduled" | "early_settlement";
+  payment_method: "direct" | "credit_card"; cash_month: string; credit_card_id: string | null;
+  invoice_payment_month: string | null; completeness: "projected";
+};
+export type DebtSchedule = { debt: Debt; range: { from: string; to: string }; occurrences: DebtOccurrence[] };
+export type DebtRelease = { debt_id: string; name: string; currency_code: string; scheduled_end_month: string; effective_end_month: string; release_from_month: string; released_monthly_cents: number; reason: "scheduled_completion" | "early_settlement" };
+export type DebtReleaseList = { releases: DebtRelease[]; monthly_totals: { month: string; released_monthly_cents: number }[] };
+export type PaymentMethodHistory = { financial_item_id: string; default_method: "direct"; periods: { id: string; start_month: string; end_month: string | null; method: "direct" | "credit_card"; credit_card_id: string | null; context: string | null }[] };
 
 export type ApiEnvelope<T> = { data: T };
 export type ApiList<T> = { data: T[] };

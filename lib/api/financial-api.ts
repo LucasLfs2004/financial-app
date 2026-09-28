@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { ApiEnvelope, CardInvoice, CardInvoiceSummary, CreditCard, Debt, FinancialInstitution, FinancialItem, MonthlySummary, OriginalPlanSnapshot, PlannedSavings, Plan } from "@/lib/api/types";
+import type { ApiEnvelope, CardInvoice, CardInvoiceSummary, CreditCard, Debt, DebtReleaseList, DebtSchedule, FinancialInstitution, FinancialItem, MonthlySummary, OriginalPlanSnapshot, PaymentMethodHistory, PlannedSavings, Plan } from "@/lib/api/types";
 
 export type Profile = {
   id: string;
@@ -81,7 +81,11 @@ export async function getCreditCards() { return (await financialApiFetch<{ data:
 export async function getCardInvoices(cardId: string, from: string, to: string) { return (await financialApiFetch<{ data: CardInvoiceSummary[]; range: { from: string; to: string } }>(`/v1/credit-cards/${cardId}/invoices?from=${from}&to=${to}&include_empty=true`)).data; }
 export async function getCardInvoice(cardId: string, month: string) { return (await financialApiFetch<ApiEnvelope<CardInvoice>>(`/v1/credit-cards/${cardId}/invoices/${month}`)).data; }
 
-export async function getDebts() {
-  const response = await financialApiFetch<{ data: Debt[] }>("/v1/debts");
+export async function getDebts(asOf?: string) {
+  const response = await financialApiFetch<{ data: Debt[] }>(`/v1/debts${asOf ? `?as_of=${encodeURIComponent(asOf)}` : ""}`);
   return response.data;
 }
+export async function getDebt(id: string, asOf?: string) { return (await financialApiFetch<ApiEnvelope<Debt>>(`/v1/debts/${encodeURIComponent(id)}${asOf ? `?as_of=${encodeURIComponent(asOf)}` : ""}`)).data; }
+export async function getDebtSchedule(id: string, from: string, to: string) { return (await financialApiFetch<ApiEnvelope<DebtSchedule>>(`/v1/debts/${encodeURIComponent(id)}/schedule?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)).data; }
+export async function getDebtReleases(from: string, to: string) { return (await financialApiFetch<{ data: DebtReleaseList }>(`/v1/debt-releases?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)).data; }
+export async function getPaymentMethodHistory(id: string) { return (await financialApiFetch<ApiEnvelope<PaymentMethodHistory>>(`/v1/financial-items/${encodeURIComponent(id)}/payment-history`)).data; }
