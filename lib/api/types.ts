@@ -132,11 +132,11 @@ export type InvoiceImportPreview = {
   new_count: number;
   existing_count: number;
   skipped_count: number;
-  needs_invoice_count: number;
+  needs_invoice_count?: number;
   new_total_cents: number;
-  new_charges_cents: number;
-  new_payments_cents: number;
-  new_payment_count: number;
+  new_charges_cents?: number;
+  new_payments_cents?: number;
+  new_payment_count?: number;
 };
 export type InvoiceImportResult = InvoiceImportPreview & {
   imported_count?: number;

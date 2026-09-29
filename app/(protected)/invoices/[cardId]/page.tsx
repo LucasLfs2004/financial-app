@@ -22,7 +22,7 @@ export default async function InvoicesPage({ params }: { params: Promise<{ cardI
         const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice.currency_code });
         return <Link className="invoice-card" href={`/invoices/${cardId}/${invoice.payment_month}`} key={invoice.payment_month}>
           <div><span>{invoice.payment_month}</span><strong>{money.format(invoice.projected_total_cents / 100)}</strong></div>
-          <span className="invoice-card-totals">Compras {money.format(invoice.charges_total_cents / 100)} · Pagamentos {money.format(invoice.payments_total_cents / 100)}</span>
+          {Number.isFinite(invoice.charges_total_cents) && Number.isFinite(invoice.payments_total_cents) && <span className="invoice-card-totals">Compras {money.format(invoice.charges_total_cents / 100)} · Pagamentos {money.format(invoice.payments_total_cents / 100)}</span>}
           <small>{invoice.component_count} componente(s) · vencimento dia {invoice.nominal_due_day}</small>
         </Link>;
       })}</div>}
