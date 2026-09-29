@@ -322,12 +322,10 @@ img, video, iframe { max-width: 100%; }
 .invoice-spending-heading, .invoice-chart-selected-heading { display: flex; justify-content: space-between; gap: 16px; }
 .invoice-spending-heading h2 { margin: 6px 0 0; color: var(--foreground); font-size: 21px; letter-spacing: -.04em; }
 .invoice-spending-heading p, .invoice-chart-selected-heading p { margin-top: 5px; color: var(--foreground-tertiary); font-size: 12px; }
-.invoice-chart-navigation { display: flex; flex: 0 0 auto; gap: 6px; }
-.invoice-chart-navigation button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--border); border-radius: 10px; color: var(--foreground); background: var(--surface-2); cursor: pointer; }
-.invoice-chart-navigation button:disabled { opacity: .35; cursor: default; }
-.invoice-chart-navigation button:not(:disabled):hover, .invoice-chart-navigation button:not(:disabled):focus-visible { border-color: var(--primary); outline: none; }
-.invoice-chart-bars { display: grid; height: 215px; margin: 22px 0 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; border-bottom: 1px solid var(--border-strong); background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), rgb(178 207 232 / 10%) 25%); }
-.invoice-chart-month { display: grid; min-width: 0; padding: 0 0 8px; grid-template-rows: 1fr 20px; gap: 9px; border: 0; color: var(--foreground-tertiary); background: transparent; cursor: pointer; }
+.invoice-chart-scroll { max-width: 100%; min-width: 0; margin-top: 22px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; scrollbar-color: var(--border-strong) transparent; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.invoice-chart-scroll:focus-visible { border-radius: 7px; outline: 2px solid var(--primary); outline-offset: 2px; }
+.invoice-chart-bars { display: grid; width: max-content; min-width: 100%; height: 215px; grid-auto-flow: column; grid-auto-columns: clamp(52px, 6vw, 76px); justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--border-strong); background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), rgb(178 207 232 / 10%) 25%); }
+.invoice-chart-month { display: grid; min-width: 0; padding: 0 0 8px; grid-template-rows: 1fr 20px; gap: 9px; scroll-snap-align: center; border: 0; color: var(--foreground-tertiary); background: transparent; cursor: pointer; }
 .invoice-chart-month:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 7px; }
 .invoice-chart-track { display: flex; min-height: 0; align-items: flex-end; justify-content: center; }
 .invoice-chart-bar { display: block; width: min(36px, 72%); min-height: 4px; border-radius: 6px 6px 2px 2px; background: rgb(120 230 195 / 44%); transition: height .2s ease, background .2s ease; }
