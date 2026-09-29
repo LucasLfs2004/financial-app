@@ -84,6 +84,7 @@ export type MonthlySummary = {
     projected_variable_expenses_cents: number;
     debt_installments_cents: number;
     card_invoice_adjustments_cents: number;
+    card_invoice_payments_cents: number;
   };
   sources: MonthlySummarySource[];
 };
@@ -108,17 +109,21 @@ export type CreditCard = {
 };
 export type CardInvoiceComponent = {
   source_id: string; source_type: string; item_id: string | null; adjustment_id: string | null; name: string; reference_month: string | null; reference_known: boolean; payment_month: string; amount_cents: number; allocation: string;
+  payment_date?: string | null;
   debt_id?: string | null; installment_number?: number | null; installments_total?: number | null; debt_occurrence_kind?: "scheduled" | "early_settlement" | null;
 };
 export type CardInvoiceSummary = {
-  card_id: string; card_name: string; institution: FinancialInstitution; payment_month: string; nominal_due_day: number; nominal_due_date: string | null; nominal_due_date_resolution: string; currency_code: string; projected_total_cents: number; component_count: number;
+  card_id: string; card_name: string; institution: FinancialInstitution; payment_month: string; nominal_due_day: number; nominal_due_date: string | null; nominal_due_date_resolution: string; currency_code: string; charges_total_cents: number; payments_total_cents: number; projected_total_cents: number; component_count: number;
 };
 export type CardInvoice = CardInvoiceSummary & { components: CardInvoiceComponent[] };
 export type InvoiceImportRow = {
+  line: number;
   date: string;
   title: string;
   amount_cents: number;
-  status: "new" | "existing" | "skipped" | "imported";
+  kind: "expense" | "payment" | "unsupported";
+  invoice_payment_month?: string;
+  status: "new" | "existing" | "skipped" | "imported" | "needs_invoice";
   reason?: string | null;
 };
 export type InvoiceImportPreview = {
@@ -127,14 +132,14 @@ export type InvoiceImportPreview = {
   new_count: number;
   existing_count: number;
   skipped_count: number;
+  needs_invoice_count: number;
   new_total_cents: number;
+  new_charges_cents: number;
+  new_payments_cents: number;
+  new_payment_count: number;
 };
-export type InvoiceImportResult = {
-  rows: InvoiceImportRow[];
+export type InvoiceImportResult = InvoiceImportPreview & {
   imported_count?: number;
-  existing_count?: number;
-  skipped_count?: number;
-  imported_total_cents?: number;
 };
 export type CardInvoiceAdjustment = {
   id: string; currency_code: string; credit_card_id: string; payment_month: string; reference_month: string | null; name: string; amount_cents: number; context: string | null; status: "active" | "archived"; archived_at: string | null; created_at: string; updated_at: string;

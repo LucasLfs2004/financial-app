@@ -15,5 +15,17 @@ export default async function InvoicesPage({ params }: { params: Promise<{ cardI
     getCardInvoices(cardId, from, addMonths(from, 11)).catch(() => []),
   ]);
   const card = cards.find((item) => item.id === cardId);
-  return <main className="resource-page-shell"><header className="resource-page-header"><Link className="back-link" href="/cards"><ArrowLeft size={16} /> Voltar aos cartões</Link><span className="eyebrow">FATURAS</span><h1>{card?.name ?? "Faturas do cartão"}</h1><p>{card?.institution.name ?? "Composição projetada"}</p></header><section className="resource-list-section"><div className="section-heading compact"><div><span className="section-kicker">PROJEÇÃO</span><h2>Próximas faturas</h2></div><ReceiptText size={20} /></div>{invoices.length === 0 ? <div className="empty-resource-inline">Nenhuma fatura projetada para o intervalo.</div> : <div className="invoice-grid">{invoices.map((invoice) => <Link className="invoice-card" href={`/invoices/${cardId}/${invoice.payment_month}`} key={invoice.payment_month}><div><span>{invoice.payment_month}</span><strong>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice.currency_code }).format(invoice.projected_total_cents / 100)}</strong></div><small>{invoice.component_count} componente(s) · vencimento dia {invoice.nominal_due_day}</small></Link>)}</div>}</section></main>;
+  return <main className="resource-page-shell">
+    <header className="resource-page-header"><Link className="back-link" href="/cards"><ArrowLeft size={16} /> Voltar aos cartões</Link><span className="eyebrow">FATURAS</span><h1>{card?.name ?? "Faturas do cartão"}</h1><p>{card?.institution.name ?? "Composição projetada"}</p></header>
+    <section className="resource-list-section"><div className="section-heading compact"><div><span className="section-kicker">PROJEÇÃO</span><h2>Próximas faturas</h2></div><ReceiptText size={20} /></div>
+      {invoices.length === 0 ? <div className="empty-resource-inline">Nenhuma fatura projetada para o intervalo.</div> : <div className="invoice-grid">{invoices.map((invoice) => {
+        const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice.currency_code });
+        return <Link className="invoice-card" href={`/invoices/${cardId}/${invoice.payment_month}`} key={invoice.payment_month}>
+          <div><span>{invoice.payment_month}</span><strong>{money.format(invoice.projected_total_cents / 100)}</strong></div>
+          <span className="invoice-card-totals">Compras {money.format(invoice.charges_total_cents / 100)} · Pagamentos {money.format(invoice.payments_total_cents / 100)}</span>
+          <small>{invoice.component_count} componente(s) · vencimento dia {invoice.nominal_due_day}</small>
+        </Link>;
+      })}</div>}
+    </section>
+  </main>;
 }
