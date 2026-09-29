@@ -318,6 +318,40 @@ img, video, iframe { max-width: 100%; }
 .cards-hub { display: grid; gap: 24px; }
 .cards-forms { display: grid; gap: 18px; }
 .small-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 8px; color: var(--primary); font-size: 11px; font-weight: 700; }
+.invoice-spending-panel { min-width: 0; margin-bottom: 30px; padding: 22px; border: 1px solid var(--border); border-radius: 20px; background: linear-gradient(145deg, rgb(17 36 56 / 92%), rgb(10 26 42 / 90%)); }
+.invoice-spending-heading, .invoice-chart-selected-heading { display: flex; justify-content: space-between; gap: 16px; }
+.invoice-spending-heading h2 { margin: 6px 0 0; color: var(--foreground); font-size: 21px; letter-spacing: -.04em; }
+.invoice-spending-heading p, .invoice-chart-selected-heading p { margin-top: 5px; color: var(--foreground-tertiary); font-size: 12px; }
+.invoice-chart-navigation { display: flex; flex: 0 0 auto; gap: 6px; }
+.invoice-chart-navigation button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--border); border-radius: 10px; color: var(--foreground); background: var(--surface-2); cursor: pointer; }
+.invoice-chart-navigation button:disabled { opacity: .35; cursor: default; }
+.invoice-chart-navigation button:not(:disabled):hover, .invoice-chart-navigation button:not(:disabled):focus-visible { border-color: var(--primary); outline: none; }
+.invoice-chart-bars { display: grid; height: 215px; margin: 22px 0 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; border-bottom: 1px solid var(--border-strong); background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), rgb(178 207 232 / 10%) 25%); }
+.invoice-chart-month { display: grid; min-width: 0; padding: 0 0 8px; grid-template-rows: 1fr 20px; gap: 9px; border: 0; color: var(--foreground-tertiary); background: transparent; cursor: pointer; }
+.invoice-chart-month:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 7px; }
+.invoice-chart-track { display: flex; min-height: 0; align-items: flex-end; justify-content: center; }
+.invoice-chart-bar { display: block; width: min(36px, 72%); min-height: 4px; border-radius: 6px 6px 2px 2px; background: rgb(120 230 195 / 44%); transition: height .2s ease, background .2s ease; }
+.invoice-chart-month:hover .invoice-chart-bar, .invoice-chart-month.selected .invoice-chart-bar { background: var(--primary); }
+.invoice-chart-bar.empty { background: var(--border-strong); }
+.invoice-chart-month-label { overflow: hidden; font-size: 11px; font-weight: 650; text-overflow: clip; white-space: nowrap; }
+.invoice-chart-month.selected .invoice-chart-month-label { color: var(--primary); }
+.invoice-chart-selected { margin-top: 24px; padding: 19px; border: 1px solid var(--border); border-radius: 15px; background: rgb(6 19 33 / 35%); }
+.invoice-chart-selected-heading > div { min-width: 0; }
+.invoice-chart-selected-heading h3 { margin: 5px 0 0; color: var(--foreground); font-size: 19px; letter-spacing: -.04em; }
+.invoice-chart-selected-heading > strong { flex: 0 0 auto; color: var(--foreground); font-size: 20px; letter-spacing: -.04em; text-align: right; }
+.invoice-chart-selected-heading > strong small { display: block; margin-top: 2px; color: var(--foreground-tertiary); font-size: 10px; font-weight: 500; letter-spacing: 0; }
+.invoice-chart-totals { display: flex; flex-wrap: wrap; gap: 9px 25px; margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--border-subtle); }
+.invoice-chart-totals span { color: var(--foreground-tertiary); font-size: 12px; }
+.invoice-chart-totals strong { margin-left: 5px; color: var(--foreground); }
+.invoice-chart-expenses { margin-top: 18px; }
+.invoice-chart-expenses h4 { margin-bottom: 8px; color: var(--foreground-secondary); font-size: 12px; font-weight: 700; }
+.invoice-chart-expenses ul { margin: 0; padding: 0; list-style: none; }
+.invoice-chart-expenses li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); font-size: 12px; }
+.invoice-chart-expenses li span { min-width: 0; overflow-wrap: anywhere; }
+.invoice-chart-expenses li strong { flex: 0 0 auto; color: var(--foreground); }
+.invoice-chart-message { margin-top: 14px; color: var(--foreground-tertiary); font-size: 12px; }
+.invoice-chart-detail-link { display: inline-flex; align-items: center; gap: 3px; margin-top: 17px; color: var(--primary); font-size: 12px; font-weight: 700; }
+@media (max-width: 480px) { .invoice-spending-panel { padding: 16px 13px; }.invoice-chart-bars { gap: 4px; }.invoice-chart-month-label { font-size: 9px; }.invoice-chart-selected { padding: 15px 13px; }.invoice-chart-selected-heading { flex-wrap: wrap; }.invoice-chart-selected-heading > strong { text-align: left; } }
 .invoice-periods { display: grid; gap: 28px; }
 .invoice-period-section { display: grid; gap: 12px; }
 .invoice-period-heading h3 { color: var(--foreground); font-size: 17px; font-weight: 700; letter-spacing: -.03em; }
