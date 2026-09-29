@@ -98,7 +98,7 @@ export function InvoiceCsvImport({ cards }: { cards: CreditCard[] }) {
     const form = new FormData();
     form.append("file", file);
     try {
-      const response = await browserApiFetch<ImportResponse<InvoiceImportPreview>>(`/credit-cards/${encodeURIComponent(cardId)}/invoices/${month}/imports/preview`, { method: "POST", body: form });
+      const response = await browserApiFetch<ImportResponse<InvoiceImportPreview>>(`/credit-cards/${encodeURIComponent(cardId)}/invoices/${month}/imports/preview`, { method: "POST", body: form, successMessage: false });
       if (version === selectionVersion.current) setPreview({ cardId, month, file, data: unpack(response) });
     } catch (caught) {
       if (version === selectionVersion.current) setError(errorMessage(caught));

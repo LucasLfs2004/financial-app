@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
-export async function createClient() {
+export const createClient = cache(async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -24,4 +25,15 @@ export async function createClient() {
       },
     },
   );
-}
+});
+
+export const getAuthenticatedClaims = cache(async function getAuthenticatedClaims() {
+  const supabase = await createClient();
+  return supabase.auth.getClaims();
+});
+
+export const getAccessToken = cache(async function getAccessToken() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token;
+});

@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { getAccessToken } from "@/lib/supabase/server";
 import type { ApiEnvelope, CardInvoice, CardInvoiceSummary, CreditCard, Debt, DebtReleaseList, DebtSchedule, FinancialInstitution, FinancialItem, MonthlySummary, OriginalPlanSnapshot, PaymentMethodHistory, PlannedSavings, Plan } from "@/lib/api/types";
 
 export type Profile = {
@@ -18,9 +18,7 @@ export class FinancialApiError extends Error {
 }
 
 export async function financialApiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  const token = await getAccessToken();
 
   if (!token) throw new FinancialApiError(401, "Authentication is required");
 

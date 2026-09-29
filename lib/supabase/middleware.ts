@@ -25,7 +25,7 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const isAuthenticated = Boolean(data?.claims?.sub);
-  const isProtectedRoute = ["/dashboard", "/planning", "/debts", "/cards", "/invoices"].some((route) =>
+  const isProtectedRoute = ["/dashboard", "/planning", "/entries", "/debts", "/cards", "/invoices"].some((route) =>
     request.nextUrl.pathname.startsWith(route),
   );
   const isAuthRoute = authRoutes.some((route) => request.nextUrl.pathname.startsWith(route));

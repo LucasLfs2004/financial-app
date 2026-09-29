@@ -16,17 +16,17 @@ function monthOffset(month: string, offset: number) {
 }
 
 export default async function PlanningPage() {
-  const [plan, savings, original] = await Promise.all([
-    getCurrentPlan().catch(() => null),
-    getPlannedSavings().catch(() => null),
-    getOriginalPlan().catch(() => null),
-  ]);
+  const planPromise = getCurrentPlan().catch(() => null);
+  const savingsPromise = getPlannedSavings().catch(() => null);
+  const originalPromise = getOriginalPlan().catch(() => null);
   const dateParts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).formatToParts(new Date());
   const currentMonth = `${dateParts.find((part) => part.type === "year")?.value}-${dateParts.find((part) => part.type === "month")?.value}`;
+  const plan = await planPromise;
   const initialMonth = plan ? currentMonth < plan.start_month ? plan.start_month : currentMonth > plan.end_month ? plan.end_month : currentMonth : currentMonth;
-  const summaries: (MonthlySummary | null)[] = plan
-    ? await Promise.all(Array.from({ length: 5 }, (_, index) => getMonthlySummary(monthOffset(initialMonth, index)).catch(() => null)))
-    : [];
+  const summariesPromise: Promise<(MonthlySummary | null)[]> = plan
+    ? Promise.all(Array.from({ length: 5 }, (_, index) => getMonthlySummary(monthOffset(initialMonth, index)).catch(() => null)))
+    : Promise.resolve([]);
+  const [savings, original, summaries] = await Promise.all([savingsPromise, originalPromise, summariesPromise]);
 
   return <main className="resource-page-shell planning-page">
     <header className="resource-page-header"><Link className="back-link" href="/dashboard"><ArrowLeft size={16} /> Voltar à visão geral</Link><span className="eyebrow">PLANEJAMENTO</span><h1>{plan ? "Seu planejamento" : "Crie seu planejamento"}</h1><p>Visualize o futuro do seu caixa e ajuste o período da projeção. Suas receitas e despesas ficam em uma área própria.</p></header>

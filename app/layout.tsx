@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PwaRegister } from "./pwa-register";
+import { ApiNotifications } from "@/components/api-notifications";
 
 export const metadata: Metadata = {
   title: {
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="pt-BR" className="dark" data-scroll-behavior="smooth">
       <body>
         <PwaRegister />
+        <ApiNotifications />
         {children}
       </body>
     </html>

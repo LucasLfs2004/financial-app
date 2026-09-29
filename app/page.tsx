@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedClaims } from "@/lib/supabase/server";
 
 export default async function Home() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
+  const { data } = await getAuthenticatedClaims();
 
-  redirect(data.user ? "/dashboard" : "/sign-in");
+  redirect(data?.claims?.sub ? "/dashboard" : "/sign-in");
 }

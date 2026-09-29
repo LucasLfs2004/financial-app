@@ -9,11 +9,12 @@ export const metadata: Metadata = { title: "Detalhe da dívida" };
 
 export default async function DebtDetailPage({ params }: { params: Promise<{ debtId: string }> }) {
   const { debtId } = await params;
+  const cardsPromise = getCreditCards().catch(() => []);
   const debt = await getDebt(debtId).catch(() => null);
   if (!debt) return <main className="resource-page-shell"><Link className="back-link" href="/debts"><ArrowLeft size={16} /> Voltar às dívidas</Link><div className="empty-resource-inline">Dívida não encontrada ou indisponível.</div></main>;
   const [schedule, cards, paymentHistory] = await Promise.all([
     getDebtSchedule(debt.id, debt.scheduled_start_month, debt.effective_end_month).catch(() => null),
-    getCreditCards().catch(() => []),
+    cardsPromise,
     getPaymentMethodHistory(debt.id).catch(() => null),
   ]);
   const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: debt.currency_code });
