@@ -9,7 +9,7 @@ export async function browserApiFetch<T>(path: string, init?: RequestInit): Prom
   const response = await fetch(`/api/financial${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...init?.headers,
     },
   });

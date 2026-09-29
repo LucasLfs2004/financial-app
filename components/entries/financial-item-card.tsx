@@ -68,7 +68,7 @@ export function FinancialItemCard({ item, cards }: { item: FinancialItem; cards:
       <span className="financial-record-icon">{income ? <ArrowDownLeft size={22} /> : <ArrowUpRight size={22} />}</span>
       <span className="financial-record-status">{item.status === "active" ? "Ativo" : "Arquivado"}</span>
     </div>
-    <div className="financial-record-title"><div><span>{labels[item.kind] ?? item.kind}</span><h3>{item.name}</h3></div><small>{period?.recurrence === "once" ? "Pontual" : "Mensal"}</small></div>
+    <div className="financial-record-title"><div><span>{item.kind === "fixed_expense" && period?.context === "Assinatura" ? "Assinatura" : labels[item.kind] ?? item.kind}</span><h3>{item.name}</h3></div><small>{period?.recurrence === "once" ? "Pontual" : "Mensal"}</small></div>
     <div className="financial-record-value"><span>Valor {period?.recurrence === "once" ? "registrado" : "por mês"}</span><strong>{money.format((period?.amount_cents ?? 0) / 100)}</strong></div>
     <div className="financial-record-timing"><span><CalendarDays size={16} /> Desde {formatMonth(period?.start_month)}</span>{period?.end_month && period.end_month !== period.start_month && <span>Até {formatMonth(period.end_month)}</span>}</div>
     {item.description && <p className="financial-record-description">{item.description}</p>}

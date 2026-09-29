@@ -114,6 +114,28 @@ export type CardInvoiceSummary = {
   card_id: string; card_name: string; institution: FinancialInstitution; payment_month: string; nominal_due_day: number; nominal_due_date: string | null; nominal_due_date_resolution: string; currency_code: string; projected_total_cents: number; component_count: number;
 };
 export type CardInvoice = CardInvoiceSummary & { components: CardInvoiceComponent[] };
+export type InvoiceImportRow = {
+  date: string;
+  title: string;
+  amount_cents: number;
+  status: "new" | "existing" | "skipped" | "imported";
+  reason?: string | null;
+};
+export type InvoiceImportPreview = {
+  preview_token: string;
+  rows: InvoiceImportRow[];
+  new_count: number;
+  existing_count: number;
+  skipped_count: number;
+  new_total_cents: number;
+};
+export type InvoiceImportResult = {
+  rows: InvoiceImportRow[];
+  imported_count?: number;
+  existing_count?: number;
+  skipped_count?: number;
+  imported_total_cents?: number;
+};
 export type CardInvoiceAdjustment = {
   id: string; currency_code: string; credit_card_id: string; payment_month: string; reference_month: string | null; name: string; amount_cents: number; context: string | null; status: "active" | "archived"; archived_at: string | null; created_at: string; updated_at: string;
 };

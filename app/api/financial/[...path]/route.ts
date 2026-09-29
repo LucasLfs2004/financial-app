@@ -7,14 +7,15 @@ async function forward(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   const targetPath = `/v1/${path.join("/")}${request.nextUrl.search}`;
   const method = request.method;
-  const body = method === "GET" || method === "HEAD" ? undefined : await request.text();
+  const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
   const contentType = request.headers.get("content-type");
 
   try {
     const payload = await financialApiFetch<unknown>(targetPath, {
       method,
-      body: body || undefined,
+      body: body?.byteLength ? body : undefined,
       headers: contentType ? { "Content-Type": contentType } : undefined,
+      signal: path.includes("imports") ? AbortSignal.timeout(30000) : undefined,
     });
     return NextResponse.json(payload);
   } catch (error) {
