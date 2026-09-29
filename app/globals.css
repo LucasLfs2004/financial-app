@@ -261,6 +261,7 @@ img, video, iframe { max-width: 100%; }
 
 /* Resource pages — shared by planning and debts. */
 .resource-page-shell { box-sizing: border-box; width: 100%; max-width: 1120px; min-width: 0; min-height: 100vh; min-height: 100dvh; margin: 0 auto; padding: 24px 18px 48px; }
+.resource-page-shell.invoice-overview-page { padding-top: 16px; }
 .resource-page-header { max-width: 680px; margin-bottom: 26px; }
 .back-link { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 28px; color: var(--foreground-tertiary); font-size: 12px; }
 .resource-page-header .back-link { display: flex; width: fit-content; }
@@ -431,6 +432,7 @@ img, video, iframe { max-width: 100%; }
   .summary-section { padding: 22px; }
   .summary-breakdown { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .resource-page-shell { padding: 44px 30px 70px; }
+  .resource-page-shell.invoice-overview-page { padding-top: 24px; }
   .resource-page-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; }
   .cards-forms { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .invoice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -482,10 +484,14 @@ img, video, iframe { max-width: 100%; }
 .app-mobile-navigation a.active { color: var(--primary); }
 .app-header { position: sticky; z-index: 35; top: 0; display: flex; min-height: 68px; padding: max(10px, env(safe-area-inset-top)) 18px 10px; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border-subtle); background: rgb(7 17 31 / 88%); backdrop-filter: blur(20px); }
 .app-header-leading, .app-header-actions { display: flex; min-width: 0; align-items: center; gap: 12px; }
-.app-header-brand { display: inline-flex; align-items: center; gap: 9px; color: var(--foreground); font-size: 16px; font-weight: 780; letter-spacing: -.045em; white-space: nowrap; }
+.app-header-brand { display: inline-flex; flex: 0 0 auto; align-items: center; color: var(--foreground); }
+.app-header-back { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 10px; color: var(--foreground-secondary); }
+.app-header-back:hover, .app-header-back:focus-visible { color: var(--primary); background: var(--hover); outline: none; }
 .app-header-location { display: grid; gap: 2px; padding-left: 12px; border-left: 1px solid var(--border); }
+.app-header-location.card-invoice-location { padding-left: 0; border-left: 0; }
 .app-header-location span { color: var(--foreground-tertiary); font-size: 10px; }
-.app-header-location strong { overflow: hidden; color: var(--foreground); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.app-header-location strong, .app-header-location h1 { overflow: hidden; margin: 0; color: var(--foreground); font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.app-header-location h1 { font-size: 16px; }
 .app-header-greeting { color: var(--foreground-secondary); font-size: 12px; white-space: nowrap; }
 .dashboard-page { min-height: 100dvh; }
 .overview-month { display: inline-flex; min-height: 39px; padding: 0 10px; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 10px; color: var(--foreground-secondary); background: var(--surface); }
@@ -711,6 +717,7 @@ img, video, iframe { max-width: 100%; }
   .app-header { padding-right: 16px; padding-left: 16px; }
   .app-header-greeting, .app-header-location span { display: none; }
   .app-header-location { max-width: 115px; }
+  .app-header-location.card-invoice-location { max-width: min(45vw, 300px); }
   .overview-month { padding: 0 7px; }.overview-month svg { display: none; }.overview-month input { width: 105px; }
   .overview-content { padding: 27px 16px 40px; }
   .overview-intro { display: block; }.overview-intro p { font-size: 12px; }
@@ -741,7 +748,6 @@ img, video, iframe { max-width: 100%; }
   .sidebar-user > span:last-child { display: grid; gap: 3px; overflow: hidden; }.sidebar-user strong { font-size: 12px; }.sidebar-user small { overflow: hidden; color: var(--foreground-tertiary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
   .app-mobile-navigation { display: none; }
   .app-header { padding-right: 34px; padding-left: 34px; }
-  .app-header-brand { display: none; }
   .app-header-location { padding-left: 0; border-left: 0; }
   .overview-content { padding: 38px 34px 60px; }
 }

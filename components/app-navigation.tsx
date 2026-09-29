@@ -1,8 +1,9 @@
 "use client";
 
+import { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, ChartNoAxesCombined, CreditCard, House, Landmark, Plus, ReceiptText, WalletCards } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChartNoAxesCombined, CreditCard, House, Landmark, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const items = [
@@ -16,6 +17,22 @@ const items = [
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+const HeaderTitleContext = createContext<{ title: string | null; setTitle: (title: string | null) => void } | null>(null);
+
+export function AppHeaderProvider({ children }: { children: React.ReactNode }) {
+  const [title, setTitle] = useState<string | null>(null);
+  return <HeaderTitleContext.Provider value={{ title, setTitle }}>{children}</HeaderTitleContext.Provider>;
+}
+
+export function AppHeaderTitle({ title }: { title: string }) {
+  const setTitle = useContext(HeaderTitleContext)?.setTitle;
+  useEffect(() => {
+    setTitle?.(title);
+    return () => setTitle?.(null);
+  }, [setTitle, title]);
+  return null;
 }
 
 export function AppNavigation({ name, email }: { name: string; email: string }) {
@@ -42,11 +59,14 @@ export function AppNavigation({ name, email }: { name: string; email: string }) 
 export function AppHeader({ name }: { name: string }) {
   const pathname = usePathname();
   const section = items.find(({ href }) => isActive(pathname, href))?.label ?? "Visão geral";
+  const cardInvoiceOverview = /^\/invoices\/[^/]+$/.test(pathname);
+  const pageTitle = useContext(HeaderTitleContext)?.title;
 
   return <header className="app-header">
     <div className="app-header-leading">
-      <Link className="app-header-brand" href="/dashboard" aria-label="Projeção — início"><span className="brand-mark"><ArrowUpRight size={17} /></span><strong>projeção</strong></Link>
-      <div className="app-header-location"><span>Seu espaço financeiro</span><strong>{section}</strong></div>
+      <Link className="app-header-brand" href="/dashboard" aria-label="Projeção — início"><span className="brand-mark"><ArrowUpRight size={17} /></span></Link>
+      {cardInvoiceOverview && <Link className="app-header-back" href="/cards" aria-label="Voltar aos cartões"><ArrowLeft size={19} /></Link>}
+      <div className={`app-header-location${cardInvoiceOverview ? " card-invoice-location" : ""}`}>{!cardInvoiceOverview && <span>Seu espaço financeiro</span>}{cardInvoiceOverview ? <h1>{pageTitle ?? "Faturas do cartão"}</h1> : <strong>{section}</strong>}</div>
     </div>
     <div className="app-header-actions"><span className="app-header-greeting">Olá, {name}</span><SignOutButton /></div>
   </header>;

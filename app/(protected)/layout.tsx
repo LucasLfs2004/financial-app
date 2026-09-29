@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedClaims } from "@/lib/supabase/server";
-import { AppHeader, AppNavigation } from "@/components/app-navigation";
+import { AppHeader, AppHeaderProvider, AppNavigation } from "@/components/app-navigation";
 
 export default async function ProtectedLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const { data, error } = await getAuthenticatedClaims();
@@ -10,5 +10,5 @@ export default async function ProtectedLayout({ children }: Readonly<{ children:
   const email = String(data.claims.email ?? "");
   const name = String(data.claims.user_metadata?.name ?? "").trim().split(" ")[0] || email.split("@")[0] || "Usuário";
 
-  return <div className="app-shell"><AppNavigation name={name} email={email} /><div className="app-main"><AppHeader name={name} />{children}</div></div>;
+  return <div className="app-shell"><AppNavigation name={name} email={email} /><AppHeaderProvider><div className="app-main"><AppHeader name={name} />{children}</div></AppHeaderProvider></div>;
 }

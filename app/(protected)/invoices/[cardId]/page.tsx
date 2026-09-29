@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { ArrowLeft, ReceiptText } from "lucide-react";
+import { ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { getCardInvoices, getCreditCards } from "@/lib/api/financial-api";
 import type { CardInvoiceSummary } from "@/lib/api/types";
 import { addInvoiceMonths, currentMonthInBrazil, invoiceDueDateLabel, invoiceMonthLabel } from "@/lib/invoice-display";
 import { InvoiceSpendingChart } from "@/components/cards/invoice-spending-chart";
+import { AppHeaderTitle } from "@/components/app-navigation";
 
 export const metadata: Metadata = { title: "Faturas" };
 
@@ -29,8 +30,8 @@ export default async function InvoicesPage({ params }: { params: Promise<{ cardI
   const previous = invoices.filter((invoice) => invoice.payment_month === from);
   const current = invoices.filter((invoice) => invoice.payment_month === currentPaymentMonth);
   const future = invoices.filter((invoice) => invoice.payment_month > currentPaymentMonth);
-  return <main className="resource-page-shell">
-    <header className="resource-page-header"><Link className="back-link" href="/cards"><ArrowLeft size={16} /> Voltar aos cartões</Link><span className="eyebrow">FATURAS</span><h1>{card?.name ?? "Faturas do cartão"}</h1><p>{card?.institution.name ?? "Composição projetada"}</p></header>
+  return <main className="resource-page-shell invoice-overview-page">
+    <AppHeaderTitle title={card?.name ?? "Faturas do cartão"} />
     {invoices.length > 0 && <InvoiceSpendingChart cardId={cardId} invoices={invoices} currentPaymentMonth={currentPaymentMonth} />}
     <section className="resource-list-section"><div className="section-heading compact"><div><span className="section-kicker">PROJEÇÃO</span><h2>Suas faturas por período</h2></div><ReceiptText size={20} /></div>
       {invoices.length === 0 ? <div className="empty-resource-inline">Nenhuma fatura projetada para o intervalo.</div> : <div className="invoice-periods">
