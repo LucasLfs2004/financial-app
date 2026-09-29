@@ -318,11 +318,17 @@ img, video, iframe { max-width: 100%; }
 .cards-hub { display: grid; gap: 24px; }
 .cards-forms { display: grid; gap: 18px; }
 .small-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 8px; color: var(--primary); font-size: 11px; font-weight: 700; }
+.invoice-periods { display: grid; gap: 28px; }
+.invoice-period-section { display: grid; gap: 12px; }
+.invoice-period-heading h3 { color: var(--foreground); font-size: 17px; font-weight: 700; letter-spacing: -.03em; }
+.invoice-period-heading p { margin-top: 4px; color: var(--foreground-tertiary); font-size: 12px; }
 .invoice-grid { display: grid; gap: 12px; }
 .invoice-card { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: 17px; background: linear-gradient(145deg, rgb(17 36 56 / 92%), rgb(10 26 42 / 90%)); }
+.invoice-card-current { border-color: var(--primary); box-shadow: 0 0 0 1px rgb(110 231 183 / 14%); }
 .invoice-card > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .invoice-card span, .invoice-card small { color: var(--foreground-tertiary); font-size: 11px; }
 .invoice-card strong { color: var(--foreground); font-size: 18px; letter-spacing: -.04em; }
+.invoice-card .invoice-card-due { color: var(--foreground); font-size: 13px; font-weight: 600; }
 .invoice-card .invoice-card-totals { color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
 .invoice-card small { padding-top: 10px; border-top: 1px solid var(--border-subtle); }
 .invoice-detail-grid { display: grid; gap: 18px; }

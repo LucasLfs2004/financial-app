@@ -6,6 +6,7 @@ import { getCardInvoice, getCreditCards } from "@/lib/api/financial-api";
 import { InvoiceAdjustmentForm } from "@/components/cards/invoice-adjustment-form";
 import { InvoiceMoveForm } from "@/components/cards/invoice-move-form";
 import { formatDate } from "@/lib/format-date";
+import { addInvoiceMonths, currentMonthInBrazil, invoiceDueDateLabel, invoiceMonthLabel } from "@/lib/invoice-display";
 
 export const metadata: Metadata = { title: "Detalhe da fatura" };
 
@@ -15,14 +16,16 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice?.currency_code ?? "BRL" });
   const charges = invoice ? (Number.isFinite(invoice.charges_total_cents) ? invoice.charges_total_cents : invoice.components.filter((component) => component.source_type !== "invoice_payment").reduce((total, component) => total + component.amount_cents, 0)) : 0;
   const payments = invoice ? (Number.isFinite(invoice.payments_total_cents) ? invoice.payments_total_cents : invoice.components.filter((component) => component.source_type === "invoice_payment").reduce((total, component) => total + component.amount_cents, 0)) : 0;
+  const from = currentMonthInBrazil();
+  const category = month === from ? "Fatura do mês passado" : month === addInvoiceMonths(from, 1) ? "Fatura atual" : month > from ? "Fatura futura" : "Fatura anterior";
 
   return <main className="resource-page-shell">
-    <header className="resource-page-header"><Link className="back-link" href={`/invoices/${cardId}`}><ArrowLeft size={16} /> Voltar às faturas</Link><span className="eyebrow">DETALHE DA FATURA</span><h1>{invoice?.card_name ?? "Fatura"}</h1><p>{invoice?.institution.name ?? "Composição da fatura"} · {month}</p></header>
+    <header className="resource-page-header"><Link className="back-link" href={`/invoices/${cardId}`}><ArrowLeft size={16} /> Voltar às faturas</Link><span className="eyebrow">{category.toUpperCase()}</span><h1>{invoice?.card_name ?? "Fatura"}</h1><p>{invoice?.institution.name ?? "Composição da fatura"} · {invoiceMonthLabel(month)}</p></header>
     {!invoice ? <div className="empty-resource-inline">Não foi possível carregar esta fatura.</div> : <div className="invoice-detail-grid">
       <Card className="invoice-total-card" padding="none"><CardContent>
         <CalendarDays size={20} /><span>Saldo projetado da fatura</span><strong>{money.format(invoice.projected_total_cents / 100)}</strong>
         <div className="invoice-total-breakdown"><span>Compras <strong>{money.format(charges / 100)}</strong></span><span>Pagamentos <strong>{money.format(payments / 100)}</strong></span></div>
-        <small>Vencimento nominal: dia {invoice.nominal_due_day}{invoice.nominal_due_date ? ` · ${invoice.nominal_due_date}` : " · data inválida para este mês"}</small>
+        <small>Vencimento da fatura: {invoiceDueDateLabel(invoice)}</small>
       </CardContent></Card>
       <section><div className="section-heading compact"><div><span className="section-kicker">COMPOSIÇÃO</span><h2>{invoice.component_count} componente(s)</h2></div><CircleDollarSign size={20} /></div>
         <div className="resource-list">{invoice.components.map((component) => <Card className="resource-card" padding="none" key={component.source_id}><CardContent className="resource-card-content">
