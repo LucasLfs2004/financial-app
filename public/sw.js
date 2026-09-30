@@ -1,5 +1,10 @@
-const CACHE_NAME = "projecao-static-v3";
-const STATIC_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
+const CACHE_NAME = "projecao-static-v4";
+const STATIC_ASSETS = [
+  "/manifest.webmanifest",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
