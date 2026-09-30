@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Alert, Button, Spinner } from "@lucaslfs2004/luke-ui";
-import { FileUp, ReceiptText, X } from "lucide-react";
+import { ArrowUpRight, FileSpreadsheet, FileUp, ReceiptText, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { browserApiFetch, BrowserApiError } from "@/lib/api/browser-api";
@@ -90,7 +90,7 @@ function Totals({ data, confirmed = false }: { data: InvoiceImportPreview; confi
   </div>;
 }
 
-export function InvoiceCsvImport({ cards }: { cards: CreditCard[] }) {
+export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditCard[]; initialCardId?: string }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,7 +100,7 @@ export function InvoiceCsvImport({ cards }: { cards: CreditCard[] }) {
   const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"file" | "review" | "done">("file");
-  const [cardId, setCardId] = useState("");
+  const [cardId, setCardId] = useState(initialCardId);
   const [month, setMonth] = useState(defaultMonth);
   const [file, setFile] = useState<File | null>(null);
   const [allocations, setAllocations] = useState<Allocations>({});
@@ -129,7 +129,7 @@ export function InvoiceCsvImport({ cards }: { cards: CreditCard[] }) {
 
   function start() {
     invalidate();
-    setCardId("");
+    setCardId(initialCardId);
     setMonth(defaultMonth);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -214,7 +214,7 @@ export function InvoiceCsvImport({ cards }: { cards: CreditCard[] }) {
   const affectedMonths = outcome ? [...new Set(outcome.data.rows.filter((row) => row.status === "imported").map((row) => row.kind === "payment" ? row.invoice_payment_month : outcome.month).filter((value): value is string => Boolean(value)))].sort() : [];
 
   return <>
-    <button className="invoice-import-trigger" type="button" onClick={start}><FileUp size={19} /><span><strong>Importar fatura Nubank</strong><small>Envie o CSV, revise as compras e escolha a fatura de cada pagamento.</small></span></button>
+    <button className="invoice-import-trigger" type="button" onClick={start}><span className="invoice-import-icon"><FileSpreadsheet size={26} /></span><span className="invoice-import-copy"><strong>Importar planilha da fatura</strong><small>Envie o CSV do Nubank e confira os lançamentos antes de salvar.</small></span><ArrowUpRight className="invoice-import-arrow" size={20} /></button>
     <dialog ref={dialogRef} className="invoice-import-dialog" onClose={() => setOpen(false)} onCancel={(event) => { if (pending === "confirm") event.preventDefault(); }} aria-labelledby="invoice-import-title">
       <div className="invoice-import-dialog-header"><div><span className="section-kicker">IMPORTAÇÃO NUBANK</span><h2 id="invoice-import-title">{step === "file" ? "Selecione o arquivo" : step === "review" ? "Revise a importação" : "Importação concluída"}</h2></div><button className="invoice-import-close" type="button" aria-label="Fechar" onClick={() => setOpen(false)} disabled={pending === "confirm"}><X size={19} /></button></div>
       <ol className="invoice-import-steps"><li className={step === "file" ? "active" : "done"}>1. Arquivo</li><li className={step === "review" ? "active" : step === "done" ? "done" : ""}>2. Revisão</li><li className={step === "done" ? "active" : ""}>3. Resultado</li></ol>

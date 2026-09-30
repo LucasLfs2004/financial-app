@@ -59,13 +59,14 @@ export function AppNavigation({ name, email }: { name: string; email: string }) 
 export function AppHeader({ name }: { name: string }) {
   const pathname = usePathname();
   const section = items.find(({ href }) => isActive(pathname, href))?.label ?? "Visão geral";
-  const cardInvoiceOverview = /^\/invoices\/[^/]+$/.test(pathname);
+  const cardInvoiceOverview = /^\/invoices\/[^/]+(?:\/\d{4}-\d{2})?$/.test(pathname);
+  const invoiceDetail = /^\/invoices\/([^/]+)\/\d{4}-\d{2}$/.exec(pathname);
   const pageTitle = useContext(HeaderTitleContext)?.title;
 
   return <header className="app-header">
     <div className="app-header-leading">
       <Link className="app-header-brand" href="/dashboard" aria-label="Projeção — início"><span className="brand-mark"><ArrowUpRight size={17} /></span></Link>
-      {cardInvoiceOverview && <Link className="app-header-back" href="/cards" aria-label="Voltar aos cartões"><ArrowLeft size={19} /></Link>}
+      {cardInvoiceOverview && <Link className="app-header-back" href={invoiceDetail ? `/invoices/${invoiceDetail[1]}` : "/cards"} aria-label={invoiceDetail ? "Voltar ao cartão" : "Voltar aos cartões"}><ArrowLeft size={19} /></Link>}
       <div className={`app-header-location${cardInvoiceOverview ? " card-invoice-location" : ""}`}>{!cardInvoiceOverview && <span>Seu espaço financeiro</span>}{cardInvoiceOverview ? <h1>{pageTitle ?? "Faturas do cartão"}</h1> : <strong>{section}</strong>}</div>
     </div>
     <div className="app-header-actions"><span className="app-header-greeting">Olá, {name}</span><SignOutButton /></div>
