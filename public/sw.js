@@ -1,6 +1,8 @@
-const CACHE_NAME = "projecao-static-v4";
+const CACHE_NAME = "projecao-static-v5";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
+  "/brand-mark.png",
+  "/favicon.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",

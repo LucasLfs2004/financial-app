@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { ArrowUpRight, LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
+import { LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 
 export default function AuthLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <main className="auth-shell">
       <section className="auth-brand-panel" aria-label="Apresentação do produto">
         <Link className="brand" href="/" aria-label="Projeção — início">
-          <span className="brand-mark"><ArrowUpRight size={18} /></span>
+          <BrandMark />
           <span>projeção</span>
         </Link>
 
@@ -25,7 +26,7 @@ export default function AuthLayout({ children }: Readonly<{ children: React.Reac
       <section className="auth-form-panel">
         <div className="auth-mobile-header">
           <Link className="brand" href="/">
-            <span className="brand-mark"><ArrowUpRight size={17} /></span>
+            <BrandMark />
             <span>projeção</span>
           </Link>
           <span className="secure-label"><LockKeyhole size={14} /> Ambiente seguro</span>

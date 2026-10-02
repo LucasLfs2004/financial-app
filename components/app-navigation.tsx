@@ -3,8 +3,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, ChartNoAxesCombined, CreditCard, House, Landmark, Plus, ReceiptText, WalletCards } from "lucide-react";
+import { ArrowLeft, ChartNoAxesCombined, CreditCard, House, Landmark, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
+import { BrandMark } from "@/components/brand-mark";
 
 const items = [
   { href: "/dashboard", label: "Visão geral", mobileLabel: "Início", icon: House },
@@ -40,7 +41,7 @@ export function AppNavigation({ name, email }: { name: string; email: string }) 
 
   return <>
     <aside className="app-sidebar">
-      <Link className="app-sidebar-brand" href="/dashboard"><span className="brand-mark"><ArrowUpRight size={18} /></span><strong>projeção</strong></Link>
+      <Link className="app-sidebar-brand" href="/dashboard"><BrandMark /><strong>projeção</strong></Link>
       <div className="app-sidebar-main">
         <span className="sidebar-label">MENU</span>
         <nav className="sidebar-links" aria-label="Navegação principal">
@@ -65,7 +66,7 @@ export function AppHeader({ name }: { name: string }) {
 
   return <header className="app-header">
     <div className="app-header-leading">
-      <Link className="app-header-brand" href="/dashboard" aria-label="Projeção — início"><span className="brand-mark"><ArrowUpRight size={17} /></span></Link>
+      <Link className="app-header-brand" href="/dashboard" aria-label="Projeção — início"><BrandMark /></Link>
       {cardInvoiceOverview && <Link className="app-header-back" href={invoiceDetail ? `/invoices/${invoiceDetail[1]}` : "/cards"} aria-label={invoiceDetail ? "Voltar ao cartão" : "Voltar aos cartões"}><ArrowLeft size={19} /></Link>}
       <div className={`app-header-location${cardInvoiceOverview ? " card-invoice-location" : ""}`}>{!cardInvoiceOverview && <span>Seu espaço financeiro</span>}{cardInvoiceOverview ? <h1>{pageTitle ?? "Faturas do cartão"}</h1> : <strong>{section}</strong>}</div>
     </div>

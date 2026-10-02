@@ -80,14 +80,12 @@ img, video, iframe { max-width: 100%; }
   letter-spacing: -.045em;
 }
 .brand-mark {
-  display: grid;
+  display: block;
   width: 32px;
   height: 32px;
-  place-items: center;
-  border-radius: 10px;
-  color: var(--primary-foreground);
-  background: linear-gradient(145deg, #99f3d5, var(--primary));
-  box-shadow: 0 9px 28px rgb(120 230 195 / 18%);
+  flex: 0 0 32px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 6px rgb(0 0 0 / 20%));
 }
 .eyebrow {
   display: inline-flex;
@@ -269,7 +267,7 @@ img, video, iframe { max-width: 100%; }
 .resource-page-header h1 { margin: 8px 0 0; font-size: clamp(30px, 8vw, 46px); letter-spacing: -.06em; }
 .resource-page-header p { margin: 10px 0 0; color: var(--foreground-secondary); font-size: 14px; line-height: 1.6; }
 .resource-page-grid { display: grid; gap: 18px; }
-.resource-page-grid > *, .cards-forms > *, .invoice-grid > *, .debts-grid > * { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; }
+.resource-page-grid > *, .invoice-grid > *, .debts-grid > * { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; }
 .form-card, .resource-card, .empty-resource-card { border-color: var(--border) !important; background: linear-gradient(145deg, rgb(17 36 56 / 92%), rgb(10 26 42 / 90%)) !important; }
 .form-card-content, .resource-card-content { padding: 20px 18px; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; color: var(--primary); }
@@ -316,8 +314,19 @@ img, video, iframe { max-width: 100%; }
 .item-row strong { font-size: 13px; }
 .item-row span { margin-top: 4px; color: var(--foreground-tertiary); font-size: 11px; }
 .resource-hint { display: flex; align-items: flex-start; gap: 8px; margin-top: 16px; color: var(--foreground-tertiary); font-size: 11px; line-height: 1.5; }
-.cards-hub { display: grid; gap: 24px; }
-.cards-forms { display: grid; gap: 18px; }
+.cards-hub { display: grid; gap: 18px; }
+.cards-create-feedback:empty { display: none; }
+.cards-drawer { box-sizing: border-box; width: min(480px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; gap: 0; overflow: hidden; border-color: var(--border-strong); border-radius: 20px 0 0 20px; background: var(--surface); }
+.cards-drawer-header { display: flex; padding: 24px; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); }
+.cards-drawer-header h2 { margin: 5px 0 0; font-size: 24px; letter-spacing: -.04em; }
+.cards-drawer-close { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; border: 1px solid var(--border); border-radius: 10px; color: var(--foreground-secondary); background: var(--surface-2); cursor: pointer; }
+.cards-drawer-close:disabled { opacity: .5; cursor: not-allowed; }
+.cards-drawer-body { min-height: 0; padding: 24px; overflow-y: auto; overscroll-behavior: contain; }
+.cards-drawer-body .section-description { margin-top: 0; }
+.cards-drawer-body .resource-form { margin-top: 0; }
+.cards-drawer-body .form-feedback { margin-top: 15px; }
+@media (max-width: 719px) { .cards-page .resource-page-header { margin-bottom: 16px; }.cards-page .back-link { margin-bottom: 12px; }.cards-page .resource-page-header h1 { margin-top: 4px; font-size: 26px; }.cards-page .resource-page-header p { margin-top: 6px; font-size: 12px; line-height: 1.4; } }
+@media (max-width: 520px) { .cards-drawer { width: 100vw; border-radius: 0; }.cards-drawer-header { padding: max(20px, env(safe-area-inset-top)) 20px 20px; }.cards-drawer-body { padding: 20px 20px calc(24px + var(--safe-bottom)); } }
 .small-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 8px; color: var(--primary); font-size: 11px; font-weight: 700; }
 .invoice-overview-content { display: grid; max-width: 760px; gap: 16px; }
 .invoice-featured { padding: 24px; border: 1px solid var(--border); border-radius: 20px; background: linear-gradient(145deg, rgb(20 47 64 / 94%), rgb(10 26 42 / 94%)); }
@@ -471,7 +480,6 @@ img, video, iframe { max-width: 100%; }
   .resource-page-shell { padding: 44px 30px 70px; }
   .resource-page-shell.invoice-overview-page { padding-top: 24px; }
   .resource-page-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; }
-  .cards-forms { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .invoice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .invoice-detail-page { padding-top: 24px; }
   .debts-grid { grid-template-columns: minmax(360px, .85fr) minmax(0, 1.15fr); }
