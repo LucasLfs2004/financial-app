@@ -9,6 +9,9 @@ import { browserApiFetch } from "@/lib/api/browser-api";
 import type { CreditCard, Debt } from "@/lib/api/types";
 import { currentMonth } from "@/lib/debt-month";
 
+import { SubscriptionFields } from "@/components/entries/subscription-fields";
+import { useFinancialItemCreation } from "@/components/entries/use-financial-item-creation";
+
 type DebtFormProps = { debt?: Debt | null; cards?: CreditCard[]; onCancel?: () => void };
 type EntryType = "installments" | "one_time" | "subscription";
 
@@ -25,6 +28,7 @@ function toCents(value: FormDataEntryValue | null) {
 
 export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
   const router = useRouter();
+  const { saveItem, pendingItem } = useFinancialItemCreation();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -68,10 +72,11 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
         const startMonth = String(values.get("start_month"));
         const endMonth = String(values.get("end_month") || "");
         if (entryType === "subscription" && endMonth && endMonth < startMonth) throw new Error("A última cobrança não pode vir antes da primeira.");
-        await browserApiFetch("/financial-items", { method: "POST", body: JSON.stringify({
+        await saveItem({
           name,
           description,
           kind: entryType === "subscription" ? "fixed_expense" : "projected_variable_expense",
+          ...(entryType === "subscription" ? { invoice_match_title: String(values.get("invoice_match_title") || "").trim() || null, renewal_day: values.get("renewal_day") ? Number(values.get("renewal_day")) : null } : {}),
           period: {
             start_month: startMonth,
             end_month: entryType === "subscription" ? endMonth || null : startMonth,
@@ -80,7 +85,7 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
             cash_month_offset: 0,
             context: entryType === "subscription" ? "Assinatura" : null,
           },
-        }) });
+        }, entryType === "subscription" && paymentMethod === "credit_card" ? { effective_from: startMonth, end_month: endMonth || null, method: "credit_card", credit_card_id: String(values.get("credit_card_id") || "") } : null);
       }
       setSuccess(editing ? "Dívida atualizada." : entryType === "installments" ? "Dívida cadastrada. O cronograma já está disponível na lista." : entryType === "subscription" ? "Assinatura cadastrada. Ela já entra na projeção mensal." : "Despesa à vista cadastrada no mês escolhido.");
       if (!editing) form.reset();
@@ -100,7 +105,9 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
         <p className="section-description">{editing ? "Atualize o nome ou a descrição desta dívida." : "Escolha o tipo para ver apenas os campos necessários."}</p>
         {error && <Alert color="error" title="Não foi possível salvar">{error}</Alert>}
         {success && <Alert color="success">{success}{!editing && entryType !== "installments" && <> <Link href="/entries">Ver em receitas e despesas</Link></>}</Alert>}
+        {pendingItem && <Alert color="warning" title="Assinatura criada">{pendingItem.name} foi salva. Tente salvar novamente para concluir o vínculo com o cartão sem duplicar a assinatura.</Alert>}
         <form className="resource-form" onSubmit={submit}>
+          <fieldset className="resource-form subscription-form-fields" disabled={loading || Boolean(pendingItem)}>
           {!editing && <div className="entry-type-picker" role="group" aria-label="Tipo de compromisso">
             {entryTypes.map(({ value, label, description: hint, icon: Icon }) => <button key={value} type="button" className={entryType === value ? "entry-type-option selected" : "entry-type-option"} aria-pressed={entryType === value} onClick={() => { setEntryType(value); setError(""); setSuccess(""); }}><Icon size={19} /><span><strong>{label}</strong><small>{hint}</small></span></button>)}
           </div>}
@@ -119,8 +126,13 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
           {!editing && entryType !== "installments" && <>
             <Input name="amount" type="number" min="0.01" step="0.01" label={entryType === "subscription" ? "Valor por mês (R$)" : "Valor pago (R$)"} placeholder="0,00" required />
             <div className="form-grid-two"><Input name="start_month" type="month" label={entryType === "subscription" ? "Primeira cobrança" : "Mês do gasto"} defaultValue={currentMonth()} required />{entryType === "subscription" && <Input name="end_month" type="month" label="Última cobrança · opcional" />}</div>
-            {entryType === "subscription" && <p className="resource-hint">A assinatura entra como despesa fixa mensal na projeção.</p>}
+            {entryType === "subscription" && <>
+              <label className="native-field"><span>Forma de pagamento</span><select name="payment_method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="direct">Pagamento direto</option><option value="credit_card" disabled={activeCards.length === 0}>Cartão de crédito</option></select></label>
+              {paymentMethod === "credit_card" && <label className="native-field"><span>Cartão de crédito</span><select name="credit_card_id" defaultValue="" required><option value="" disabled>Selecione um cartão</option>{activeCards.map((card) => <option value={card.id} key={card.id}>{card.institution.name} · {card.name}</option>)}</select></label>}
+              <SubscriptionFields />
+            </>}
           </>}
+          </fieldset>
           <div className="form-actions"><Button type="submit" size="lg" disabled={loading}>{loading ? <><Spinner size="sm" /> Salvando...</> : <><Save size={17} /> {editing ? "Salvar alterações" : entryType === "installments" ? "Adicionar dívida" : entryType === "subscription" ? "Adicionar assinatura" : "Adicionar despesa"}</>}</Button>{onCancel && <Button type="button" variant="ghost" size="lg" onClick={onCancel}><ArrowLeft size={17} /> Cancelar</Button>}</div>
         </form>
       </CardContent>

@@ -13,7 +13,7 @@ export default async function EntriesPage() {
 
   return <main className="resource-page-shell entries-page">
     <header className="resource-page-header"><p>Organize entradas e saídas da sua projeção.</p></header>
-    <div id="new-item" className="entries-form"><FinancialItemForm /></div>
+    <div id="new-item" className="entries-form"><FinancialItemForm cards={cards} /></div>
     <FinancialItemsList items={items} cards={cards} />
   </main>;
 }

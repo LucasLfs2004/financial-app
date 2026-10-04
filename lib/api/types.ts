@@ -30,6 +30,8 @@ export type FinancialItem = {
   name: string;
   kind: "recurring_income" | "one_time_income" | "fixed_expense" | "projected_variable_expense" | "debt_installment";
   description: string | null;
+  invoice_match_title?: string | null;
+  renewal_day?: number | null;
   status: "active" | "archived";
   archived_at: string | null;
   periods: FinancialPeriod[];
@@ -123,8 +125,11 @@ export type InvoiceImportRow = {
   amount_cents: number;
   kind: "expense" | "payment" | "unsupported";
   invoice_payment_month?: string;
-  status: "new" | "existing" | "skipped" | "imported" | "needs_invoice";
+  status: "new" | "existing" | "skipped" | "imported" | "needs_invoice" | "needs_subscription_match";
   reason?: string | null;
+  matched_item_id?: string;
+  matched_reference_month?: string;
+  planned_amount_cents?: number;
 };
 export type InvoiceImportProjectedInstallment = {
   source_line: number;
@@ -142,6 +147,7 @@ export type InvoiceImportPreview = {
   existing_count: number;
   skipped_count: number;
   needs_invoice_count?: number;
+  needs_subscription_match_count?: number;
   new_total_cents: number;
   new_charges_cents?: number;
   new_payments_cents?: number;

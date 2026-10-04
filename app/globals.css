@@ -855,3 +855,7 @@ img, video, iframe { max-width: 100%; }
   .auth-heading p { margin-top: 8px; font-size: 13px; line-height: 1.45; }
   .auth-form { gap: 16px; margin-top: 18px; }
 }
+
+/* Subscription inputs use the existing form spacing inside a disabled fieldset. */
+.subscription-form-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.invoice-import-status.status-needs_subscription_match { color: var(--secondary); }
