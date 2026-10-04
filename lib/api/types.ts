@@ -126,6 +126,15 @@ export type InvoiceImportRow = {
   status: "new" | "existing" | "skipped" | "imported" | "needs_invoice";
   reason?: string | null;
 };
+export type InvoiceImportProjectedInstallment = {
+  source_line: number;
+  title: string;
+  amount_cents: number;
+  invoice_payment_month: string;
+  installment_number: number;
+  installments_total: number;
+  status: "new" | "existing" | "imported";
+};
 export type InvoiceImportPreview = {
   preview_token: string;
   rows: InvoiceImportRow[];
@@ -137,6 +146,8 @@ export type InvoiceImportPreview = {
   new_charges_cents?: number;
   new_payments_cents?: number;
   new_payment_count?: number;
+  projected_installments?: InvoiceImportProjectedInstallment[];
+  new_projected_count?: number;
 };
 export type InvoiceImportResult = InvoiceImportPreview & {
   imported_count?: number;
