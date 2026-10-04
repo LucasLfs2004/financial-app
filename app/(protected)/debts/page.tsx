@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft, Landmark, TrendingUp } from "lucide-react";
+import { Landmark, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { DebtCard } from "@/components/debts/debt-card";
 import { DebtForm } from "@/components/debts/debt-form";
@@ -16,10 +16,7 @@ export default async function DebtsPage() {
   return (
     <main className="resource-page-shell">
       <header className="resource-page-header">
-        <Link className="back-link" href="/dashboard"><ArrowLeft size={16} /> Voltar ao dashboard</Link>
-        <span className="eyebrow">DÍVIDAS</span>
-        <h1>Suas dívidas</h1>
-        <p>Cadastre parcelas, acompanhe o cronograma e veja quando cada compromisso termina.</p>
+        <p>Acompanhe parcelas e o fim de cada compromisso.</p>
       </header>
 
       {releases && releases.releases.length > 0 && <section className="debt-releases-section"><div className="section-heading compact"><div><span className="section-kicker">PRÓXIMOS 12 MESES</span><h2>Valores liberados</h2></div><TrendingUp size={20} /></div><p>Quando uma dívida termina, este valor deixa de ser compromisso projetado. Ele não entra como renda no resumo.</p><div className="debt-release-months">{releases.monthly_totals.filter((total) => total.released_monthly_cents > 0).slice(0, 4).map((total) => <div key={total.month}><span>{formatMonth(total.month)}</span><strong>{money.format(total.released_monthly_cents / 100)}/mês</strong></div>)}</div><div className="debt-release-list">{releases.releases.map((release) => <Link href={`/debts/${release.debt_id}`} key={release.debt_id}><span><strong>{release.name}</strong><small>A partir de {formatMonth(release.release_from_month)}{release.reason === "early_settlement" ? " · quitação antecipada" : ""}</small></span><strong>{money.format(release.released_monthly_cents / 100)}/mês</strong></Link>)}</div></section>}

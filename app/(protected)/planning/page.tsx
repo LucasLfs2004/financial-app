@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft, Camera, ChartNoAxesCombined } from "lucide-react";
+import { Camera, ChartNoAxesCombined } from "lucide-react";
 import { Card, CardContent } from "@lucaslfs2004/luke-ui";
 import Link from "next/link";
 import { PlanForm } from "@/components/planning/plan-form";
@@ -29,7 +29,7 @@ export default async function PlanningPage() {
   const [savings, original, summaries] = await Promise.all([savingsPromise, originalPromise, summariesPromise]);
 
   return <main className="resource-page-shell planning-page">
-    <header className="resource-page-header"><Link className="back-link" href="/dashboard"><ArrowLeft size={16} /> Voltar à visão geral</Link><span className="eyebrow">PLANEJAMENTO</span><h1>{plan ? "Seu planejamento" : "Crie seu planejamento"}</h1><p>Visualize o futuro do seu caixa e ajuste o período da projeção. Suas receitas e despesas ficam em uma área própria.</p></header>
+    <header className="resource-page-header"><p>Acompanhe a projeção e ajuste seu planejamento.</p></header>
     {plan ? <PlanningProjection key={`${initialMonth}|${summaries.map((item) => `${item?.income_cents}:${item?.commitments_cents}:${item?.planned_savings_cents}:${item?.result_cents}`).join("|")}`} initialMonth={initialMonth} initialSummaries={summaries} /> : <div className="planning-intro"><ChartNoAxesCombined size={24} /><div><strong>Seu gráfico começa aqui</strong><p>Defina o período do planejamento para acompanhar a projeção dos próximos meses.</p></div></div>}
     <div className="planning-settings-heading"><div><span className="section-kicker">CONFIGURAÇÃO</span><h2>Parâmetros do planejamento</h2></div><Link href="/entries">Ver receitas e despesas</Link></div>
     <div className="planning-settings-grid"><PlanForm plan={plan} />{plan && <SavingsForm savings={savings} />}</div>

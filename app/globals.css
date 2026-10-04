@@ -796,3 +796,62 @@ img, video, iframe { max-width: 100%; }
   .app-header-location { padding-left: 0; border-left: 0; }
   .overview-content { padding: 38px 34px 60px; }
 }
+
+/* Shared page title and compact mobile hierarchy. */
+.app-header-leading { flex: 1; }
+.app-header-location { flex: 1; padding-left: 0; border-left: 0; }
+.app-header-location h1 { font-size: 18px; letter-spacing: -.025em; }
+.app-header-location .app-header-cash { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; color: var(--foreground-tertiary); font-size: 11px; }
+.app-header-cash strong { color: var(--primary); font-size: 12px; }
+.app-header-cash.is-negative strong { color: var(--destructive); }
+.app-header-cash[aria-busy="true"] strong { color: var(--foreground-tertiary); }
+.app-header-back { width: 44px; height: 44px; }
+.resource-page-header { margin-bottom: 20px; }
+.resource-page-header p { margin: 0; }
+.overview-intro { align-items: center; }
+.overview-intro p { margin: 0; }
+@media (max-width: 719px) {
+  .app-header { min-height: 68px; gap: 8px; padding: max(8px, env(safe-area-inset-top)) 16px 8px; }
+  .app-header-leading { gap: 8px; }
+  .app-header-location, .app-header-location.card-invoice-location { max-width: none; }
+  .app-header-location h1 { font-size: 16px; }
+  .app-header-brand .brand-mark { width: 28px; height: 28px; }
+  .resource-page-shell, .resource-page-shell.invoice-overview-page { min-height: 0; padding: 16px 16px 28px; }
+  .resource-page-header, .cards-page .resource-page-header { margin-bottom: 16px; }
+  .resource-page-header p, .cards-page .resource-page-header p { margin: 0; font-size: 13px; line-height: 1.45; }
+  .overview-content { padding: 16px 16px 28px; }
+  .overview-intro { display: flex; flex-wrap: wrap; gap: 10px; }
+  .new-entry-menu { margin-top: 0; margin-left: auto; }
+  .new-entry-menu summary { min-height: 44px; padding: 0 12px; font-size: 12px; }
+  .overview-shortcuts { display: none; }
+  .overview-metrics { gap: 10px; margin-top: 16px; }
+  .overview-metric { min-height: 116px; padding: 13px; }
+  .overview-metric > strong { margin-top: 16px; font-size: clamp(17px, 4.8vw, 23px); }
+  .overview-metric > small { padding-top: 10px; line-height: 1.4; }
+  .section-heading h2, .section-heading :where(h3), .panel-heading h2, .next-actions-panel h2, .planning-settings-heading h2 { margin-top: 4px; font-size: 17px; line-height: 1.25; }
+  .section-description { margin: 8px 0 14px; font-size: 13px; line-height: 1.45; }
+  .form-card-content, .resource-card-content { padding: 16px; }
+  .resource-form { gap: 14px; margin-top: 14px; }
+  .planning-projection-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .planning-projection-metrics > div:first-child { grid-column: 1 / -1; }
+  .planning-projection-metrics strong { font-size: 20px; }
+  .summary-toolbar h2 { font-size: 18px; }
+  .summary-result strong { font-size: 26px; }
+  .invoice-detail-summary-main > strong { font-size: 28px; }
+  .credit-card-face { min-height: 165px; padding: 16px; }
+  .credit-card-institution, .credit-card-face-bottom strong { font-size: 17px; }
+  [id] { scroll-margin-top: calc(88px + env(safe-area-inset-top)); }
+}
+
+@media (max-width: 719px) {
+  .app-header-brand { justify-content: center; width: 44px; height: 44px; }
+  .financial-items-heading h2, .planning-projection-heading h2, .invoice-components-heading h2 { font-size: 17px; }
+  .financial-record-card { min-height: 0; padding: 16px; }
+  .financial-record-title h3 { font-size: 18px; }
+  .financial-record-value strong { font-size: 26px; }
+  .debt-detail-stats > div { padding: 14px; }
+  .auth-heading { margin-bottom: 20px; }
+  .auth-heading h2 { margin-top: 8px; font-size: 26px; }
+  .auth-heading p { margin-top: 8px; font-size: 13px; line-height: 1.45; }
+  .auth-form { gap: 16px; margin-top: 18px; }
+}

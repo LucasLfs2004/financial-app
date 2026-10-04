@@ -1,3 +1,4 @@
+import { AppHeaderTitle } from "@/components/app-navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, CreditCard, Landmark } from "lucide-react";
@@ -18,8 +19,8 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ deb
     getPaymentMethodHistory(debt.id).catch(() => null),
   ]);
   const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: debt.currency_code });
-  return <main className="resource-page-shell debt-detail-page">
-    <header className="resource-page-header"><Link className="back-link" href="/debts"><ArrowLeft size={16} /> Voltar às dívidas</Link><span className="eyebrow">CRONOGRAMA PROJETADO</span><h1>{debt.name}</h1><p>{debt.description || "Acompanhe as parcelas, a forma de pagamento e o fim deste compromisso."}</p></header>
+  return <main className="resource-page-shell debt-detail-page"><AppHeaderTitle title={debt.name} />
+    <header className="resource-page-header"><p>{debt.description || "Acompanhe as parcelas, a forma de pagamento e o fim deste compromisso."}</p></header>
     <div className="debt-detail-stats"><div><span>Parcelas restantes</span><strong>{debt.remaining_installments}</strong><small>Em {formatMonth(debt.as_of_month)}</small></div><div><span>Última parcela</span><strong>{formatMonth(debt.effective_end_month)}</strong><small>{debt.settlement ? "Quitação antecipada projetada" : "Término previsto"}</small></div><div><span>Valor mensal liberado</span><strong>{money.format(debt.released_monthly_cents / 100)}</strong><small>A partir de {formatMonth(debt.release_from_month)} · informativo</small></div></div>
     <p className="debt-projection-note">Os valores abaixo são projeções. A quitação e as parcelas não confirmam pagamentos realizados.</p>
     <div className="debt-detail-grid"><section><div className="section-heading compact"><div><span className="section-kicker">PARCELAS</span><h2>Cronograma</h2></div><CalendarDays size={20} /></div>

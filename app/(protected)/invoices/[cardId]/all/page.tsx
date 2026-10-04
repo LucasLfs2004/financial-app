@@ -1,5 +1,6 @@
+import { AppHeaderTitle } from "@/components/app-navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, ReceiptText } from "lucide-react";
+import { ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { getCardInvoices, getCreditCards } from "@/lib/api/financial-api";
 import type { CardInvoiceSummary } from "@/lib/api/types";
@@ -31,8 +32,8 @@ export default async function AllInvoicesPage({ params }: { params: Promise<{ ca
   const current = invoices.filter((invoice) => invoice.payment_month === currentPaymentMonth);
   const future = invoices.filter((invoice) => invoice.payment_month > currentPaymentMonth);
 
-  return <main className="resource-page-shell">
-    <header className="resource-page-header"><Link className="back-link" href={`/invoices/${cardId}`}><ArrowLeft size={16} /> Voltar ao cartão</Link><span className="eyebrow">{card?.name ?? "CARTÃO"}</span><h1>Todas as faturas</h1><p>Consulte os valores e abra cada fatura mês a mês.</p></header>
+  return <main className="resource-page-shell"><AppHeaderTitle title={`Todas as faturas · ${card?.name ?? "Cartão"}`} />
+    <header className="resource-page-header"><p>Consulte os valores e abra cada fatura mês a mês.</p></header>
     {invoices.length > 0 && <InvoiceSpendingChart cardId={cardId} invoices={invoices} currentPaymentMonth={currentPaymentMonth} />}
     <section className="resource-list-section"><div className="section-heading compact"><div><span className="section-kicker">PROJEÇÃO</span><h2>Faturas por período</h2></div><ReceiptText size={20} /></div>
       {invoices.length === 0 ? <div className="empty-resource-inline">Nenhuma fatura projetada para o intervalo.</div> : <div className="invoice-periods">
