@@ -6,7 +6,7 @@ import { ArrowUpRight, FileSpreadsheet, FileUp, ReceiptText, X } from "lucide-re
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { browserApiFetch, BrowserApiError } from "@/lib/api/browser-api";
-import type { CreditCard, InvoiceImportPreview, InvoiceImportResult, InvoiceImportRow } from "@/lib/api/types";
+import type { CreditCard, InvoiceImportPreview, InvoiceImportProjectedInstallment, InvoiceImportResult, InvoiceImportRow } from "@/lib/api/types";
 import { formatDate } from "@/lib/format-date";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -32,6 +32,14 @@ function invoiceCount(data: InvoiceImportPreview) {
 
 function ignoredPayments(data: InvoiceImportPreview) {
   return data.rows.filter((row) => row.status === "skipped" && row.reason === "non_expense" && /^pagamento recebido/i.test(row.title.trim())).length;
+}
+
+function newProjectionCount(data: InvoiceImportPreview) {
+  return data.new_projected_count ?? data.projected_installments?.filter((row) => row.status === "new" || row.status === "imported").length ?? 0;
+}
+
+function hasChanges(data: InvoiceImportPreview) {
+  return data.new_count > 0 || newProjectionCount(data) > 0;
 }
 
 function importTotals(data: InvoiceImportPreview, confirmed: boolean) {
@@ -85,9 +93,18 @@ function Totals({ data, confirmed = false }: { data: InvoiceImportPreview; confi
     <span><strong>{money(totals.payments)}</strong>{confirmed ? "pagamentos importados" : "novos pagamentos"}</span>
     <span><strong>{money(totals.net)}</strong>saldo líquido</span>
     <span><strong>{confirmed ? (data as InvoiceImportResult).imported_count ?? data.new_count : data.new_count}</strong>{confirmed ? "lançados" : "novos lançamentos"}</span>
+    <span><strong>{newProjectionCount(data)}</strong>{confirmed ? "parcelas futuras projetadas" : "novas parcelas futuras"}</span>
     <span><strong>{data.existing_count}</strong>existentes</span>
     <span><strong>{data.skipped_count}</strong>ignorados</span>
   </div>;
+}
+
+function ProjectedRows({ rows, confirmed = false }: { rows: InvoiceImportProjectedInstallment[]; confirmed?: boolean }) {
+  if (rows.length === 0) return null;
+  return <><p className="invoice-import-help">Parcelas futuras por fatura. As já existentes não serão duplicadas.</p><div className="invoice-import-rows">{rows.map((row) => <div className="invoice-import-row" key={`${row.source_line}-${row.invoice_payment_month}-${row.installment_number}`}>
+    <div className="invoice-import-row-main"><strong>{row.title}</strong><span>Fatura {row.invoice_payment_month} · {money(row.amount_cents)} · origem na linha {row.source_line}</span></div>
+    <span className={`invoice-import-status status-${row.status}`}>{row.status === "existing" ? "Já existente" : confirmed ? "Projetada" : "Nova projeção"}</span>
+  </div>)}</div></>;
 }
 
 export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditCard[]; initialCardId?: string }) {
@@ -182,7 +199,7 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
   }
 
   async function confirm() {
-    if (!preview || !file || pending || preview.file !== file || preview.cardId !== cardId || preview.month !== month || preview.allocationsJson !== JSON.stringify(allocations) || invoiceCount(preview.data) !== 0 || ignoredPayments(preview.data) > 0 || preview.data.new_count === 0) return;
+    if (!preview || !file || pending || preview.file !== file || preview.cardId !== cardId || preview.month !== month || preview.allocationsJson !== JSON.stringify(allocations) || invoiceCount(preview.data) !== 0 || ignoredPayments(preview.data) > 0 || !hasChanges(preview.data)) return;
     const selection = preview;
     const id = ++requestId.current;
     setPending("confirm");
@@ -210,8 +227,11 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
 
   const activeCards = cards.filter((card) => card.status === "active");
   const latestPreview = preview && preview.allocationsJson === JSON.stringify(allocations) && preview.cardId === cardId && preview.month === month && preview.file === file;
-  const ready = latestPreview && !pending && invoiceCount(preview.data) === 0 && ignoredPayments(preview.data) === 0 && preview.data.new_count > 0;
-  const affectedMonths = outcome ? [...new Set(outcome.data.rows.filter((row) => row.status === "imported").map((row) => row.kind === "payment" ? row.invoice_payment_month : outcome.month).filter((value): value is string => Boolean(value)))].sort() : [];
+  const ready = latestPreview && !pending && invoiceCount(preview.data) === 0 && ignoredPayments(preview.data) === 0 && hasChanges(preview.data);
+  const affectedMonths = outcome ? [...new Set([
+    ...outcome.data.rows.filter((row) => row.status === "imported").map((row) => row.kind === "payment" ? row.invoice_payment_month : outcome.month),
+    ...(outcome.data.projected_installments ?? []).filter((row) => row.status === "imported").map((row) => row.invoice_payment_month),
+  ].filter((value): value is string => Boolean(value)))].sort() : [];
 
   return <>
     <button className="invoice-import-trigger" type="button" onClick={start}><span className="invoice-import-icon"><FileSpreadsheet size={26} /></span><span className="invoice-import-copy"><strong>Importar planilha da fatura</strong><small>Envie o CSV do Nubank e confira os lançamentos antes de salvar.</small></span><ArrowUpRight className="invoice-import-arrow" size={20} /></button>
@@ -219,7 +239,7 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
       <div className="invoice-import-dialog-header"><div><span className="section-kicker">IMPORTAÇÃO NUBANK</span><h2 id="invoice-import-title">{step === "file" ? "Selecione o arquivo" : step === "review" ? "Revise a importação" : "Importação concluída"}</h2></div><button className="invoice-import-close" type="button" aria-label="Fechar" onClick={() => setOpen(false)} disabled={pending === "confirm"}><X size={19} /></button></div>
       <ol className="invoice-import-steps"><li className={step === "file" ? "active" : "done"}>1. Arquivo</li><li className={step === "review" ? "active" : step === "done" ? "done" : ""}>2. Revisão</li><li className={step === "done" ? "active" : ""}>3. Resultado</li></ol>
       <div className="invoice-import-dialog-body">
-        {step === "file" && <><p className="section-description">O mês escolhido aqui recebe as compras. Você poderá escolher outra fatura para cada “Pagamento recebido” na próxima etapa. A prévia não grava dados.</p><form className="resource-form" onSubmit={submitFile}>
+        {step === "file" && <><p className="section-description">O mês escolhido aqui recebe as compras. Compras parceladas também serão projetadas nas faturas futuras. Você poderá escolher outra fatura para cada “Pagamento recebido” na próxima etapa. A prévia não grava dados.</p><form className="resource-form" onSubmit={submitFile}>
           <label className="native-field"><span>Cartão</span><select required value={cardId} onChange={(event) => { invalidate(); setCardId(event.target.value); }}><option value="" disabled>Selecione o cartão</option>{activeCards.map((card) => <option value={card.id} key={card.id}>{card.institution.name} · {card.name}</option>)}</select></label>
           <label className="native-field"><span>Fatura das compras</span><input type="month" required value={month} onChange={(event) => { invalidate(); setMonth(event.target.value); }} /></label>
           <label className="native-field"><span>Arquivo CSV</span><input ref={fileInputRef} type="file" accept=".csv,text/csv" required onChange={changeFile} /><small>Até 2 MiB e 5.000 linhas · colunas date,title,amount · data AAAA-MM-DD · valor com vírgula decimal</small></label>
@@ -229,15 +249,15 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
           {preview && <><Totals data={preview.data} /><div className="invoice-import-counts">{invoiceCount(preview.data)} pagamento(s) sem fatura · {preview.data.existing_count} existente(s) · {preview.data.skipped_count} ignorado(s)</div><div className="invoice-import-rows">{preview.data.rows.map((row) => <div className="invoice-import-row" key={row.line}>
             <div className="invoice-import-row-main"><strong>{row.title}</strong><span>Linha {row.line} · {formatDate(row.date)} · {money(row.amount_cents)}</span>{row.kind === "payment" && <label className="native-field"><span>Fatura deste pagamento</span><input type="month" aria-label={`Fatura do pagamento na linha ${row.line}`} value={allocations[String(row.line)] ?? ""} onChange={(event) => allocate(row.line, event.target.value)} disabled={pending === "confirm"} /></label>}{rowExplanation(row) && <small>{rowExplanation(row)}</small>}</div>
             <span className={`invoice-import-status status-${row.status}`}>{statusLabel(row.status)}</span>
-          </div>)}</div></>}
+          </div>)}</div><ProjectedRows rows={preview.data.projected_installments ?? []} /></>}
           {pending === "preview" && <p className="chart-message" role="status"><Spinner size="sm" /> Atualizando prévia e token...</p>}
           {!pending && error && file && <Button type="button" variant="ghost" onClick={() => void loadPreview(allocations, cardId, month, file)}>Tentar prévia novamente</Button>}
           {!pending && preview && invoiceCount(preview.data) > 0 && <p className="invoice-import-help">Escolha a fatura de todos os pagamentos para confirmar.</p>}
           {!pending && preview && ignoredPayments(preview.data) > 0 && <Alert color="error">{ignoredPayments(preview.data)} pagamento(s) recebido(s) foram ignorados pela API. A confirmação ficaria incompleta. Atualize a API e gere uma nova prévia antes de importar.</Alert>}
-          {!pending && preview && invoiceCount(preview.data) === 0 && preview.data.new_count === 0 && <p className="invoice-import-help">Nenhum lançamento novo neste arquivo.</p>}
+          {!pending && preview && invoiceCount(preview.data) === 0 && !hasChanges(preview.data) && <p className="invoice-import-help">Nenhum lançamento ou parcela futura nova neste arquivo.</p>}
           <Button type="button" onClick={confirm} disabled={!ready}>{pending === "confirm" ? <Spinner size="sm" /> : <FileUp size={15} />} {pending === "confirm" ? "Importando..." : "Confirmar importação"}</Button>
         </>}
-        {step === "done" && outcome && <><p className="section-description">Os lançamentos gravados estão marcados como “Importado”. As faturas afetadas e o planejamento serão carregados com os novos valores ao abrir essas telas.</p><Totals data={outcome.data} confirmed /><div className="invoice-import-counts">{outcome.data.existing_count} já existente(s) · {outcome.data.skipped_count} ignorado(s)</div><div className="invoice-import-rows">{outcome.data.rows.map((row) => <div className="invoice-import-row" key={row.line}><div className="invoice-import-row-main"><strong>{row.title}</strong><span>Linha {row.line} · {formatDate(row.date)} · {money(row.amount_cents)}</span>{row.kind === "payment" && row.invoice_payment_month && <small>Fatura {row.invoice_payment_month}</small>}{rowExplanation(row) && <small>{rowExplanation(row)}</small>}</div><span className={`invoice-import-status status-${row.status}`}>{statusLabel(row.status)}</span></div>)}</div><div className="invoice-import-links">{affectedMonths.map((value) => <Link key={value} className="small-link" href={`/invoices/${outcome.cardId}/${value}`} onClick={() => setOpen(false)}>Ver fatura {value}</Link>)}<Link className="small-link" href="/planning" onClick={() => setOpen(false)}>Ver planejamento atualizado</Link></div></>}
+        {step === "done" && outcome && <><p className="section-description">Os lançamentos e as parcelas futuras foram salvos. As faturas afetadas e o planejamento serão carregados com os novos valores ao abrir essas telas.</p><Totals data={outcome.data} confirmed /><div className="invoice-import-counts">{outcome.data.existing_count} já existente(s) · {outcome.data.skipped_count} ignorado(s)</div><div className="invoice-import-rows">{outcome.data.rows.map((row) => <div className="invoice-import-row" key={row.line}><div className="invoice-import-row-main"><strong>{row.title}</strong><span>Linha {row.line} · {formatDate(row.date)} · {money(row.amount_cents)}</span>{row.kind === "payment" && row.invoice_payment_month && <small>Fatura {row.invoice_payment_month}</small>}{rowExplanation(row) && <small>{rowExplanation(row)}</small>}</div><span className={`invoice-import-status status-${row.status}`}>{statusLabel(row.status)}</span></div>)}</div><ProjectedRows rows={outcome.data.projected_installments ?? []} confirmed /><div className="invoice-import-links">{affectedMonths.map((value) => <Link key={value} className="small-link" href={`/invoices/${outcome.cardId}/${value}`} onClick={() => setOpen(false)}>Ver fatura {value}</Link>)}<Link className="small-link" href="/planning" onClick={() => setOpen(false)}>Ver planejamento atualizado</Link></div></>}
         {error && <Alert color="error">{error}</Alert>}
       </div>
     </dialog>
