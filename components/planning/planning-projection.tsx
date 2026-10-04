@@ -5,6 +5,7 @@ import { ArrowDownLeft, ArrowRight, ArrowUpRight, CalendarRange, ChartNoAxesComb
 import Link from "next/link";
 import { browserApiFetch } from "@/lib/api/browser-api";
 import type { MonthlySummary } from "@/lib/api/types";
+import { featureFlags } from "@/lib/feature-flags";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "short" });
@@ -51,7 +52,7 @@ export function PlanningProjection({ initialMonth, initialSummaries }: { initial
 
   return <section className="planning-projection" aria-label="Projeção do planejamento">
     <div className="planning-projection-heading"><div><span className="section-kicker">PROJEÇÃO</span><h2>Como os próximos meses se desenham</h2><p>Compare entradas, compromissos e saldo previstos.</p></div><ChartNoAxesCombined size={22} /></div>
-    <div className="planning-projection-controls"><label><CalendarRange size={17} /><span>Mês inicial</span><input type="month" value={month} onChange={(event) => void update(event.target.value, basis)} /></label><label><span>Visualização</span><select value={basis} onChange={(event) => void update(month, event.target.value as "cash" | "reference")}><option value="cash">Caixa</option><option value="reference">Competência</option></select></label></div>
+    <div className="planning-projection-controls"><label><CalendarRange size={17} /><span>Mês inicial</span><input type="month" value={month} onChange={(event) => void update(event.target.value, basis)} /></label>{featureFlags.referenceBasis && <label><span>Visualização</span><select value={basis} onChange={(event) => void update(month, event.target.value as "cash" | "reference")}><option value="cash">Caixa</option><option value="reference">Competência</option></select></label>}</div>
     <div className="planning-projection-metrics"><div><span><ArrowDownLeft size={17} /> Receitas</span><strong>{current ? money.format(current.income_cents / 100) : "—"}</strong></div><div><span><ArrowUpRight size={17} /> Compromissos</span><strong>{current ? money.format(current.commitments_cents / 100) : "—"}</strong></div><div><span><WalletCards size={17} /> Saldo projetado</span><strong className={current?.is_negative ? "negative" : ""}>{current ? money.format(current.result_cents / 100) : "—"}</strong></div></div>
     {loading && <p className="chart-message" role="status">Atualizando projeção...</p>}
     {error && <p className="chart-message" role="alert">{error}</p>}

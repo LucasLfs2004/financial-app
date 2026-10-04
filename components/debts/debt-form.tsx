@@ -29,6 +29,7 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("direct");
+  const [cashMonthOffset, setCashMonthOffset] = useState(1);
   const [entryType, setEntryType] = useState<EntryType>("installments");
   const editing = Boolean(debt);
   const activeCards = cards.filter((card) => card.status === "active");
@@ -58,7 +59,7 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
           first_projected_installment: firstProjectedInstallment,
           scheduled_start_month: String(values.get("scheduled_start_month")),
           installment_amount_cents: toCents(values.get("installment_amount")),
-          cash_month_offset: Number(values.get("cash_month_offset") || 0),
+          cash_month_offset: Number(values.get("cash_month_offset") ?? 1),
           context: String(values.get("context") ?? "").trim() || null,
           payment_method: String(values.get("payment_method")),
           credit_card_id: values.get("payment_method") === "credit_card" ? String(values.get("credit_card_id")) : null,
@@ -112,7 +113,8 @@ export function DebtForm({ debt, cards = [], onCancel }: DebtFormProps) {
             <label className="native-field"><span>Forma de pagamento</span><select name="payment_method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="direct">Pagamento direto</option><option value="credit_card" disabled={activeCards.length === 0}>Cartão de crédito</option></select></label>
             {paymentMethod === "credit_card" && <label className="native-field"><span>Cartão de crédito</span><select name="credit_card_id" defaultValue="" required><option value="" disabled>Selecione um cartão</option>{activeCards.map((card) => <option value={card.id} key={card.id}>{card.name} · {card.institution.name}</option>)}</select></label>}
             {activeCards.length === 0 && <p className="resource-hint">Quer pagar no cartão? <Link className="small-link" href="/cards#new-card">Cadastre um cartão primeiro</Link></p>}
-            <details className="form-optional-details"><summary>Mais detalhes (opcional)</summary><div className="resource-form"><Input name="original_total" type="number" min="0" step="0.01" label="Valor original (R$)" placeholder="0,00" /><Input name="cash_month_offset" type="number" min="0" max="12" label="Atraso de caixa (meses)" defaultValue="0" /><Input name="context" label="Contexto da parcela" maxLength={500} /></div></details>
+            {paymentMethod === "direct" && cashMonthOffset === 1 && <p className="resource-hint">Exemplo: a última parcela de setembro entra no caixa de outubro, quando cai o salário no dia 1º. A partir do salário de novembro, esse valor fica livre.</p>}
+            <details className="form-optional-details"><summary>Mais detalhes (opcional)</summary><div className="resource-form"><Input name="original_total" type="number" min="0" step="0.01" label="Valor original (R$)" placeholder="0,00" /><Input name="cash_month_offset" type="number" min="0" max="12" step="1" label="Deslocamento para o caixa (meses)" defaultValue="1" required onChange={(event) => setCashMonthOffset(Number(event.target.value))} /><Input name="context" label="Contexto da parcela" maxLength={500} /></div></details>
           </>}
           {!editing && entryType !== "installments" && <>
             <Input name="amount" type="number" min="0.01" step="0.01" label={entryType === "subscription" ? "Valor por mês (R$)" : "Valor pago (R$)"} placeholder="0,00" required />
