@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, CircleAlert, X } from "lucide-react";
+import { API_SESSION_EXPIRED_EVENT } from "@/lib/api/browser-api";
 import { API_NOTICE_EVENT, type ApiNotice } from "@/lib/api/notice-event";
 
 type Notice = ApiNotice & { id: number };
@@ -17,8 +18,10 @@ export function ApiNotifications() {
       const id = ++nextId;
       setNotices((current) => [...current.slice(-2), { ...detail, id }]);
     };
+    const onExpired = () => window.location.assign("/sign-in");
     window.addEventListener(API_NOTICE_EVENT, onNotice);
-    return () => window.removeEventListener(API_NOTICE_EVENT, onNotice);
+    window.addEventListener(API_SESSION_EXPIRED_EVENT, onExpired);
+    return () => { window.removeEventListener(API_NOTICE_EVENT, onNotice); window.removeEventListener(API_SESSION_EXPIRED_EVENT, onExpired); };
   }, []);
 
   useEffect(() => {

@@ -14,7 +14,7 @@ function monthTick(month: string) {
   return `${shortMonth.format(new Date(Date.UTC(year, part - 1, 1))).replace(".", "")} ${String(year).slice(2)}`;
 }
 
-export function InvoiceSpendingChart({ cardId, invoices, currentPaymentMonth }: { cardId: string; invoices: CardInvoiceSummary[]; currentPaymentMonth: string }) {
+export function InvoiceSpendingChart({ cardId, invoices, currentPaymentMonth, returnQuery = "" }: { cardId: string; invoices: CardInvoiceSummary[]; currentPaymentMonth: string; returnQuery?: string }) {
   const initialIndex = invoices.findIndex((invoice) => invoice.payment_month === currentPaymentMonth);
   const [selectedMonth, setSelectedMonth] = useState(invoices[initialIndex >= 0 ? initialIndex : 0]?.payment_month ?? "");
   const [detail, setDetail] = useState<CardInvoice | null>(null);
@@ -31,9 +31,9 @@ export function InvoiceSpendingChart({ cardId, invoices, currentPaymentMonth }: 
     setLoading(true);
     setError("");
     browserApiFetch<ApiEnvelope<CardInvoice>>(`/credit-cards/${encodeURIComponent(cardId)}/invoices/${selectedMonth}`, { signal: controller.signal })
-      .then((response) => setDetail(response.data))
+      .then((response) => { if (!controller.signal.aborted) setDetail(response.data); })
       .catch((cause) => {
-        if (!(cause instanceof DOMException && cause.name === "AbortError")) setError("Não foi possível carregar os lançamentos desta fatura.");
+        if (!controller.signal.aborted && !(cause instanceof DOMException && cause.name === "AbortError")) setError("Não foi possível carregar os lançamentos desta fatura.");
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -55,7 +55,7 @@ export function InvoiceSpendingChart({ cardId, invoices, currentPaymentMonth }: 
       {loading && <p className="invoice-chart-message" role="status">Carregando lançamentos...</p>}
       {error && <p className="invoice-chart-message" role="alert">{error}</p>}
       {!loading && !error && detail?.payment_month === selectedMonth && <div className="invoice-chart-expenses"><h4>Compras e encargos</h4>{charges.length === 0 ? <p className="invoice-chart-message">Nenhum gasto nesta fatura.</p> : <><ul>{charges.slice(0, 5).map((component) => <li key={component.source_id}><span>{component.name}</span><strong>{money.format(component.amount_cents / 100)}</strong></li>)}</ul>{charges.length > 5 && <p className="invoice-chart-message">Exibindo 5 de {charges.length} lançamentos.</p>}</>}</div>}
-      <Link className="invoice-chart-detail-link" href={`/invoices/${cardId}/${selected.payment_month}`}>Ver fatura completa <ChevronRight size={16} /></Link>
+      <Link className="invoice-chart-detail-link" href={`/invoices/${encodeURIComponent(cardId)}/${selected.payment_month}?${returnQuery}`}>Ver fatura completa <ChevronRight size={16} /></Link>
     </div>
   </section>;
 }

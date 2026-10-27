@@ -10,10 +10,10 @@ import type { Debt } from "@/lib/api/types";
 import { DebtForm } from "@/components/debts/debt-form";
 import { formatMonth } from "@/lib/debt-month";
 
-const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export function DebtCard({ debt }: { debt: Debt }) {
+export function DebtCard({ debt, returnQuery }: { debt: Debt; returnQuery?: string }) {
   const router = useRouter();
+  const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: debt.currency_code });
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [archiving, setArchiving] = useState(false);
@@ -40,7 +40,7 @@ export function DebtCard({ debt }: { debt: Debt }) {
         <div className="resource-card-heading"><div><h2>{debt.name}</h2><p>{debt.description || "Dívida parcelada"}</p></div><Badge color={debt.projection_status === "completed" || debt.projection_status === "settled_early" ? "forest" : "secondary"} variant="soft">{statusLabel[debt.projection_status]}</Badge></div>
         <div className="debt-metrics"><div><span>Restantes</span><strong>{debt.remaining_installments}</strong></div><div><span>Última parcela</span><strong>{formatMonth(debt.effective_end_month)}</strong></div><div><span>Libera por mês</span><strong>{money.format(debt.released_monthly_cents / 100)}</strong></div></div>
         <p className="debt-card-release">A partir de {formatMonth(debt.release_from_month)} · valor informativo</p>
-        <div className="resource-card-footer"><span><CalendarDays size={15} /> Desde {formatMonth(debt.scheduled_start_month)}</span><div><Link className="debt-detail-link" href={`/debts/${debt.id}`}>Ver parcelas <ArrowRight size={14} /></Link><Button variant="ghost" size="sm" onClick={() => setEditing(true)} disabled={debt.status === "archived"}><Pencil size={15} /> Editar</Button>{debt.status === "active" && <Button variant="ghost" size="sm" onClick={archive} disabled={archiving}>{archiving ? <Spinner size="sm" /> : <Archive size={15} />} Arquivar</Button>}</div></div>
+        <div className="resource-card-footer"><span><CalendarDays size={15} /> Desde {formatMonth(debt.scheduled_start_month)}</span><div><Link className="debt-detail-link" href={`/debts/${encodeURIComponent(debt.id)}?${new URLSearchParams({ as_of: debt.as_of_month, ...(returnQuery ? { returnTo: returnQuery } : {}) })}`}>Ver parcelas <ArrowRight size={14} /></Link><Button variant="ghost" size="sm" onClick={() => setEditing(true)} disabled={debt.status === "archived"}><Pencil size={15} /> Editar</Button>{debt.status === "active" && <Button variant="ghost" size="sm" onClick={archive} disabled={archiving}>{archiving ? <Spinner size="sm" /> : <Archive size={15} />} Arquivar</Button>}</div></div>
         {error && <Alert color="error">{error}</Alert>}
       </CardContent>
     </Card>

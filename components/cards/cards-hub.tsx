@@ -1,5 +1,6 @@
 "use client";
 
+import { currentMonth, selectPeriod } from "@/lib/debt-month";
 import { browserApiFetch } from "@/lib/api/browser-api";
 import type { CreditCard, FinancialInstitution } from "@/lib/api/types";
 import {
@@ -29,9 +30,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
-type Props = { institutions: FinancialInstitution[]; cards: CreditCard[] };
+type Props = { institutions: FinancialInstitution[]; cards: CreditCard[]; defaultMonth?: string; returnQuery?: string };
 type Feedback = { type: "success" | "error"; message: string } | null;
 
 function institutionTheme(name: string) {
@@ -46,8 +47,10 @@ function institutionTheme(name: string) {
   return "default";
 }
 
-export function CardsHub({ institutions, cards }: Props) {
+export function CardsHub({ institutions, cards, defaultMonth = currentMonth(), returnQuery = "" }: Props) {
   const router = useRouter();
+  const creationLock = useRef(false);
+  const actionLock = useRef(false);
   const [drawer, setDrawer] = useState<"institution" | "card" | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [institutionPending, setInstitutionPending] = useState(false);
@@ -95,6 +98,8 @@ export function CardsHub({ institutions, cards }: Props) {
 
   async function submitInstitution(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (creationLock.current) return;
+    creationLock.current = true;
     const form = event.currentTarget;
     const name = String(new FormData(form).get("name") ?? "").trim();
     setInstitutionPending(true);
@@ -120,12 +125,15 @@ export function CardsHub({ institutions, cards }: Props) {
             : "Não foi possível cadastrar a instituição.",
       });
     } finally {
+      creationLock.current = false;
       setInstitutionPending(false);
     }
   }
 
   async function submitCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (creationLock.current) return;
+    creationLock.current = true;
     const form = event.currentTarget;
     const values = new FormData(form);
     const name = String(values.get("name") ?? "").trim();
@@ -163,6 +171,7 @@ export function CardsHub({ institutions, cards }: Props) {
             : "Não foi possível cadastrar o cartão.",
       });
     } finally {
+      creationLock.current = false;
       setCardPending(false);
     }
   }
@@ -173,6 +182,9 @@ export function CardsHub({ institutions, cards }: Props) {
     method: string,
     body?: unknown,
   ) {
+    if (actionLock.current) return;
+    if (path.endsWith("/archive") && !window.confirm("Arquivar este cartão? As faturas e o histórico continuam disponíveis.")) return;
+    actionLock.current = true;
     setPendingAction(cardId);
     setActionError("");
     try {
@@ -189,6 +201,7 @@ export function CardsHub({ institutions, cards }: Props) {
           : "Não foi possível concluir a operação.",
       );
     } finally {
+      actionLock.current = false;
       setPendingAction(null);
     }
   }
@@ -201,8 +214,8 @@ export function CardsHub({ institutions, cards }: Props) {
       >
         <Button
           id="new-card"
-          variant="ghost"
-          className="luke-surface-glass w-full min-h-12 gap-1.5 border border-glass-border px-2 text-[11px] text-primary hover:bg-glass-background sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
+          variant="glass"
+          className="w-full min-h-12 gap-1.5 px-2 text-[11px] text-primary sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
           type="button"
           onClick={() => {
             setCardFeedback(null);
@@ -215,8 +228,8 @@ export function CardsHub({ institutions, cards }: Props) {
         </Button>
         <Button
           id="new-institution"
-          variant="ghost"
-          className="luke-surface-glass w-full min-h-12 gap-1.5 border border-glass-border px-2 text-[11px] text-primary hover:bg-glass-background sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
+          variant="glass"
+          className="w-full min-h-12 gap-1.5 px-2 text-[11px] text-primary sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
           type="button"
           onClick={() => {
             setInstitutionFeedback(null);
@@ -377,7 +390,7 @@ export function CardsHub({ institutions, cards }: Props) {
                             name="effective_from"
                             type="month"
                             label="Configuração desde"
-                            defaultValue={new Date().toISOString().slice(0, 7)}
+                            defaultValue={defaultMonth}
                             required
                           />
                           <Input name="end_month" type="month" label="Até" />
@@ -453,7 +466,7 @@ export function CardsHub({ institutions, cards }: Props) {
                   loading={pendingAction === card.id}
                   onCancel={() => setEditing(null)}
                   onSave={(name) =>
-                    action(card.id, `/credit-cards/${card.id}`, "PATCH", {
+                    action(card.id, `/credit-cards/${encodeURIComponent(card.id)}`, "PATCH", {
                       name,
                     })
                   }
@@ -462,12 +475,14 @@ export function CardsHub({ institutions, cards }: Props) {
                 <CreditCardTile
                   key={card.id}
                   card={card}
+                  month={defaultMonth}
+                  returnQuery={returnQuery}
                   loading={pendingAction === card.id}
                   onEdit={() => setEditing(card.id)}
                   onArchive={() =>
                     action(
                       card.id,
-                      `/credit-cards/${card.id}/archive`,
+                      `/credit-cards/${encodeURIComponent(card.id)}/archive`,
                       "POST",
                       {},
                     )
@@ -515,13 +530,17 @@ function CreditCardTile({
   loading,
   onEdit,
   onArchive,
+  month,
+  returnQuery,
 }: {
   card: CreditCard;
   loading: boolean;
   onEdit: () => void;
   onArchive: () => void;
+  month: string;
+  returnQuery: string;
 }) {
-  const configuration = card.configurations.at(-1);
+  const configuration = selectPeriod(card.configurations, month);
   const theme = institutionTheme(card.institution.name);
   return (
     <article className="credit-card-tile">
@@ -564,7 +583,8 @@ function CreditCardTile({
         </span>
       </div>
       <div className="credit-card-actions">
-        <Link href={`/invoices/${card.id}`}>
+        <Link href={`/cards/${encodeURIComponent(card.id)}?month=${month}&${returnQuery}`}>Configurações</Link>
+        <Link href={`/invoices/${encodeURIComponent(card.id)}`}>
           Ver faturas <ArrowRight size={16} />
         </Link>
         {card.status === "active" && (
@@ -618,6 +638,7 @@ function CardEditor({
           <Input
             name="name"
             label="Nome do cartão"
+            maxLength={120}
             defaultValue={card.name}
             required
           />

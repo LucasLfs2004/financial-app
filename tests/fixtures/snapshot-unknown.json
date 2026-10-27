@@ -1,0 +1,15 @@
+{
+  "id": "00000000-0000-4000-8000-000000000030",
+  "plan_id": "00000000-0000-4000-8000-000000000001",
+  "kind": "original",
+  "schema_version": 99,
+  "captured_at": "2026-10-04T12:00:00Z",
+  "plan": {
+    "name": "Versão futura",
+    "future_collection": [
+      {
+        "novidade": true
+      }
+    ]
+  }
+}
