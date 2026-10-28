@@ -28,6 +28,9 @@
   --hover: rgb(255 255 255 / 6%);
   --active: rgb(120 230 195 / 12%);
   --ring: #78e6c3;
+  --glass-background: rgb(18 40 59 / 78%);
+  --glass-border: rgb(178 207 232 / 24%);
+  --glass-shadow: 0 16px 48px rgb(0 0 0 / 20%);
   --destructive: #ff818c;
   --destructive-foreground: #21080b;
   --forest: #78e6c3;
@@ -292,6 +295,10 @@ img, video, iframe { max-width: 100%; }
 .native-field { display: grid; gap: 7px; color: var(--foreground-secondary); font-size: 12px; }
 .native-field select { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--input); border-radius: var(--input-radius); outline: 0; color: var(--foreground); background: var(--surface-2); }
 .native-field select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px rgb(120 230 195 / 12%); }
+.resource-query-form .native-field input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--input); border-radius: var(--input-radius); color: var(--foreground); background: var(--surface-2); }
+.resource-query-form > button { justify-self: start; min-height: 44px; padding: 0 18px; border: 1px solid var(--input); border-radius: var(--input-radius); color: var(--foreground); background: var(--surface-2); cursor: pointer; }
+.resource-query-form input:focus-visible, .resource-query-form button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
 @media (max-width: 480px) { .form-grid-two { grid-template-columns: 1fr; } }
 .resource-list-section { min-width: 0; }
 .resource-list { display: grid; gap: 12px; }
@@ -855,3 +862,32 @@ img, video, iframe { max-width: 100%; }
   .auth-heading p { margin-top: 8px; font-size: 13px; line-height: 1.45; }
   .auth-form { gap: 16px; margin-top: 18px; }
 }
+
+/* Subscription inputs use the existing form spacing inside a disabled fieldset. */
+.subscription-form-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.invoice-import-status.status-needs_subscription_match { color: var(--secondary); }
+
+/* Integration resource details and accessible query controls. */
+.resource-history { width: 100%; overflow-x: auto; margin-block: 16px; }
+.resource-history table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.resource-history th, .resource-history td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+.resource-history th { color: var(--foreground-secondary); font-weight: 600; }
+.resource-history td small { display: block; color: var(--foreground-secondary); margin-top: 6px; }
+.resource-history a, .monthly-composition a, .invoice-move-panel a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.resource-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 24px; border: 1px solid var(--border); border-radius: 20px; color: var(--foreground); background: var(--surface-2); overflow-y: auto; }
+.resource-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.resource-dialog .native-field input, .debt-action-panel .native-field input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--input); border-radius: var(--input-radius); color: var(--foreground); background: var(--surface-2); }
+.resource-dialog input:focus-visible, .debt-action-panel input:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.monthly-composition { margin-block: 20px; }
+.monthly-composition button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; color: var(--foreground); background: var(--surface-2); cursor: pointer; }
+.monthly-composition button[aria-pressed="true"] { border-color: var(--primary); }
+.snapshot-fields { display: grid; gap: 12px; }
+.snapshot-fields > div { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2fr); gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--border); }
+.snapshot-fields dt { color: var(--foreground-secondary); }
+.snapshot-fields dd { margin: 0; overflow-wrap: anywhere; }
+.snapshot-records { padding-left: 20px; display: grid; gap: 16px; }
+.snapshot-json { max-width: 100%; overflow: auto; font-size: 12px; }
+.invoice-move-panel { grid-column: 1 / -1; width: 100%; padding: 16px; border: 1px solid var(--border); border-radius: 12px; }
+@media (max-width: 640px) { .snapshot-fields > div { grid-template-columns: 1fr; } .resource-dialog { padding: 16px; } }
+
+.resource-page-shell > .debt-action-panel { margin-block: 16px; }

@@ -1,20 +1,14 @@
+import { addMonths, currentMonth } from "@/lib/debt-month";
 import type { CardInvoiceSummary } from "@/lib/api/types";
 
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" });
 
 export function currentMonthInBrazil(now = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit",
-  }).formatToParts(now);
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  return `${year}-${month}`;
+  return currentMonth("America/Sao_Paulo", now);
 }
 
 export function addInvoiceMonths(month: string, amount: number): string {
-  const [year, part] = month.split("-").map(Number);
-  const date = new Date(Date.UTC(year, part - 1 + amount, 1));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  return addMonths(month, amount);
 }
 
 export function invoiceMonthLabel(month: string): string {

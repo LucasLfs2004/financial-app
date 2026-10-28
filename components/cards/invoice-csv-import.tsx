@@ -7,10 +7,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { browserApiFetch, BrowserApiError } from "@/lib/api/browser-api";
 import type { CreditCard, InvoiceImportPreview, InvoiceImportProjectedInstallment, InvoiceImportResult, InvoiceImportRow } from "@/lib/api/types";
+import { currentMonth } from "@/lib/debt-month";
+import { invoiceCount, subscriptionMatchCount, subscriptionMatches, ignoredPayments, newProjectionCount, hasChanges, importTotals } from "@/lib/invoice-import";
 import { formatDate } from "@/lib/format-date";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
-const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 type ImportResponse<T> = T | { data: T };
 type Allocations = Record<string, string>;
 type PreviewState = { data: InvoiceImportPreview; allocationsJson: string; cardId: string; month: string; file: File };
@@ -20,40 +21,8 @@ function unpack<T extends object>(response: ImportResponse<T>): T {
   return "data" in response ? response.data : response;
 }
 
-function money(cents: number) {
-  return currency.format(cents / 100);
-}
-
-function invoiceCount(data: InvoiceImportPreview) {
-  return Number.isFinite(data.needs_invoice_count)
-    ? data.needs_invoice_count!
-    : data.rows.filter((row) => row.status === "needs_invoice").length;
-}
-
-function ignoredPayments(data: InvoiceImportPreview) {
-  return data.rows.filter((row) => row.status === "skipped" && row.reason === "non_expense" && /^pagamento recebido/i.test(row.title.trim())).length;
-}
-
-function newProjectionCount(data: InvoiceImportPreview) {
-  return data.new_projected_count ?? data.projected_installments?.filter((row) => row.status === "new" || row.status === "imported").length ?? 0;
-}
-
-function hasChanges(data: InvoiceImportPreview) {
-  return data.new_count > 0 || newProjectionCount(data) > 0;
-}
-
-function importTotals(data: InvoiceImportPreview, confirmed: boolean) {
-  const rows = data.rows.filter((row) => row.status === (confirmed ? "imported" : "new"));
-  const rowCharges = rows.reduce((total, row) => total + (row.kind === "payment" ? 0 : row.amount_cents), 0);
-  const rowPayments = rows.reduce((total, row) => total + (row.kind === "payment" ? row.amount_cents : 0), 0);
-  const net = Number.isFinite(data.new_total_cents) ? data.new_total_cents : rowCharges + rowPayments;
-  const charges = Number.isFinite(data.new_charges_cents)
-    ? data.new_charges_cents!
-    : Number.isFinite(data.new_payments_cents) ? net - data.new_payments_cents! : rowCharges;
-  const payments = Number.isFinite(data.new_payments_cents)
-    ? data.new_payments_cents!
-    : net - charges;
-  return { charges, payments, net };
+function money(cents: number, currencyCode = "BRL") {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currencyCode }).format(cents / 100);
 }
 
 function errorMessage(error: unknown) {
@@ -61,8 +30,8 @@ function errorMessage(error: unknown) {
     switch (error.status) {
       case 400: return "Arquivo, mês de pagamento ou token inválido. Confira as escolhas e gere uma nova prévia.";
       case 404: return "Cartão não encontrado. Atualize a página e selecione outro cartão.";
-      case 409: return "Este cartão foi arquivado e não aceita importações.";
-      case 422: return "O mês está fora do horizonte ou sem configuração do cartão.";
+      case 409: return error.message;
+      case 422: return error.message;
       default: return error.message;
     }
   }
@@ -76,22 +45,29 @@ function statusLabel(status: InvoiceImportRow["status"]) {
     case "skipped": return "Ignorado";
     case "imported": return "Importado";
     case "needs_invoice": return "Escolha a fatura";
+    case "needs_subscription_match": return "Revisar assinatura";
   }
 }
 
-function rowExplanation(row: InvoiceImportRow) {
+function rowExplanation(row: InvoiceImportRow, currencyCode: string) {
+  if (row.reason === "ambiguous_subscription") return "Mais de uma cobrança ou assinatura corresponde a esta descrição. Revise o cadastro em Receitas e despesas e gere uma nova prévia.";
+  if (row.reason === "subscription_match") return row.planned_amount_cents != null
+    ? `Substitui a previsão de ${money(row.planned_amount_cents, currencyCode)} da assinatura em ${row.matched_reference_month}. A cobrança de ${money(row.amount_cents, currencyCode)} será contada uma única vez.`
+    : `Cobrança vinculada à assinatura em ${row.matched_reference_month}. A previsão já foi substituída, sem duplicação.`;
+  if (row.reason === "projected_installment") return "Esta cobrança substitui uma parcela já projetada, sem duplicar o valor.";
   if (row.reason === "already_imported_to_other_invoice") return `Já importado na fatura ${row.invoice_payment_month ?? "original"}. Não será lançado novamente.`;
   if (row.status === "skipped" && row.reason === "non_expense" && /^pagamento recebido/i.test(row.title.trim())) return "Este pagamento foi ignorado pela API e não entrará na fatura.";
   if (row.reason === "non_expense") return "Crédito ou valor zero — não entra nos gastos.";
   return row.reason?.replaceAll("_", " ") ?? null;
 }
 
-function Totals({ data, confirmed = false }: { data: InvoiceImportPreview; confirmed?: boolean }) {
+function Totals({ data, confirmed = false, currencyCode }: { data: InvoiceImportPreview; confirmed?: boolean; currencyCode: string }) {
   const totals = importTotals(data, confirmed);
   return <div className="invoice-import-metrics">
-    <span><strong>{money(totals.charges)}</strong>{confirmed ? "compras importadas" : "novas compras"}</span>
-    <span><strong>{money(totals.payments)}</strong>{confirmed ? "pagamentos importados" : "novos pagamentos"}</span>
-    <span><strong>{money(totals.net)}</strong>saldo líquido</span>
+    <span><strong>{money(totals.charges, currencyCode)}</strong>{confirmed ? "compras importadas" : "novas compras"}</span>
+    <span><strong>{money(totals.payments, currencyCode)}</strong>{confirmed ? "pagamentos importados" : "novos pagamentos"}</span>
+    <span><strong>{money(totals.net, currencyCode)}</strong>total líquido do CSV</span>
+    {subscriptionMatches(data).length > 0 && <span><strong>{money(subscriptionMatches(data).reduce((total, row) => total + (row.planned_amount_cents ?? 0), 0), currencyCode)}</strong>previsões substituídas</span>}
     <span><strong>{confirmed ? (data as InvoiceImportResult).imported_count ?? data.new_count : data.new_count}</strong>{confirmed ? "lançados" : "novos lançamentos"}</span>
     <span><strong>{newProjectionCount(data)}</strong>{confirmed ? "parcelas futuras projetadas" : "novas parcelas futuras"}</span>
     <span><strong>{data.existing_count}</strong>existentes</span>
@@ -99,22 +75,20 @@ function Totals({ data, confirmed = false }: { data: InvoiceImportPreview; confi
   </div>;
 }
 
-function ProjectedRows({ rows, confirmed = false }: { rows: InvoiceImportProjectedInstallment[]; confirmed?: boolean }) {
+function ProjectedRows({ rows, confirmed = false, currencyCode }: { rows: InvoiceImportProjectedInstallment[]; confirmed?: boolean; currencyCode: string }) {
   if (rows.length === 0) return null;
   return <><p className="invoice-import-help">Parcelas futuras por fatura. As já existentes não serão duplicadas.</p><div className="invoice-import-rows">{rows.map((row) => <div className="invoice-import-row" key={`${row.source_line}-${row.invoice_payment_month}-${row.installment_number}`}>
-    <div className="invoice-import-row-main"><strong>{row.title}</strong><span>Fatura {row.invoice_payment_month} · {money(row.amount_cents)} · origem na linha {row.source_line}</span></div>
+    <div className="invoice-import-row-main"><strong>{row.title} · {row.installment_number}/{row.installments_total}</strong><span>Projeção de parcela importada · Fatura {row.invoice_payment_month} · {money(row.amount_cents, currencyCode)} · origem na linha {row.source_line}</span></div>
     <span className={`invoice-import-status status-${row.status}`}>{row.status === "existing" ? "Já existente" : confirmed ? "Projetada" : "Nova projeção"}</span>
   </div>)}</div></>;
 }
 
-export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditCard[]; initialCardId?: string }) {
+export function InvoiceCsvImport({ cards, initialCardId = "", defaultMonth = currentMonth(), currencyCode = "BRL" }: { cards: CreditCard[]; initialCardId?: string; defaultMonth?: string; currencyCode?: string }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
   const previewAbort = useRef<AbortController | null>(null);
-  const today = new Date();
-  const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"file" | "review" | "done">("file");
   const [cardId, setCardId] = useState(initialCardId);
@@ -132,6 +106,8 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
     if (open && !dialog.open) dialog.showModal();
     if (!open && dialog.open) dialog.close();
   }, [open]);
+
+  useEffect(() => () => previewAbort.current?.abort(), []);
 
   function invalidate() {
     requestId.current += 1;
@@ -199,7 +175,7 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
   }
 
   async function confirm() {
-    if (!preview || !file || pending || preview.file !== file || preview.cardId !== cardId || preview.month !== month || preview.allocationsJson !== JSON.stringify(allocations) || invoiceCount(preview.data) !== 0 || ignoredPayments(preview.data) > 0 || !hasChanges(preview.data)) return;
+    if (!preview || !file || pending || preview.file !== file || preview.cardId !== cardId || preview.month !== month || preview.allocationsJson !== JSON.stringify(allocations) || invoiceCount(preview.data) !== 0 || subscriptionMatchCount(preview.data) !== 0 || ignoredPayments(preview.data) > 0 || !hasChanges(preview.data)) return;
     const selection = preview;
     const id = ++requestId.current;
     setPending("confirm");
@@ -218,7 +194,7 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
     } catch (caught) {
       if (id === requestId.current) {
         setError(errorMessage(caught));
-        if (caught instanceof BrowserApiError && caught.status === 400) setPreview(null);
+        setPreview(null);
       }
     } finally {
       if (id === requestId.current) setPending(null);
@@ -227,9 +203,9 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
 
   const activeCards = cards.filter((card) => card.status === "active");
   const latestPreview = preview && preview.allocationsJson === JSON.stringify(allocations) && preview.cardId === cardId && preview.month === month && preview.file === file;
-  const ready = latestPreview && !pending && invoiceCount(preview.data) === 0 && ignoredPayments(preview.data) === 0 && hasChanges(preview.data);
+  const ready = latestPreview && !pending && invoiceCount(preview.data) === 0 && subscriptionMatchCount(preview.data) === 0 && ignoredPayments(preview.data) === 0 && hasChanges(preview.data);
   const affectedMonths = outcome ? [...new Set([
-    ...outcome.data.rows.filter((row) => row.status === "imported").map((row) => row.kind === "payment" ? row.invoice_payment_month : outcome.month),
+    ...outcome.data.rows.filter((row) => row.status === "imported" || (row.matched_item_id && row.planned_amount_cents != null)).map((row) => row.kind === "payment" ? row.invoice_payment_month : outcome.month),
     ...(outcome.data.projected_installments ?? []).filter((row) => row.status === "imported").map((row) => row.invoice_payment_month),
   ].filter((value): value is string => Boolean(value)))].sort() : [];
 
@@ -246,18 +222,21 @@ export function InvoiceCsvImport({ cards, initialCardId = "" }: { cards: CreditC
           <Button type="submit" disabled={!cardId || !month || !file || file.size > MAX_FILE_BYTES}><ReceiptText size={16} /> Revisar CSV</Button>
         </form></>}
         {step === "review" && <><div className="invoice-import-review-heading"><p>Compras na fatura <strong>{month}</strong>. Escolha a fatura que cada pagamento vai abater.</p><Button type="button" variant="ghost" size="sm" onClick={() => { invalidate(); setFile(null); }} disabled={pending === "confirm"}>Trocar arquivo</Button></div>
-          {preview && <><Totals data={preview.data} /><div className="invoice-import-counts">{invoiceCount(preview.data)} pagamento(s) sem fatura · {preview.data.existing_count} existente(s) · {preview.data.skipped_count} ignorado(s)</div><div className="invoice-import-rows">{preview.data.rows.map((row) => <div className="invoice-import-row" key={row.line}>
-            <div className="invoice-import-row-main"><strong>{row.title}</strong><span>Linha {row.line} · {formatDate(row.date)} · {money(row.amount_cents)}</span>{row.kind === "payment" && <label className="native-field"><span>Fatura deste pagamento</span><input type="month" aria-label={`Fatura do pagamento na linha ${row.line}`} value={allocations[String(row.line)] ?? ""} onChange={(event) => allocate(row.line, event.target.value)} disabled={pending === "confirm"} /></label>}{rowExplanation(row) && <small>{rowExplanation(row)}</small>}</div>
+          {preview && <><Totals data={preview.data} currencyCode={currencyCode} /><div className="invoice-import-counts">{invoiceCount(preview.data)} pagamento(s) sem fatura · {preview.data.existing_count} existente(s) · {preview.data.skipped_count} ignorado(s) · {subscriptionMatchCount(preview.data)} assinatura(s) para revisar</div><div className="invoice-import-rows">{preview.data.rows.map((row) => <div className="invoice-import-row" key={row.line}>
+            <div className="invoice-import-row-main"><strong>{row.title}{row.installment_number != null && ` · ${row.installment_number}/${row.installments_total}`}</strong><span>Linha {row.line} · {formatDate(row.date)} · {money(row.amount_cents, currencyCode)}</span>{row.kind === "payment" && <label className="native-field"><span>Fatura deste pagamento</span><input type="month" aria-label={`Fatura do pagamento na linha ${row.line}`} value={allocations[String(row.line)] ?? ""} onChange={(event) => allocate(row.line, event.target.value)} disabled={pending === "confirm"} /></label>}{rowExplanation(row, currencyCode) && <small>{rowExplanation(row, currencyCode)}</small>}</div>
             <span className={`invoice-import-status status-${row.status}`}>{statusLabel(row.status)}</span>
-          </div>)}</div><ProjectedRows rows={preview.data.projected_installments ?? []} /></>}
+          </div>)}</div><ProjectedRows rows={preview.data.projected_installments ?? []} currencyCode={currencyCode} /></>}
           {pending === "preview" && <p className="chart-message" role="status"><Spinner size="sm" /> Atualizando prévia e token...</p>}
           {!pending && error && file && <Button type="button" variant="ghost" onClick={() => void loadPreview(allocations, cardId, month, file)}>Tentar prévia novamente</Button>}
           {!pending && preview && invoiceCount(preview.data) > 0 && <p className="invoice-import-help">Escolha a fatura de todos os pagamentos para confirmar.</p>}
           {!pending && preview && ignoredPayments(preview.data) > 0 && <Alert color="error">{ignoredPayments(preview.data)} pagamento(s) recebido(s) foram ignorados pela API. A confirmação ficaria incompleta. Atualize a API e gere uma nova prévia antes de importar.</Alert>}
-          {!pending && preview && invoiceCount(preview.data) === 0 && !hasChanges(preview.data) && <p className="invoice-import-help">Nenhum lançamento ou parcela futura nova neste arquivo.</p>}
+          {!pending && preview && subscriptionMatchCount(preview.data) > 0 && <Alert color="warning" title="Revise as assinaturas">A importação está bloqueada para evitar um vínculo incorreto. Confira as descrições ou cobranças repetidas, ajuste o cadastro em <Link href="/entries">Receitas e despesas</Link> e gere uma nova prévia.</Alert>}
+          {!pending && preview && subscriptionMatchCount(preview.data) > 0 && <Button type="button" variant="ghost" onClick={() => file && void loadPreview(allocations, cardId, month, file)}>Atualizar prévia</Button>}
+          {!pending && preview && subscriptionMatches(preview.data).length > 0 && <p className="invoice-import-help">As previsões das assinaturas vinculadas serão substituídas pelas cobranças. O total do CSV não representa o aumento líquido da fatura.</p>}
+          {!pending && preview && invoiceCount(preview.data) === 0 && subscriptionMatchCount(preview.data) === 0 && !hasChanges(preview.data) && <p className="invoice-import-help">Nenhum lançamento, vínculo de assinatura ou parcela futura nova neste arquivo.</p>}
           <Button type="button" onClick={confirm} disabled={!ready}>{pending === "confirm" ? <Spinner size="sm" /> : <FileUp size={15} />} {pending === "confirm" ? "Importando..." : "Confirmar importação"}</Button>
         </>}
-        {step === "done" && outcome && <><p className="section-description">Os lançamentos e as parcelas futuras foram salvos. As faturas afetadas e o planejamento serão carregados com os novos valores ao abrir essas telas.</p><Totals data={outcome.data} confirmed /><div className="invoice-import-counts">{outcome.data.existing_count} já existente(s) · {outcome.data.skipped_count} ignorado(s)</div><div className="invoice-import-rows">{outcome.data.rows.map((row) => <div className="invoice-import-row" key={row.line}><div className="invoice-import-row-main"><strong>{row.title}</strong><span>Linha {row.line} · {formatDate(row.date)} · {money(row.amount_cents)}</span>{row.kind === "payment" && row.invoice_payment_month && <small>Fatura {row.invoice_payment_month}</small>}{rowExplanation(row) && <small>{rowExplanation(row)}</small>}</div><span className={`invoice-import-status status-${row.status}`}>{statusLabel(row.status)}</span></div>)}</div><ProjectedRows rows={outcome.data.projected_installments ?? []} confirmed /><div className="invoice-import-links">{affectedMonths.map((value) => <Link key={value} className="small-link" href={`/invoices/${outcome.cardId}/${value}`} onClick={() => setOpen(false)}>Ver fatura {value}</Link>)}<Link className="small-link" href="/planning" onClick={() => setOpen(false)}>Ver planejamento atualizado</Link></div></>}
+        {step === "done" && outcome && <><p className="section-description">Os lançamentos e as parcelas futuras foram salvos. As assinaturas identificadas substituíram suas previsões no mês, sem duplicar o valor. As faturas afetadas e o planejamento serão carregados com os novos valores ao abrir essas telas.</p><Totals data={outcome.data} confirmed currencyCode={currencyCode} /><div className="invoice-import-counts">{outcome.data.existing_count} já existente(s) · {outcome.data.skipped_count} ignorado(s)</div><div className="invoice-import-rows">{outcome.data.rows.map((row) => <div className="invoice-import-row" key={row.line}><div className="invoice-import-row-main"><strong>{row.title}{row.installment_number != null && ` · ${row.installment_number}/${row.installments_total}`}</strong><span>Linha {row.line} · {formatDate(row.date)} · {money(row.amount_cents, currencyCode)}</span>{row.kind === "payment" && row.invoice_payment_month && <small>Fatura {row.invoice_payment_month}</small>}{rowExplanation(row, currencyCode) && <small>{rowExplanation(row, currencyCode)}</small>}</div><span className={`invoice-import-status status-${row.status}`}>{statusLabel(row.status)}</span></div>)}</div><ProjectedRows rows={outcome.data.projected_installments ?? []} confirmed currencyCode={currencyCode} /><div className="invoice-import-links">{affectedMonths.map((value) => <Link key={value} className="small-link" href={`/invoices/${encodeURIComponent(outcome.cardId)}/${value}`} onClick={() => setOpen(false)}>Ver fatura {value}</Link>)}<Link className="small-link" href="/planning" onClick={() => setOpen(false)}>Ver planejamento atualizado</Link></div></>}
         {error && <Alert color="error">{error}</Alert>}
       </div>
     </dialog>

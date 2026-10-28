@@ -30,6 +30,8 @@ export type FinancialItem = {
   name: string;
   kind: "recurring_income" | "one_time_income" | "fixed_expense" | "projected_variable_expense" | "debt_installment";
   description: string | null;
+  invoice_match_title?: string | null;
+  renewal_day?: number | null;
   status: "active" | "archived";
   archived_at: string | null;
   periods: FinancialPeriod[];
@@ -59,6 +61,13 @@ export type MonthlySummarySource = {
   reference_month: string | null;
   cash_month: string;
   amount_cents: number;
+  source_type?: string;
+  payment_method?: "direct" | "credit_card";
+  credit_card_id?: string | null;
+  invoice_payment_month?: string | null;
+  invoice_allocation?: string | null;
+  reference_known?: boolean;
+  is_projected?: boolean;
   debt_id?: string | null;
   installment_number?: number | null;
   installments_total?: number | null;
@@ -66,6 +75,8 @@ export type MonthlySummarySource = {
 };
 
 export type MonthlySummary = {
+  excluded_variable_forecasts_cents?: number;
+  excluded_variable_forecasts?: MonthlySummarySource[];
   month: string;
   basis: "cash" | "reference";
   result_kind: string;
@@ -110,6 +121,7 @@ export type CreditCard = {
 export type CardInvoiceComponent = {
   source_id: string; source_type: string; item_id: string | null; adjustment_id: string | null; name: string; reference_month: string | null; reference_known: boolean; payment_month: string; amount_cents: number; allocation: string;
   payment_date?: string | null;
+  is_projected?: boolean;
   debt_id?: string | null; installment_number?: number | null; installments_total?: number | null; debt_occurrence_kind?: "scheduled" | "early_settlement" | null;
 };
 export type CardInvoiceSummary = {
@@ -123,8 +135,14 @@ export type InvoiceImportRow = {
   amount_cents: number;
   kind: "expense" | "payment" | "unsupported";
   invoice_payment_month?: string;
-  status: "new" | "existing" | "skipped" | "imported" | "needs_invoice";
+  status: "new" | "existing" | "skipped" | "imported" | "needs_invoice" | "needs_subscription_match";
   reason?: string | null;
+  matched_item_id?: string;
+  matched_reference_month?: string;
+  planned_amount_cents?: number;
+  installment_number?: number;
+  installments_total?: number;
+  is_projected?: boolean;
 };
 export type InvoiceImportProjectedInstallment = {
   source_line: number;
@@ -136,12 +154,16 @@ export type InvoiceImportProjectedInstallment = {
   status: "new" | "existing" | "imported";
 };
 export type InvoiceImportPreview = {
+  card_id: string;
+  payment_month: string;
+  source: string;
   preview_token: string;
   rows: InvoiceImportRow[];
   new_count: number;
   existing_count: number;
   skipped_count: number;
   needs_invoice_count?: number;
+  needs_subscription_match_count?: number;
   new_total_cents: number;
   new_charges_cents?: number;
   new_payments_cents?: number;
@@ -188,7 +210,24 @@ export type DebtOccurrence = {
 export type DebtSchedule = { debt: Debt; range: { from: string; to: string }; occurrences: DebtOccurrence[] };
 export type DebtRelease = { debt_id: string; name: string; currency_code: string; scheduled_end_month: string; effective_end_month: string; release_from_month: string; released_monthly_cents: number; reason: "scheduled_completion" | "early_settlement" };
 export type DebtReleaseList = { releases: DebtRelease[]; monthly_totals: { month: string; released_monthly_cents: number }[] };
-export type PaymentMethodHistory = { financial_item_id: string; default_method: "direct"; periods: { id: string; start_month: string; end_month: string | null; method: "direct" | "credit_card"; credit_card_id: string | null; context: string | null }[] };
+export type PaymentMethodPeriod = { id: string; start_month: string; end_month: string | null; method: "direct" | "credit_card"; credit_card_id: string | null; context: string | null; recorded_at: string; created_at: string };
+export type PaymentMethodHistory = { financial_item_id: string; default_method: "direct"; periods: PaymentMethodPeriod[] };
 
 export type ApiEnvelope<T> = { data: T };
 export type ApiList<T> = { data: T[] };
+
+export type InvoiceOccurrenceMove = { id: string; item_id: string; reference_month: string; from_credit_card_id: string; from_payment_month: string; to_credit_card_id: string; to_payment_month: string; reason: string | null; recorded_at: string };
+export type InvoiceMoveHistory = { data: InvoiceOccurrenceMove[]; current_allocation?: { credit_card_id: string; payment_month: string; origin: string } | null };
+
+// Proposed GET-by-ID contract. Maintenance stays gated until FE-T02/03 are validated.
+export type InvoiceAdjustmentDetail = CardInvoiceAdjustment & {
+  entry_kind: "charge" | "payment";
+  import_source: string | null;
+  transaction_date: string | null;
+  is_projected: boolean;
+  installment_number: number | null;
+  installments_total: number | null;
+  reconciled_item_id: string | null;
+  reconciled_reference_month: string | null;
+  capabilities: { can_edit: boolean; editable_fields: ("name" | "amount_cents" | "reference_month" | "context")[]; can_archive: boolean; archive_effect: "remove_charge" | "restore_subscription_forecast" | "none" };
+};
