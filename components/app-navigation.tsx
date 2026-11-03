@@ -5,8 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ChartNoAxesCombined, CreditCard, House, Landmark, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
-import type { MonthlySummary } from "@/lib/api/types";
-import { API_NOTICE_EVENT, type ApiNotice } from "@/lib/api/notice-event";
 import { BrandMark } from "@/components/brand-mark";
 
 const items = [
@@ -16,6 +14,13 @@ const items = [
   { href: "/debts", label: "Dívidas", mobileLabel: "Dívidas", icon: Landmark },
   { href: "/cards", label: "Cartões", mobileLabel: "Cartões", icon: CreditCard },
   { href: "/invoices", label: "Faturas", mobileLabel: "Faturas", icon: ReceiptText },
+];
+
+const mobileItems = [
+  { href: "/dashboard", label: "Início", icon: House, active: (path: string) => path.startsWith("/dashboard") },
+  { href: "/entries", label: "Lançamentos", icon: WalletCards, active: (path: string) => path.startsWith("/entries") || path.startsWith("/debts") },
+  { href: "/cards", label: "Cartões", icon: CreditCard, active: (path: string) => path.startsWith("/cards") || path.startsWith("/invoices") },
+  { href: "/planning", label: "Planejar", icon: ChartNoAxesCombined, active: (path: string) => path.startsWith("/planning") },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -55,7 +60,7 @@ export function AppNavigation({ name, email }: { name: string; email: string }) 
       <div className="sidebar-user"><span className="sidebar-avatar">{name.charAt(0).toUpperCase()}</span><span><strong>{name}</strong><small>{email}</small></span></div>
     </aside>
     <nav className="app-mobile-navigation" aria-label="Navegação principal">
-      {items.map(({ href, label, mobileLabel, icon: Icon }) => <Link key={href} href={href} className={isActive(pathname, href) ? "active" : ""} aria-label={label} aria-current={isActive(pathname, href) ? "page" : undefined}><Icon size={19} /><span>{mobileLabel ?? label}</span></Link>)}
+      {mobileItems.map(({ href, label, icon: Icon, active }) => <Link key={href} href={href} className={active(pathname) ? "active" : ""} aria-current={active(pathname) ? "page" : undefined}><Icon size={21} /><span>{label}</span></Link>)}
     </nav>
   </>;
 }
@@ -66,47 +71,11 @@ export function AppHeader({ name }: { name: string }) {
   const customTitle = useContext(HeaderTitleContext)?.title;
   const pageTitle = customTitle?.pathname === pathname ? customTitle.text : section;
   const invoiceRoute = /^\/invoices\/([^/]+)(?:\/(.+))?$/.exec(pathname);
-  const backHref = invoiceRoute ? invoiceRoute[2] ? `/invoices/${invoiceRoute[1]}` : "/invoices" : pathname.startsWith("/debts/") ? "/debts" : null;
-  const [cash, setCash] = useState<MonthlySummary | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let controller: AbortController | undefined;
-    async function refresh() {
-      controller?.abort();
-      const request = new AbortController();
-      controller = request;
-      setLoading(true);
-      const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).formatToParts(new Date());
-      const month = `${parts.find((part) => part.type === "year")?.value}-${parts.find((part) => part.type === "month")?.value}`;
-      try {
-        const response = await fetch(`/api/financial/plans/current/months/${month}/summary?basis=cash`, { cache: "no-store", signal: request.signal });
-        const payload = response.ok ? await response.json() as { data: MonthlySummary } : null;
-        if (!request.signal.aborted) setCash(payload?.data ?? null);
-      } catch {
-        if (!request.signal.aborted) setCash(null);
-      } finally {
-        if (!request.signal.aborted) setLoading(false);
-      }
-    }
-    function onNotice(event: Event) {
-      if ((event as CustomEvent<ApiNotice>).detail.type === "success") void refresh();
-    }
-    void refresh();
-    window.addEventListener(API_NOTICE_EVENT, onNotice);
-    window.addEventListener("focus", refresh);
-    return () => {
-      controller?.abort();
-      window.removeEventListener(API_NOTICE_EVENT, onNotice);
-      window.removeEventListener("focus", refresh);
-    };
-  }, [pathname]);
-
-  const monthLabel = cash ? new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(`${cash.month}-02T12:00:00Z`)).replace(".", "") : "mês atual";
+  const backHref = invoiceRoute ? "/cards" : pathname.startsWith("/debts/") ? "/debts" : pathname.startsWith("/cards/") ? "/cards" : null;
   return <header className="app-header">
     <div className="app-header-leading">
       {backHref ? <Link className="app-header-back" href={backHref} aria-label="Voltar à lista anterior"><ArrowLeft size={19} /></Link> : <Link className="app-header-brand" href="/dashboard" aria-label="Projeção — início"><BrandMark /></Link>}
-      <div className="app-header-location"><h1 title={pageTitle}>{pageTitle}</h1><span className={`app-header-cash${cash?.is_negative ? " is-negative" : ""}`} aria-busy={loading}>Caixa projetado · {monthLabel}<strong>{loading ? "…" : cash ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: cash.currency_code }).format(cash.result_cents / 100) : "Indisponível"}</strong></span></div>
+      <div className="app-header-location"><h1 title={pageTitle}>{pageTitle}</h1></div>
     </div>
     <div className="app-header-actions"><span className="app-header-greeting">Olá, {name}</span><SignOutButton /></div>
   </header>;

@@ -11,7 +11,7 @@ function isIncome(item: FinancialItem) {
   return item.kind === "recurring_income" || item.kind === "one_time_income";
 }
 
-export function FinancialItemsList({ items, cards }: { items: FinancialItem[]; cards: CreditCard[] }) {
+export function FinancialItemsList({ items, cards, month, returnQuery }: { items: FinancialItem[]; cards: CreditCard[]; month: string; returnQuery: string }) {
   const [filter, setFilter] = useState<Filter>("all");
   const visibleItems = items.filter((item) => filter === "all" || (filter === "income" ? isIncome(item) : !isIncome(item)));
   const incomeCount = items.filter(isIncome).length;
@@ -24,6 +24,6 @@ export function FinancialItemsList({ items, cards }: { items: FinancialItem[]; c
       <button type="button" className={filter === "income" ? "active" : ""} aria-pressed={filter === "income"} onClick={() => setFilter("income")}><ArrowDownLeft size={15} /> Receitas <span>{incomeCount}</span></button>
       <button type="button" className={filter === "expense" ? "active" : ""} aria-pressed={filter === "expense"} onClick={() => setFilter("expense")}><ArrowUpRight size={15} /> Despesas <span>{expenseCount}</span></button>
     </div>
-    {visibleItems.length ? <div className="financial-items-grid">{visibleItems.map((item) => <FinancialItemCard item={item} cards={cards} key={item.id} />)}</div> : <div className="empty-resource-inline">{items.length ? "Nenhum registro desse tipo." : "Nenhuma receita ou despesa cadastrada ainda."}</div>}
+    {visibleItems.length ? <div className="financial-items-grid">{visibleItems.map((item) => <FinancialItemCard item={item} cards={cards} month={month} returnQuery={returnQuery} key={item.id} />)}</div> : <div className="empty-resource-inline">{items.length ? "Nenhum registro desse tipo." : "Nenhuma receita ou despesa cadastrada ainda."}</div>}
   </section>;
 }

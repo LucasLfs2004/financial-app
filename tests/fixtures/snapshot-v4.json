@@ -1,0 +1,164 @@
+{
+  "id": "00000000-0000-4000-8000-000000000024",
+  "plan_id": "00000000-0000-4000-8000-000000000001",
+  "kind": "original",
+  "schema_version": 4,
+  "captured_at": "2026-10-04T12:00:00Z",
+  "plan": {
+    "name": "Plano sintético",
+    "start_month": "2026-10",
+    "end_month": "2027-09",
+    "currency_code": "BRL",
+    "items": [
+      {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Assinatura sintética",
+        "kind": "fixed_expense",
+        "description": null,
+        "status": "active",
+        "archived_at": null,
+        "created_at": "2026-10-04T12:00:00Z",
+        "updated_at": "2026-10-04T12:00:00Z",
+        "periods": [
+          {
+            "id": "00000000-0000-4000-8000-000000000003",
+            "start_month": "2026-10",
+            "end_month": null,
+            "amount_cents": 10000,
+            "recurrence": "monthly",
+            "cash_month_offset": 0,
+            "context": null,
+            "recorded_at": "2026-10-04T12:00:00Z",
+            "created_at": "2026-10-04T12:00:00Z"
+          }
+        ],
+        "currency_code": "BRL",
+        "invoice_match_title": "Assinatura sintética",
+        "renewal_day": 28
+      }
+    ],
+    "savings": {
+      "configured": true,
+      "periods": [
+        {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "start_month": "2026-10",
+          "end_month": null,
+          "amount_cents": 0,
+          "context": null,
+          "created_at": "2026-10-04T12:00:00Z"
+        }
+      ]
+    },
+    "release_2": {
+      "financial_institutions": [
+        {
+          "id": "00000000-0000-4000-8000-000000000008",
+          "name": "Instituição sintética",
+          "status": "active"
+        }
+      ],
+      "credit_cards": [
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "institution_id": "00000000-0000-4000-8000-000000000008",
+          "name": "Cartão sintético",
+          "status": "active",
+          "periods": [
+            {
+              "id": "00000000-0000-4000-8000-000000000010",
+              "start_month": "2026-10",
+              "end_month": null,
+              "nominal_due_day": 31,
+              "payment_month_offset": 1
+            }
+          ]
+        }
+      ],
+      "payment_methods": [
+        {
+          "id": "00000000-0000-4000-8000-000000000005",
+          "financial_item_id": "00000000-0000-4000-8000-000000000002",
+          "user_id": "00000000-0000-4000-8000-000000000009",
+          "start_month": "2026-10-01",
+          "end_month": null,
+          "method": "credit_card",
+          "credit_card_id": "00000000-0000-4000-8000-000000000006",
+          "context": null,
+          "recorded_at": "2026-10-04T12:00:00Z",
+          "created_at": "2026-10-04T12:00:00Z"
+        }
+      ],
+      "invoice_adjustments": [
+        {
+          "id": "00000000-0000-4000-8000-000000000007",
+          "user_id": "00000000-0000-4000-8000-000000000009",
+          "credit_card_id": "00000000-0000-4000-8000-000000000006",
+          "payment_month": "2026-11-01",
+          "reference_month": "2026-10-01",
+          "name": "Cobrança sintética",
+          "amount_cents": 11000,
+          "context": null,
+          "status": "active",
+          "archived_at": null,
+          "created_at": "2026-10-04T12:00:00Z",
+          "updated_at": "2026-10-04T12:00:00Z",
+          "currency_code": "BRL",
+          "import_source": "nubank_csv",
+          "import_fingerprint": "synthetic-only",
+          "import_occurrence": 1,
+          "transaction_date": "2026-10-28",
+          "entry_kind": "charge",
+          "installment_series_key": null,
+          "installment_number": null,
+          "installments_total": null,
+          "is_projection": false,
+          "reconciled_item_id": "00000000-0000-4000-8000-000000000002",
+          "reconciled_reference_month": "2026-10-01"
+        }
+      ],
+      "invoice_moves": []
+    },
+    "release_3": {
+      "debts": [
+        {
+          "financial_item_id": "00000000-0000-4000-8000-000000000011",
+          "original_total_cents": null,
+          "total_installments": 12,
+          "first_projected_installment": 1,
+          "scheduled_start_month": "2026-10",
+          "scheduled_end_month": "2027-09",
+          "created_at": "2026-10-04T12:00:00Z",
+          "updated_at": "2026-10-04T12:00:00Z",
+          "periods": [
+            {
+              "id": "00000000-0000-4000-8000-000000000012",
+              "start_month": "2026-10-01",
+              "end_month": null,
+              "amount_cents": 60000,
+              "recurrence": "monthly",
+              "cash_month_offset": 0,
+              "context": null,
+              "recorded_at": "2026-10-04T12:00:00Z",
+              "created_at": "2026-10-04T12:00:00Z",
+              "financial_item_id": "00000000-0000-4000-8000-000000000011",
+              "user_id": "00000000-0000-4000-8000-000000000009"
+            }
+          ],
+          "payment_methods": [],
+          "early_settlement": {
+            "id": "00000000-0000-4000-8000-000000000013",
+            "financial_item_id": "00000000-0000-4000-8000-000000000011",
+            "user_id": "00000000-0000-4000-8000-000000000009",
+            "reference_month": "2027-02-01",
+            "amount_cents": 150000,
+            "reason": "Quitação sintética",
+            "recorded_by": "00000000-0000-4000-8000-000000000009",
+            "recorded_at": "2026-10-04T12:00:00Z",
+            "created_at": "2026-10-04T12:00:00Z"
+          }
+        }
+      ]
+    }
+  }
+}

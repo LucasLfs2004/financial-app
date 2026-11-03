@@ -1,0 +1,52 @@
+{
+  "id": "00000000-0000-4000-8000-000000000021",
+  "plan_id": "00000000-0000-4000-8000-000000000001",
+  "kind": "original",
+  "schema_version": 1,
+  "captured_at": "2026-10-04T12:00:00Z",
+  "plan": {
+    "name": "Plano sintético",
+    "start_month": "2026-10",
+    "end_month": "2027-09",
+    "currency_code": "BRL",
+    "items": [
+      {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "plan_id": "00000000-0000-4000-8000-000000000001",
+        "name": "Assinatura sintética",
+        "kind": "fixed_expense",
+        "description": null,
+        "status": "active",
+        "archived_at": null,
+        "created_at": "2026-10-04T12:00:00Z",
+        "updated_at": "2026-10-04T12:00:00Z",
+        "periods": [
+          {
+            "id": "00000000-0000-4000-8000-000000000003",
+            "start_month": "2026-10",
+            "end_month": null,
+            "amount_cents": 10000,
+            "recurrence": "monthly",
+            "cash_month_offset": 0,
+            "context": null,
+            "recorded_at": "2026-10-04T12:00:00Z",
+            "created_at": "2026-10-04T12:00:00Z"
+          }
+        ]
+      }
+    ],
+    "savings": {
+      "configured": true,
+      "periods": [
+        {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "start_month": "2026-10",
+          "end_month": null,
+          "amount_cents": 0,
+          "context": null,
+          "created_at": "2026-10-04T12:00:00Z"
+        }
+      ]
+    }
+  }
+}

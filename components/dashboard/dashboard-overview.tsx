@@ -1,78 +1,88 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, CalendarRange, Check, ChevronDown, CreditCard, Landmark, PiggyBank, Plus, ReceiptText, WalletCards } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, CreditCard, PiggyBank, Plus, WalletCards } from "lucide-react";
+import { MonthNavigation } from "@/components/month-navigation";
+import { FreeBalanceChart } from "./free-balance-chart";
+import { MonthlyComposition } from "./monthly-composition";
+import { VariableForecastFilter } from "./variable-forecast-filter";
 import { browserApiFetch } from "@/lib/api/browser-api";
-import type { MonthlySummary } from "@/lib/api/types";
+import { monthlySummaryPath } from "@/lib/api/summary-path";
+import type { MonthlySummary, Plan } from "@/lib/api/types";
+import { clampMonth, isMonth, projectionMonths } from "@/lib/debt-month";
 import { featureFlags } from "@/lib/feature-flags";
-
-const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const monthName = new Intl.DateTimeFormat("pt-BR", { month: "short" });
-
-function monthOffset(month: string, offset: number) {
-  const [year, number] = month.split("-").map(Number);
-  return new Date(Date.UTC(year, number - 1 + offset, 1)).toISOString().slice(0, 7);
-}
-
-function formatMonth(month: string) {
-  return monthName.format(new Date(`${month}-02T12:00:00`)).replace(".", "");
-}
+import { commitmentGroups } from "@/lib/financial-overview";
+import { summarySourceLink } from "@/lib/summary-source";
 
 type Props = {
-  name: string;
-  initialMonth: string;
-  initialSummaries: (MonthlySummary | null)[];
-  hasPlan: boolean;
-  cardCount: number | null;
-  debtCount: number | null;
+  name: string; initialMonth: string; initialSummaries: (MonthlySummary | null)[];
+  hasPlan: boolean; plan: Plan | null; initialCategory?: "income" | "commitments" | "savings";
+  initialBasis?: "cash" | "reference"; initialIncludeVariableForecasts?: boolean;
   apiAvailable: boolean;
 };
 
-export function DashboardOverview({ name, initialMonth, initialSummaries, hasPlan, cardCount, debtCount, apiAvailable }: Props) {
+export function DashboardOverview({ name, initialMonth, initialSummaries, hasPlan, plan, initialBasis = "cash", initialIncludeVariableForecasts = false, initialCategory, apiAvailable }: Props) {
   const [month, setMonth] = useState(initialMonth);
-  const [basis, setBasis] = useState<"cash" | "reference">("cash");
+  const [includeVariableForecasts, setIncludeVariableForecasts] = useState(initialIncludeVariableForecasts);
+  const [basis, setBasis] = useState<"cash" | "reference">(initialBasis);
   const [summaries, setSummaries] = useState(initialSummaries);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const requestId = useRef(0);
   const summary = summaries[0];
-  const months = Array.from({ length: 5 }, (_, index) => monthOffset(month, index));
-  const maxValue = Math.max(1, ...summaries.flatMap((item) => item ? [item.income_cents, item.commitments_cents, Math.abs(item.result_cents)] : []));
-  const hasChartData = summaries.some((item) => item && (item.income_cents !== 0 || item.commitments_cents !== 0 || item.result_cents !== 0));
+  const currencyCode = summary?.currency_code ?? plan?.currency_code ?? "BRL";
+  const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: currencyCode }).format(cents / 100);
+  const months = plan ? projectionMonths(month, plan) : [];
 
-  async function update(nextMonth: string, nextBasis: "cash" | "reference") {
-    setMonth(nextMonth);
-    setBasis(nextBasis);
-    if (!hasPlan) return;
-    setLoading(true);
-    setError("");
-    const nextMonths = Array.from({ length: 5 }, (_, index) => monthOffset(nextMonth, index));
-    const results = await Promise.all(nextMonths.map(async (value) => {
-      try {
-        const response = await browserApiFetch<{ data: MonthlySummary }>(`/plans/current/months/${value}/summary?basis=${nextBasis}`);
-        return response.data;
-      } catch { return null; }
+  async function update(nextMonth: string, nextBasis = basis, include = includeVariableForecasts) {
+    if (!isMonth(nextMonth) || !plan) return;
+    nextMonth = clampMonth(nextMonth, plan.start_month, plan.end_month);
+    const id = ++requestId.current;
+    setMonth(nextMonth); setBasis(nextBasis); setIncludeVariableForecasts(include);
+    const url = new URL(window.location.href);
+    url.searchParams.set("month", nextMonth);
+    url.searchParams.set("basis", nextBasis);
+    url.searchParams.set("include_variable_forecasts", String(include));
+    window.history.replaceState(null, "", url);
+    setLoading(true); setError(""); setSummaries([]);
+    const results = await Promise.all(projectionMonths(nextMonth, plan).map(async (value) => {
+      try { return (await browserApiFetch<{ data: MonthlySummary }>(monthlySummaryPath(value, nextBasis, include))).data; }
+      catch { return null; }
     }));
-    setSummaries(results);
-    if (results.every((item) => item === null)) setError("Não foi possível carregar a projeção deste período.");
-    setLoading(false);
+    if (id !== requestId.current) return;
+    setSummaries(results); setLoading(false);
+    if (results.some((value) => value === null)) setError("Alguns meses não puderam ser carregados.");
   }
 
-  const metrics = [
-    { label: "Saldo projetado", value: summary?.result_cents, icon: WalletCards, tone: "mint", hint: "Depois dos compromissos e da reserva" },
-    { label: "Receitas", value: summary?.income_cents, icon: ArrowDownLeft, tone: "mint", hint: "Entradas do mês" },
-    { label: "Compromissos", value: summary?.commitments_cents, icon: ArrowUpRight, tone: "rose", hint: "Despesas e pagamentos previstos" },
-    { label: "Para guardar", value: summary?.planned_savings_cents, icon: PiggyBank, tone: "blue", hint: "Reserva planejada para o mês" },
-  ];
-
-  return <>
-    <div className="overview-content">
-      <div className="overview-intro"><div><p>Olá, {name}. Confira sua projeção.</p></div><details className="new-entry-menu"><summary><Plus size={19} /> Novo cadastro <ChevronDown size={16} /></summary><div><Link href="/debts#new-debt">Adicionar dívida</Link><Link href="/cards#new-card">Cadastrar cartão</Link><Link href="/entries#new-item">Receita ou despesa</Link></div></details></div>
-      {!apiAvailable && <div className="overview-notice">Os dados financeiros estão indisponíveis agora. Você ainda pode acessar as áreas de cadastro pelo menu.</div>}
-      <section className="overview-shortcuts" aria-label="Cadastros rápidos"><Link href="/debts#new-debt"><span className="shortcut-icon"><Landmark size={23} /></span><span><strong>Adicionar dívida</strong><small>Parcelas e compromissos</small></span><ArrowRight size={19} /></Link><Link href="/cards#new-card"><span className="shortcut-icon"><CreditCard size={23} /></span><span><strong>Cadastrar cartão</strong><small>Vencimento e faturas</small></span><ArrowRight size={19} /></Link><Link href="/entries#new-item"><span className="shortcut-icon"><Plus size={25} /></span><span><strong>Receita ou despesa</strong><small>Organize o seu mês</small></span><ArrowRight size={19} /></Link></section>
-      <section className="overview-metrics" aria-label="Resumo financeiro do mês">{metrics.map(({ label, value, icon: Icon, tone, hint }) => <div className={`overview-metric ${tone}`} key={label}><div className="metric-heading"><span>{label}</span><Icon size={21} /></div><strong>{value === null || value === undefined ? "—" : currency.format(value / 100)}</strong><small>{hint}</small></div>)}</section>
-      <div className="overview-lower"><section className="projection-panel"><div className="panel-heading"><div><span className="section-kicker">PLANEJAMENTO</span><h2>Projeção dos próximos meses</h2></div><div className="panel-controls"><label className="overview-month"><CalendarRange size={17} /><input aria-label="Mês da projeção" type="month" value={month} onChange={(event) => void update(event.target.value, basis)} /></label>{featureFlags.referenceBasis && <select aria-label="Base da projeção" value={basis} onChange={(event) => void update(month, event.target.value as "cash" | "reference")}><option value="cash">Caixa</option><option value="reference">Competência</option></select>}</div></div>{loading && <p className="chart-message">Atualizando projeção...</p>}{error && <p className="chart-message">{error}</p>}{!hasPlan ? <div className="chart-empty"><span><ReceiptText size={26} /></span><h3>Sua projeção começa com um planejamento</h3><p>Defina o período e adicione suas receitas e despesas para visualizar os próximos meses.</p><Link href="/planning">Criar planejamento <ArrowRight size={16} /></Link></div> : summaries.every((item) => item === null) ? <div className="chart-empty"><h3>Projeção indisponível</h3><p>Confira seu planejamento ou tente selecionar outro mês.</p><Link href="/planning">Ver planejamento <ArrowRight size={16} /></Link></div> : !hasChartData ? <div className="chart-empty"><span><ReceiptText size={26} /></span><h3>Adicione valores ao planejamento</h3><p>Cadastre uma receita ou despesa para ver sua projeção ganhar forma.</p><Link href="/entries#new-item">Adicionar receita ou despesa <ArrowRight size={16} /></Link></div> : <><div className="chart-legend"><span><i className="legend-income" /> Receitas</span><span><i className="legend-commitments" /> Compromissos</span><span><i className="legend-result" /> Saldo</span></div><div className="projection-chart" role="img" aria-label="Gráfico de receitas, compromissos e saldo projetado para os próximos cinco meses">{months.map((value, index) => { const item = summaries[index]; return <div className="chart-month" key={value}><div className="chart-bars"><span className="bar income" style={{ height: `${item ? Math.max(3, item.income_cents / maxValue * 100) : 0}%` }} title={`${formatMonth(value)}: receitas ${currency.format((item?.income_cents ?? 0) / 100)}`} /><span className="bar commitments" style={{ height: `${item ? Math.max(3, item.commitments_cents / maxValue * 100) : 0}%` }} title={`${formatMonth(value)}: compromissos ${currency.format((item?.commitments_cents ?? 0) / 100)}`} /><span className={`bar result ${item?.is_negative ? "negative" : ""}`} style={{ height: `${item ? Math.max(3, Math.abs(item.result_cents) / maxValue * 100) : 0}%` }} title={`${formatMonth(value)}: saldo ${currency.format((item?.result_cents ?? 0) / 100)}`} /></div><small>{formatMonth(value)} {value.slice(0, 4)}</small></div>; })}</div></>}</section>
-      <section className="next-actions-panel"><span className="section-kicker">PARA SE ORGANIZAR</span><h2>Próximos passos</h2><Link href="/planning"><span className={`step-check ${hasPlan ? "done" : ""}`}>{hasPlan && <Check size={15} />}</span><span><strong>{hasPlan ? "Planejamento criado" : "Crie seu planejamento"}</strong><small>Defina o período da sua projeção</small></span><ArrowRight size={17} /></Link><Link href="/debts#new-debt"><span className={`step-check ${debtCount !== null && debtCount > 0 ? "done" : ""}`}>{debtCount !== null && debtCount > 0 && <Check size={15} />}</span><span><strong>{debtCount !== null && debtCount > 0 ? "Dívidas cadastradas" : "Cadastre suas dívidas"}</strong><small>Veja as parcelas no seu caixa</small></span><ArrowRight size={17} /></Link><Link href="/cards#new-card"><span className={`step-check ${cardCount !== null && cardCount > 0 ? "done" : ""}`}>{cardCount !== null && cardCount > 0 && <Check size={15} />}</span><span><strong>{cardCount !== null && cardCount > 0 ? "Cartões cadastrados" : "Cadastre seus cartões"}</strong><small>Acompanhe vencimentos e faturas</small></span><ArrowRight size={17} /></Link></section></div>
-    </div>
-  </>;
+  return <div className="finance-overview">
+    <div className="finance-page-heading"><p>Olá, {name}. Confira seu mês.</p><Link className="finance-icon-button" aria-label="Adicionar receita ou despesa" href="/entries#new-item"><Plus size={22} /></Link></div>
+    {plan && <MonthNavigation month={month} min={plan.start_month} max={plan.end_month} onChange={(value) => void update(value)} />}
+    {!apiAvailable && <p className="finance-notice" role="status">Os dados financeiros estão indisponíveis. Tente carregar a página novamente.</p>}
+    {!hasPlan ? <section className="finance-panel finance-empty"><h2>Comece pelo seu planejamento</h2><p>Defina o período e cadastre suas receitas e compromissos para descobrir quanto fica livre.</p><Link className="finance-primary-action" href="/planning">Criar planejamento <ChevronRight size={18} /></Link></section> : <>
+      <details className="finance-filters"><summary>Visão: {basis === "reference" ? "Competência" : includeVariableForecasts ? "Caixa com previsões variáveis" : "Caixa sem previsões variáveis"}</summary><div>{basis === "cash" && <VariableForecastFilter include={includeVariableForecasts} onChange={(include) => void update(month, basis, include)} />}{featureFlags.referenceBasis && <label className="native-field"><span>Base da projeção</span><select value={basis} onChange={(event) => void update(month, event.target.value as "cash" | "reference")}><option value="cash">Caixa</option><option value="reference">Competência</option></select></label>}</div></details>
+      {loading && <p role="status" className="finance-help">Atualizando seu planejamento…</p>}
+      {error && <p role="alert" className="finance-notice">{error} <button type="button" onClick={() => void update(month)}>Tentar novamente</button></p>}
+      <div className="finance-dashboard-grid" aria-busy={loading}>
+        <div className="finance-dashboard-main">
+          <section className={`finance-hero${summary?.is_negative ? " is-negative" : ""}`} aria-label="Resultado previsto do mês">
+            <span className="section-kicker">{basis === "cash" ? "LIVRE PREVISTO" : "RESULTADO POR COMPETÊNCIA"}</span><strong>{summary ? money(summary.result_cents) : "—"}</strong><p>Após os compromissos e a reserva planejada.</p>
+            <span className="finance-help">{basis === "cash" && !includeVariableForecasts ? "Não desconta estimativas variáveis." : "Inclui as despesas previstas."} Não é saldo bancário.</span>
+          </section>
+          {summary && <>
+            <dl className="finance-arithmetic finance-panel"><div><dt><ArrowDownLeft size={18} />Receitas</dt><dd>{money(summary.income_cents)}</dd></div><div><dt><ArrowUpRight size={18} />Compromissos</dt><dd>{summary.commitments_cents < 0 ? "+" : "−"} {money(Math.abs(summary.commitments_cents))}</dd></div><div><dt><PiggyBank size={18} />Reserva planejada</dt><dd>− {money(summary.planned_savings_cents)}</dd></div></dl>
+            <section className="finance-composition"><h2>O que compõe os compromissos?</h2><div className="finance-panel finance-row-list">{commitmentGroups(summary.sources).map((group) => <details className="finance-source-group" key={group.id}><summary>{group.id === "cards" ? <CreditCard size={18} /> : <WalletCards size={18} />}<span>{group.label}</span><strong>{money(group.amount)}</strong><ChevronRight size={16} /></summary><div className="finance-source-list">{group.sources.length === 0 ? <p className="finance-help">Nenhum compromisso neste grupo.</p> : group.sources.map((source, index) => {
+              const href = summarySourceLink(source);
+              return <div className="finance-source-row" key={`${source.source_id}-${index}`}><span>{href ? <Link href={href}>{source.name}</Link> : source.name}</span><strong>{money(source.amount_cents)}</strong></div>;
+            })}{group.id === "cards" && <Link className="finance-text-link" href={`/cards?month=${month}`}>Ver cartões e faturas →</Link>}</div></details>)}</div></section>
+            {(summary.excluded_variable_forecasts?.length ?? 0) > 0 && <aside className="finance-notice"><strong>{money(summary.excluded_variable_forecasts_cents ?? 0)} em estimativas fora deste saldo</strong><p>Para incluí-las na sobra prevista, altere a visão acima.</p><button type="button" onClick={() => void update(month, basis, true)}>Incluir previsões variáveis</button></aside>}
+            <details className="finance-disclosure" open={initialCategory ? true : undefined}><summary>Consultar todas as origens e estimativas</summary><MonthlyComposition key={`${summary.month}-${summary.basis}-${includeVariableForecasts}`} summary={summary} initialCategory={initialCategory} /></details>
+          </>}
+        </div>
+        <section className="finance-panel finance-forecast"><h2>{basis === "cash" ? "Quanto fica livre?" : "Resultado nos próximos meses"}</h2>{!loading && <FreeBalanceChart months={months} summaries={summaries} currencyCode={currencyCode} basis={basis} />}</section>
+      </div>
+    </>}
+    <Link className="finance-primary-action" href="/entries#new-item"><Plus size={19} /> Adicionar receita ou despesa</Link>
+    <div className="finance-secondary-links"><Link href="/debts">Dívidas e parcelas <ChevronRight size={16} /></Link><Link href="/planning">Planejamento e reserva <ChevronRight size={16} /></Link></div>
+  </div>;
 }

@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@lucaslfs2004/luke-ui": "link:../IA/luke-ui-2",
+    "@lucaslfs2004/luke-ui": "2.2.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
     "lucide-react": "^0.468.0",
@@ -30,5 +31,6 @@
     "postcss": "^8.5.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0"
-  }
+  },
+  "packageManager": "pnpm@10.28.0"
 }
