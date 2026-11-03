@@ -2,6 +2,13 @@
 
 Aplicação Next.js para acompanhar planejamento, cartões, faturas e dívidas.
 
+## Dependências de build
+
+Use pnpm 10.28.0, fixado em `packageManager`, e `pnpm install --frozen-lockfile`.
+O Luke UI usa a versão publicada `2.2.0`; não substitua essa dependência por um
+`link:` para uma pasta local no código enviado ao deploy. O build da Vercel
+precisa funcionar somente com os arquivos do repositório e os pacotes publicados.
+
 ## Visualização por competência
 
 As projeções e o resumo mensal usam a base **Caixa** por padrão. A opção **Competência** fica oculta enquanto `NEXT_PUBLIC_ENABLE_REFERENCE_BASIS` não estiver definida como `true`.
