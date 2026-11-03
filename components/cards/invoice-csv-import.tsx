@@ -83,7 +83,7 @@ function ProjectedRows({ rows, confirmed = false, currencyCode }: { rows: Invoic
   </div>)}</div></>;
 }
 
-export function InvoiceCsvImport({ cards, initialCardId = "", defaultMonth = currentMonth(), currencyCode = "BRL" }: { cards: CreditCard[]; initialCardId?: string; defaultMonth?: string; currencyCode?: string }) {
+export function InvoiceCsvImport({ cards, initialCardId = "", defaultMonth = currentMonth(), currencyCode = "BRL", compact = false }: { cards: CreditCard[]; initialCardId?: string; defaultMonth?: string; currencyCode?: string; compact?: boolean }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,7 +210,7 @@ export function InvoiceCsvImport({ cards, initialCardId = "", defaultMonth = cur
   ].filter((value): value is string => Boolean(value)))].sort() : [];
 
   return <>
-    <button className="invoice-import-trigger" type="button" onClick={start}><span className="invoice-import-icon"><FileSpreadsheet size={26} /></span><span className="invoice-import-copy"><strong>Importar planilha da fatura</strong><small>Envie o CSV do Nubank e confira os lançamentos antes de salvar.</small></span><ArrowUpRight className="invoice-import-arrow" size={20} /></button>
+    <button className={`invoice-import-trigger${compact ? " finance-import-compact" : ""}`} type="button" onClick={start}><span className="invoice-import-icon"><FileSpreadsheet size={26} /></span><span className="invoice-import-copy"><strong>{compact ? "Importar fatura do Nubank" : "Importar planilha da fatura"}</strong><small>Envie o CSV do Nubank e confira os lançamentos antes de salvar.</small></span><ArrowUpRight className="invoice-import-arrow" size={20} /></button>
     <dialog ref={dialogRef} className="invoice-import-dialog" onClose={() => setOpen(false)} onCancel={(event) => { if (pending === "confirm") event.preventDefault(); }} aria-labelledby="invoice-import-title">
       <div className="invoice-import-dialog-header"><div><span className="section-kicker">IMPORTAÇÃO NUBANK</span><h2 id="invoice-import-title">{step === "file" ? "Selecione o arquivo" : step === "review" ? "Revise a importação" : "Importação concluída"}</h2></div><button className="invoice-import-close" type="button" aria-label="Fechar" onClick={() => setOpen(false)} disabled={pending === "confirm"}><X size={19} /></button></div>
       <ol className="invoice-import-steps"><li className={step === "file" ? "active" : "done"}>1. Arquivo</li><li className={step === "review" ? "active" : step === "done" ? "done" : ""}>2. Revisão</li><li className={step === "done" ? "active" : ""}>3. Resultado</li></ol>

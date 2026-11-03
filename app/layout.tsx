@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./financial-redesign.css";
 import { PwaRegister } from "./pwa-register";
 import { ApiNotifications } from "@/components/api-notifications";
 

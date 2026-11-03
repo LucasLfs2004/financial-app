@@ -2,7 +2,7 @@
 
 import { currentMonth, selectPeriod } from "@/lib/debt-month";
 import { browserApiFetch } from "@/lib/api/browser-api";
-import type { CreditCard, FinancialInstitution } from "@/lib/api/types";
+import type { CardInvoice, CreditCard, FinancialInstitution } from "@/lib/api/types";
 import {
   Alert,
   Button,
@@ -17,22 +17,19 @@ import {
 } from "@lucaslfs2004/luke-ui";
 import {
   Archive,
-  ArrowRight,
-  CalendarDays,
   Check,
   CreditCard as CreditCardIcon,
   Landmark,
   Pencil,
   ReceiptText,
   Save,
-  Wifi,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-type Props = { institutions: FinancialInstitution[]; cards: CreditCard[]; defaultMonth?: string; returnQuery?: string };
+type Props = { invoices?: Record<string, CardInvoice | null>; institutions: FinancialInstitution[]; cards: CreditCard[]; defaultMonth?: string; returnQuery?: string };
 type Feedback = { type: "success" | "error"; message: string } | null;
 
 function institutionTheme(name: string) {
@@ -47,7 +44,7 @@ function institutionTheme(name: string) {
   return "default";
 }
 
-export function CardsHub({ institutions, cards, defaultMonth = currentMonth(), returnQuery = "" }: Props) {
+export function CardsHub({ institutions, cards, invoices = {}, defaultMonth = currentMonth(), returnQuery = "" }: Props) {
   const router = useRouter();
   const creationLock = useRef(false);
   const actionLock = useRef(false);
@@ -208,39 +205,6 @@ export function CardsHub({ institutions, cards, defaultMonth = currentMonth(), r
 
   return (
     <div className="cards-hub">
-      <div
-        className="grid grid-cols-2 gap-2 md:gap-3"
-        aria-label="Novos cadastros"
-      >
-        <Button
-          id="new-card"
-          variant="glass"
-          className="w-full min-h-12 gap-1.5 px-2 text-[11px] text-primary sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
-          type="button"
-          onClick={() => {
-            setCardFeedback(null);
-            setDrawer("card");
-            setDrawerOpen(true);
-          }}
-        >
-          <CreditCardIcon size={19} className="shrink-0" />
-          Novo cartão
-        </Button>
-        <Button
-          id="new-institution"
-          variant="glass"
-          className="w-full min-h-12 gap-1.5 px-2 text-[11px] text-primary sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
-          type="button"
-          onClick={() => {
-            setInstitutionFeedback(null);
-            setDrawer("institution");
-            setDrawerOpen(true);
-          }}
-        >
-          <Landmark size={19} className="shrink-0" />
-          Nova instituição
-        </Button>
-      </div>
       <div className="cards-create-feedback" aria-live="polite">
         {cardFeedback?.type === "success" && (
           <FormFeedback
@@ -282,7 +246,7 @@ export function CardsHub({ institutions, cards, defaultMonth = currentMonth(), r
                   <span className="section-kicker">
                     {drawer === "institution" ? "INSTITUIÇÕES" : "CARTÕES"}
                   </span>
-                  <DrawerTitle id="cards-drawer-title">
+                  <DrawerTitle>
                     {drawer === "institution"
                       ? "Nova instituição"
                       : "Novo cartão"}
@@ -410,7 +374,7 @@ export function CardsHub({ institutions, cards, defaultMonth = currentMonth(), r
                             type="number"
                             min="0"
                             max="12"
-                            label="Offset de pagamento"
+                            label="Meses entre competência e pagamento"
                             defaultValue="1"
                             required
                           />
@@ -475,6 +439,7 @@ export function CardsHub({ institutions, cards, defaultMonth = currentMonth(), r
                 <CreditCardTile
                   key={card.id}
                   card={card}
+                  invoice={invoices[card.id]}
                   month={defaultMonth}
                   returnQuery={returnQuery}
                   loading={pendingAction === card.id}
@@ -493,6 +458,39 @@ export function CardsHub({ institutions, cards, defaultMonth = currentMonth(), r
           </div>
         )}
       </section>
+      <div
+        className="grid grid-cols-2 gap-2 md:gap-3"
+        aria-label="Novos cadastros"
+      >
+        <Button
+          id="new-card"
+          variant="glass"
+          className="w-full min-h-12 gap-1.5 px-2 text-[11px] text-primary sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
+          type="button"
+          onClick={() => {
+            setCardFeedback(null);
+            setDrawer("card");
+            setDrawerOpen(true);
+          }}
+        >
+          <CreditCardIcon size={19} className="shrink-0" />
+          Novo cartão
+        </Button>
+        <Button
+          id="new-institution"
+          variant="glass"
+          className="w-full min-h-12 gap-1.5 px-2 text-[11px] text-primary sm:text-xs md:min-h-14 md:gap-2.5 md:px-4 md:text-sm"
+          type="button"
+          onClick={() => {
+            setInstitutionFeedback(null);
+            setDrawer("institution");
+            setDrawerOpen(true);
+          }}
+        >
+          <Landmark size={19} className="shrink-0" />
+          Nova instituição
+        </Button>
+      </div>
     </div>
   );
 }
@@ -525,91 +523,25 @@ function FormFeedback({
   );
 }
 
-function CreditCardTile({
-  card,
-  loading,
-  onEdit,
-  onArchive,
-  month,
-  returnQuery,
-}: {
-  card: CreditCard;
-  loading: boolean;
-  onEdit: () => void;
-  onArchive: () => void;
-  month: string;
-  returnQuery: string;
+function CreditCardTile({ card, invoice, loading, onEdit, onArchive, month, returnQuery }: {
+  card: CreditCard; invoice?: CardInvoice | null; loading: boolean; onEdit: () => void;
+  onArchive: () => void; month: string; returnQuery: string;
 }) {
   const configuration = selectPeriod(card.configurations, month);
   const theme = institutionTheme(card.institution.name);
-  return (
-    <article className="credit-card-tile">
-      <div className={`credit-card-face brand-${theme}`}>
-        <div className="credit-card-face-top">
-          <span className="credit-card-institution">
-            {card.institution.name}
-          </span>
-          <span className="credit-card-state">
-            {card.status === "active" ? "Ativo" : "Arquivado"}
-          </span>
-        </div>
-        <div className="credit-card-symbols">
-          <span className="credit-card-chip" aria-hidden="true">
-            <i />
-            <i />
-          </span>
-          <Wifi size={20} aria-hidden="true" />
-        </div>
-        <div className="credit-card-face-bottom">
-          <div>
-            <small>CARTÃO DE CRÉDITO</small>
-            <strong>{card.name}</strong>
-          </div>
-          <CreditCardIcon size={24} aria-hidden="true" />
-        </div>
-      </div>
-      <div className="credit-card-info">
-        <span>
-          <CalendarDays size={15} /> Vence dia{" "}
-          {configuration?.nominal_due_day ?? "—"}
-        </span>
-        <span>
-          Pagamento:{" "}
-          {configuration?.payment_month_offset === 0
-            ? "mesmo mês"
-            : configuration?.payment_month_offset === 1
-              ? "mês seguinte"
-              : `${configuration?.payment_month_offset ?? "—"} meses depois`}
-        </span>
-      </div>
-      <div className="credit-card-actions">
-        <Link href={`/cards/${encodeURIComponent(card.id)}?month=${month}&${returnQuery}`}>Configurações</Link>
-        <Link href={`/invoices/${encodeURIComponent(card.id)}`}>
-          Ver faturas <ArrowRight size={16} />
-        </Link>
-        {card.status === "active" && (
-          <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onEdit}
-              disabled={loading}
-            >
-              <Pencil size={15} /> Editar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onArchive}
-              disabled={loading}
-            >
-              {loading ? <Spinner size="sm" /> : <Archive size={15} />} Arquivar
-            </Button>
-          </div>
-        )}
-      </div>
-    </article>
-  );
+  const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice?.currency_code ?? "BRL" });
+  const due = invoice?.nominal_due_date
+    ? `Vence em ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" }).format(new Date(`${invoice.nominal_due_date}T12:00:00Z`))}`
+    : configuration ? `Vencimento nominal dia ${configuration.nominal_due_day}` : "Sem configuração neste mês";
+  const forecast = invoice?.components.some((component) => component.is_projected || component.source_type === "financial_item_occurrence");
+  return <article className="compact-credit-card">
+    <Link className="compact-card-main" href={`/invoices/${encodeURIComponent(card.id)}/${month}`}>
+      <span className={`compact-bank-icon brand-${theme}`} aria-hidden="true"><CreditCardIcon size={20} /></span>
+      <span className="compact-card-copy"><strong>{card.name}</strong><small>{card.name !== card.institution.name ? `${card.institution.name} · ` : ""}{card.status === "archived" ? "Arquivado" : due}</small>{forecast && <small className="finance-badge">Inclui previsões</small>}</span>
+      <span className="compact-card-amount"><strong>{invoice ? money.format(invoice.projected_total_cents / 100) : "Indisponível"}</strong><small>{invoice ? `${invoice.component_count} lançamento(s)` : "Fatura não carregada"}</small></span>
+    </Link>
+    <details className="compact-card-management"><summary aria-label={`Gerenciar ${card.name}`}><span aria-hidden="true">•••</span></summary><div className="finance-secondary-links"><Link href={`/cards/${encodeURIComponent(card.id)}?month=${month}&${returnQuery}`}>Configurações</Link><Link href={`/invoices/${encodeURIComponent(card.id)}/all?from=${month}`}>Histórico de faturas</Link>{card.status === "active" && <><Button variant="ghost" size="sm" onClick={onEdit} disabled={loading}><Pencil size={15} /> Editar nome</Button><Button variant="ghost" size="sm" onClick={onArchive} disabled={loading}>{loading ? <Spinner size="sm" /> : <Archive size={15} />} Arquivar</Button></>}</div></details>
+  </article>;
 }
 
 function CardEditor({

@@ -1,4 +1,5 @@
 import { currentMonth } from "@/lib/debt-month";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { FinancialItemForm } from "@/components/entries/financial-item-form";
 import { FinancialItemsList } from "@/components/entries/financial-items-list";
@@ -18,7 +19,7 @@ export default async function EntriesPage({ searchParams }: { searchParams: Prom
   ]);
 
   return <main className="resource-page-shell entries-page">
-    <header className="resource-page-header"><p>Organize entradas e saídas da sua projeção.</p></header>
+    <header className="resource-page-header"><p>Organize entradas e saídas da sua projeção.</p><Link className="finance-text-link" href="/debts">Consultar dívidas e parcelas →</Link></header>
     <div id="new-item" className="entries-form"><FinancialItemForm cards={cards} defaultMonth={currentMonth(profile.timezone)} currencyCode={profile.currency_code} /></div>
     <form className="resource-form resource-query-form" method="get"><div className="form-grid-two"><label className="native-field"><span>Tipo</span><select name="kind" defaultValue={kind}><option value="all">Todos</option><option value="recurring_income">Renda recorrente</option><option value="one_time_income">Renda pontual</option><option value="fixed_expense">Despesa fixa</option><option value="projected_variable_expense">Despesa variável</option><option value="debt_installment">Dívida</option></select></label><label className="native-field"><span>Status</span><select name="status" defaultValue={status}><option value="all">Todos</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label></div><button type="submit">Filtrar</button></form>
     <FinancialItemsList items={items} cards={cards} month={currentMonth(profile.timezone)} returnQuery={new URLSearchParams({ kind, status }).toString()} />
