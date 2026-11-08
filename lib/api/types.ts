@@ -133,9 +133,11 @@ export type InvoiceImportRow = {
   date: string;
   title: string;
   amount_cents: number;
-  kind: "expense" | "payment" | "unsupported";
+  kind: "expense" | "credit" | "payment" | "unsupported";
   invoice_payment_month?: string;
-  status: "new" | "existing" | "skipped" | "imported" | "needs_invoice" | "needs_subscription_match";
+  status: "new" | "existing" | "skipped" | "imported" | "needs_invoice" | "needs_subscription_match" | "needs_duplicate_decision";
+  duplicate_candidates?: { id: string; title: string; date: string; amount_cents: number }[];
+  duplicate_decision?: "skip" | "import";
   reason?: string | null;
   matched_item_id?: string;
   matched_reference_month?: string;
@@ -154,6 +156,8 @@ export type InvoiceImportProjectedInstallment = {
   status: "new" | "existing" | "imported";
 };
 export type InvoiceImportPreview = {
+  review_version?: number;
+  needs_duplicate_decision_count?: number;
   card_id: string;
   payment_month: string;
   source: string;
@@ -166,6 +170,7 @@ export type InvoiceImportPreview = {
   needs_subscription_match_count?: number;
   new_total_cents: number;
   new_charges_cents?: number;
+  new_credits_cents?: number;
   new_payments_cents?: number;
   new_payment_count?: number;
   projected_installments?: InvoiceImportProjectedInstallment[];
