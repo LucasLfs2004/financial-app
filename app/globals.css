@@ -891,3 +891,41 @@ img, video, iframe { max-width: 100%; }
 @media (max-width: 640px) { .snapshot-fields > div { grid-template-columns: 1fr; } .resource-dialog { padding: 16px; } }
 
 .resource-page-shell > .debt-action-panel { margin-block: 16px; }
+
+/* Import wizard: only the content scrolls, navigation stays in its own grid row. */
+.invoice-import-dialog[open] { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; height: min(90dvh, 900px); }
+.invoice-import-dialog-body { display: flex; flex-direction: column; min-height: 0; max-height: none; overscroll-behavior: contain; }
+.invoice-import-dialog-body > * { flex-shrink: 0; }
+.invoice-import-dialog-body:focus { outline: none; }
+.invoice-import-list-scroll { flex: 1 1 0; min-height: 100px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border-radius: 12px; }
+.invoice-import-list-scroll .invoice-import-rows { max-height: none; overflow: visible; }
+.invoice-import-list-scroll .invoice-import-links { padding: 14px 0; }
+.invoice-import-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+.invoice-import-progress { color: var(--foreground-secondary); font-size: 11px; }
+.invoice-import-navigation { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.invoice-import-navigation button { min-height: 44px; }
+.invoice-import-steps { justify-content: space-between; gap: 8px; }
+.invoice-import-steps li { min-width: 0; line-height: 1.4; }
+.invoice-import-section-title { margin: 0; font-size: 14px; }
+.invoice-import-decision { display: grid; gap: 10px; margin: 8px 0 0; padding: 12px; border: 1px solid var(--border-strong); border-radius: 10px; }
+.invoice-import-decision legend { font-size: 12px; font-weight: 600; }
+.invoice-import-decision p { margin: 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.5; }
+.invoice-import-decision label { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; font-size: 12px; line-height: 1.5; cursor: pointer; }
+.invoice-import-decision input { flex: 0 0 auto; margin-top: 3px; accent-color: var(--primary); }
+.invoice-import-impact summary { margin-bottom: 10px; cursor: pointer; font-size: 12px; }
+.invoice-import-status.status-needs_duplicate_decision { color: var(--secondary); }
+@media (max-width: 640px) {
+  .invoice-import-dialog[open] { inset: 0; width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; transform: none; border: 0; border-radius: 0; }
+  .invoice-import-dialog-header { padding: calc(16px + env(safe-area-inset-top)) 16px 16px; }
+  .invoice-import-dialog-header h2 { font-size: 20px; }
+  .invoice-import-steps { padding: 12px 16px; }
+  .invoice-import-steps li { font-size: 10px; }
+  .invoice-import-dialog-body { padding: 16px; }
+  .invoice-import-footer { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .invoice-import-navigation { gap: 6px; }
+  .invoice-import-navigation button { padding-inline: 12px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 640px) {
+  .invoice-import-dialog[open] { animation: invoice-import-slide-in 180ms ease-out; }
+  @keyframes invoice-import-slide-in { from { opacity: 0; translate: 0 24px; } to { opacity: 1; translate: 0 0; } }
+}

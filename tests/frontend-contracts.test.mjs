@@ -55,7 +55,7 @@ test("snapshot versions preserve original document, historical dates and absent 
 test("CSV payment magnitudes/net and backfill-only preview remain distinct", () => {
   const { importTotals, hasChanges, subscriptionMatchCount, ignoredPayments } = load("lib/invoice-import.ts");
   const data = { new_count: 2, new_total_cents: 6000, new_charges_cents: 11000, new_payments_cents: 5000, rows: [{ kind: "expense", amount_cents: 11000, status: "new" }, { kind: "payment", amount_cents: -5000, status: "new" }] };
-  assert.deepEqual(importTotals(data, false), { charges: 11000, payments: 5000, net: 6000 });
+  assert.deepEqual(importTotals(data, false), { charges: 11000, credits: 0, payments: 5000, net: 6000 });
   assert.equal(importTotals({ ...data, new_charges_cents: undefined }, false).charges, 11000);
   assert.equal(importTotals({ ...data, new_payments_cents: undefined }, false).payments, 5000);
   assert.equal(hasChanges({ new_count: 0, rows: [{ status: "existing", matched_item_id: "item", planned_amount_cents: 0 }] }), true);
